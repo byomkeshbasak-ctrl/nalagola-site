@@ -344,7 +344,7 @@
       <div class="kpi"><div class="k">Sales (at MRP)</div><div class="v" id="k-sales">–</div><div class="s" id="k-sales-s"></div></div>
       <div class="kpi"><div class="k">Gross profit</div><div class="v" id="k-gp">–</div><div class="s" id="k-gp-s"></div></div>
       <div class="kpi"><div class="k">Expenses</div><div class="v" id="k-exp">–</div><div class="s" id="k-exp-s"></div></div>
-      <div class="kpi profit"><div class="k">Net profit</div><div class="v" id="k-net">–</div><div class="s">Gross profit − expenses</div></div>
+      <div class="kpi profit"><div class="k">Net profit</div><div class="v" id="k-net">–</div><div class="s"><span id="k-net-s">Gross profit − expenses</span></div></div>
     </section>
 
     <section class="card capital" aria-label="Business capital">
@@ -412,6 +412,7 @@
       <button class="tab" role="tab" data-tab="book" aria-selected="false">Daily ledger</button>
       <button class="tab" role="tab" data-tab="dues" aria-selected="false">Dues</button>
       <button class="tab" role="tab" data-tab="expenses" aria-selected="false">Expenses</button>
+      <button class="tab" role="tab" data-tab="income" aria-selected="false">Other income</button>
       <button class="tab" role="tab" data-tab="purchases" aria-selected="false">Supplier payments</button>
       <button class="tab" role="tab" data-tab="items" aria-selected="false">Items &amp; costs</button>
       <button class="tab" role="tab" data-tab="indent" aria-selected="false">Indent</button>
@@ -569,6 +570,7 @@
   <option>Wines</option><option>Overseas Spirits</option><option>Country Spirits</option><option>Other</option>
 </datalist>
 <datalist id="dl-customers"></datalist>
+<datalist id="dl-sources"></datalist>
 <datalist id="dl-exp-cat">
   <option>Rent</option><option>Salaries</option><option>Electricity</option><option>Licence &amp; Excise</option>
   <option>Transport</option><option>Repairs &amp; Maintenance</option><option>Bank charges</option><option>Other</option>
@@ -646,13 +648,34 @@
         { key: "description", label: "Note" },
         { key: "amount", label: "Amount", money: true }
       ]
+    },
+    income: {
+      table: "other_income", dateCol: "income_date", label: "income", plural: "Other income",
+      fields: [
+        { name: "income_date", label: "Date", type: "date", required: true },
+        { name: "amount", label: "Amount (₹)", type: "number", required: true },
+        // EDIT: income types shown in the dropdown
+        { name: "category", label: "Type", type: "select", def: "Distributor incentive", options: ["Distributor incentive", "Scrap sale", "Other"] },
+        { name: "source", label: "From (distributor or buyer)", type: "text", list: "dl-sources", required: true },
+        { name: "received_into", label: "Paid into", type: "select", def: "bank",
+          options: [{ v: "bank", l: "Bank account (adds to bank balance)" }, { v: "cash_credit", l: "SBI cash credit (reduces amount used)" }] },
+        { name: "description", label: "Note (optional), e.g. scheme or invoice no.", type: "text" }
+      ],
+      cols: [
+        { key: "income_date", label: "Date", date: true },
+        { key: "category", label: "Type" },
+        { key: "source", label: "From" },
+        { key: "received_into", label: "Paid into", map: { bank: "Bank account", cash_credit: "SBI cash credit" } },
+        { key: "description", label: "Note" },
+        { key: "amount", label: "Amount", money: true }
+      ]
     }
   };
 
   var state = {
     tab: "sales",
     month: todayISO().slice(0, 7),
-    reports: [], cats: [], ledger: { expenses: [], purchases: [] },
+    reports: [], cats: [], ledger: { expenses: [], purchases: [], income: [] }, allIncome: [],
     items: [], itemsFilter: "all",
     mismatches: [], missingDays: [], book: [], dues: [],
     custFilter: "all", custSel: null, duesEditing: null, bookOpen: null, expOpen: null,
@@ -792,7 +815,7 @@
     state.tab = tab; state.editing = null;
     document.querySelectorAll(".tab").forEach(function (x) { x.setAttribute("aria-selected", x.dataset.tab === tab ? "true" : "false"); });
     $("pane-sales").hidden = tab !== "sales";
-    $("pane-ledger").hidden = !(tab === "expenses" || tab === "purchases");
+    $("pane-ledger").hidden = !(tab === "expenses" || tab === "purchases" || tab === "income");
     $("pane-items").hidden = tab !== "items";
     $("pane-dues").hidden = tab !== "dues";
     $("pane-book").hidden = tab !== "book";
@@ -824,7 +847,8 @@
       sb.from("daily_report_summary").select("report_date,closing_value_cost").lte("report_date", r[1]).order("report_date", { ascending: false }).limit(1),
       sb.from("daily_ledger").select("ledger_date,shop_balance").lte("ledger_date", r[1]).order("ledger_date", { ascending: false }).limit(1),
       sb.from("business_balances").select("*").eq("as_of", START_DATE).maybeSingle(),
-      fetchAll(function () { return sb.from("account_transfers").select("*").order("transfer_date").order("created_at"); })
+      fetchAll(function () { return sb.from("account_transfers").select("*").order("transfer_date").order("created_at"); }),
+      fetchAll(function () { return sb.from("other_income").select("*").order("income_date", { ascending: false }).order("created_at", { ascending: false }); })
     ]);
     if (q.some(function (x) { return x.error; })) toast("Some data couldn't load. Try reloading the page.");
     state.reports = q[0].data || [];
@@ -838,6 +862,8 @@
     state.allReports = q[8].data || [];
     state.allExp = q[9].data || [];
     state.allBook = q[10].data || [];
+    state.allIncome = q[15].data || [];
+    state.ledger.income = state.allIncome.filter(function (x) { return x.income_date >= r[0] && x.income_date <= r[1]; });
     state.cap = { stock: (q[11].data || [])[0] || null, ledger: (q[12].data || [])[0] || null, opening: q[13].data || null };
     state.transfers = q[14].data || [];
     renderCapital();
@@ -884,6 +910,12 @@
       bal.cash_hand += cash; bal.cash += cash; bal.online += on;
       if (b.online_to === "bank") bal.bank += on; else bal.cc_used -= on;
     });
+    // Other income goes straight into the bank or pays down the cash credit
+    state.allIncome.forEach(function (x) {
+      if (x.income_date < START_DATE || x.income_date > end) return;
+      var a = Number(x.amount);
+      if (x.received_into === "cash_credit") bal.cc_used -= a; else bal.bank += a;
+    });
     // Transfers between accounts. Money out of cash credit = more used; money into it = repaid.
     state.transfers.forEach(function (t) {
       if (t.transfer_date > end) return;
@@ -901,6 +933,7 @@
     state.allReports.forEach(function (r) { take(r.report_date); });
     state.allBook.forEach(function (b) { take(b.ledger_date); });
     state.transfers.forEach(function (t) { take(t.transfer_date); });
+    state.allIncome.forEach(function (x) { take(x.income_date); });
     state.dues.forEach(function (d) { take(d.entry_date); });
     return last;
   }
@@ -983,6 +1016,12 @@
       if (acct === "cash_hand" && cash) m.push({ date: b.ledger_date, desc: "Cash collected", amt: cash });
       if (acct === "bank" && on && b.online_to === "bank") m.push({ date: b.ledger_date, desc: "Online received", amt: on });
       if (acct === "cash_credit" && on && b.online_to !== "bank") m.push({ date: b.ledger_date, desc: "Online received (repays cash credit)", amt: -on });
+    });
+    state.allIncome.forEach(function (x) {
+      if (x.income_date < START_DATE) return;
+      var a = Number(x.amount), lbl = "Other income · " + x.category + (x.source ? " · " + x.source : "") + (x.description ? " · " + x.description : "");
+      if (acct === "bank" && x.received_into !== "cash_credit") m.push({ date: x.income_date, desc: lbl, amt: a });
+      if (acct === "cash_credit" && x.received_into === "cash_credit") m.push({ date: x.income_date, desc: lbl + " (repays cash credit)", amt: -a });
     });
     state.transfers.forEach(function (t) {
       var a = Number(t.amount), note = t.note ? " · " + t.note : "";
@@ -1124,7 +1163,8 @@
 
   function renderSummary() {
     var sales = sum(state.reports, "sales_value"), gp = sum(state.reports, "gross_profit"), cost = sum(state.reports, "cost_value");
-    var exp = sum(state.ledger.expenses), net = gp - exp, units = sum(state.reports, "units_sold");
+    var inc = sum(state.ledger.income);
+    var exp = sum(state.ledger.expenses), net = gp + inc - exp, units = sum(state.reports, "units_sold");
     var missing = sum(state.reports, "missing_costs");
     $("k-sales").textContent = inr.format(sales);
     var nd = state.reports.length;
@@ -1135,6 +1175,7 @@
     $("k-exp").textContent = inr.format(exp);
     $("k-exp-s").textContent = state.ledger.expenses.length + " entr" + (state.ledger.expenses.length === 1 ? "y" : "ies");
     $("k-net").textContent = inr.format(net);
+    $("k-net-s").textContent = inc ? "Gross profit + " + inr.format(inc) + " other income − expenses" : "Gross profit − expenses";
     $("k-net").className = "v " + (net >= 0 ? "pos" : "neg");
     renderBars("bd-cat", groupBy(state.cats, "category", "sales_value"), "No sales this month");
     renderBars("bd-exp", groupBy(state.ledger.expenses, "category"), "No expenses this month");
@@ -1161,7 +1202,7 @@
 
   function renderMonths() {
     var tbl = $("month-table"), t = todayISO().slice(0, 7), m = {};
-    var bucket = function (k) { return m[k] || (m[k] = { days: 0, units: 0, sales: 0, gp: 0, exp: 0, bar: 0, stock: null, stockDate: "" }); };
+    var bucket = function (k) { return m[k] || (m[k] = { days: 0, units: 0, sales: 0, gp: 0, exp: 0, bar: 0, inc: 0, stock: null, stockDate: "" }); };
     state.allReports.forEach(function (r) {
       var x = bucket(r.report_date.slice(0, 7));
       x.days++; x.units += Number(r.units_sold); x.sales += Number(r.sales_value); x.gp += Number(r.gross_profit);
@@ -1169,6 +1210,7 @@
     });
     state.allExp.forEach(function (e) { bucket(e.expense_date.slice(0, 7)).exp += Number(e.amount); });
     state.allBook.forEach(function (b) { bucket(b.ledger_date.slice(0, 7)).bar += Number(b.bar_collection || 0); });
+    state.allIncome.forEach(function (x) { bucket(x.income_date.slice(0, 7)).inc += Number(x.amount); });
     var months = [];
     for (var k = START_DATE.slice(0, 7); k <= t; ) {
       months.push(k);
@@ -1177,22 +1219,22 @@
     }
     Object.keys(m).forEach(function (k) { if (months.indexOf(k) < 0) months.push(k); });
     months.sort().reverse();
-    var T = { days: 0, units: 0, sales: 0, gp: 0, exp: 0, bar: 0 };
+    var T = { days: 0, units: 0, sales: 0, gp: 0, exp: 0, bar: 0, inc: 0 };
     var body = months.map(function (k) {
-      var x = m[k] || bucket(k), net = x.gp - x.exp;
-      T.days += x.days; T.units += x.units; T.sales += x.sales; T.gp += x.gp; T.exp += x.exp; T.bar += x.bar;
+      var x = m[k] || bucket(k), net = x.gp + x.inc - x.exp;
+      T.days += x.days; T.units += x.units; T.sales += x.sales; T.gp += x.gp; T.exp += x.exp; T.bar += x.bar; T.inc += x.inc;
       return '<tr data-month="' + k + '" class="' + (k === state.month ? "sel" : "") + '"><td>' +
         new Date(k + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" }) + "</td>" +
         '<td class="num">' + x.days + '</td><td class="num">' + num.format(x.units) + '</td><td class="num">' + inr.format(x.sales) +
-        '</td><td class="num">' + inr.format(x.gp) + '</td><td class="num">' + pct(x.gp, x.sales) + '</td><td class="num">' + inr.format(x.exp) +
+        '</td><td class="num">' + inr.format(x.gp) + '</td><td class="num">' + pct(x.gp, x.sales) + '</td><td class="num">' + inr.format(x.inc) + '</td><td class="num">' + inr.format(x.exp) +
         '</td><td class="num ' + (net >= 0 ? "pos" : "neg") + '">' + inr.format(net) + '</td><td class="num">' + inr.format(x.bar) +
         '</td><td class="num">' + (x.stock == null ? "–" : inr.format(x.stock)) + "</td></tr>";
     }).join("");
-    var tn = T.gp - T.exp;
+    var tn = T.gp + T.inc - T.exp;
     tbl.innerHTML = '<thead><tr><th>Month</th><th class="num">Days reported</th><th class="num">Bottles</th><th class="num">Sales</th><th class="num">Gross profit</th>' +
-      '<th class="num">Margin</th><th class="num">Expenses</th><th class="num">Net profit</th><th class="num">Bar counter</th><th class="num">Stock at month end</th></tr></thead>' +
+      '<th class="num">Margin</th><th class="num">Other income</th><th class="num">Expenses</th><th class="num">Net profit</th><th class="num">Bar counter</th><th class="num">Stock at month end</th></tr></thead>' +
       "<tbody>" + body + '</tbody><tfoot><tr><td>Total</td><td class="num">' + T.days + '</td><td class="num">' + num.format(T.units) + '</td><td class="num">' + inr.format(T.sales) +
-      '</td><td class="num">' + inr.format(T.gp) + '</td><td class="num">' + pct(T.gp, T.sales) + '</td><td class="num">' + inr.format(T.exp) + '</td><td class="num ' + (tn >= 0 ? "pos" : "neg") + '">' +
+      '</td><td class="num">' + inr.format(T.gp) + '</td><td class="num">' + pct(T.gp, T.sales) + '</td><td class="num">' + inr.format(T.inc) + '</td><td class="num">' + inr.format(T.exp) + '</td><td class="num ' + (tn >= 0 ? "pos" : "neg") + '">' +
       inr.format(tn) + '</td><td class="num">' + inr.format(T.bar) + "</td><td></td></tr></tfoot>";
   }
   $("month-table").addEventListener("click", function (e) {
@@ -1490,8 +1532,8 @@
       return '<input class="cell-in" type="number" step="0.01" min="0" inputmode="decimal" data-d="' + d + '" data-f="' + f + '" value="' + (v == null ? "" : esc(v)) + '" placeholder="0">';
     };
     var body = days.map(function (d) {
-      var b = bookRow(d), e = b.entry, gp = b.rep ? Number(b.rep.gross_profit) : 0, net = gp - b.exp, mm = mismatchCount(d);
-      t.s += b.sales; t.g += gp; t.e += b.exp; t.di += b.duesIn; t.cr += b.credit;
+      var b = bookRow(d), e = b.entry, gp = b.rep ? Number(b.rep.gross_profit) : 0, inc = state.allIncome.reduce(function (a, x) { return a + (x.income_date === d ? Number(x.amount) : 0); }, 0), net = gp + inc - b.exp, mm = mismatchCount(d);
+      t.s += b.sales; t.g += gp; t.e += b.exp; t.di += b.duesIn; t.cr += b.credit; t.inc = (t.inc || 0) + inc;
       if (e) { t.cash += Number(e.cash_collection); t.on += Number(e.online_received); t.bar += b.bar; t.m += b.mismatch; }
       var bad = e && Math.abs(b.mismatch) >= 0.5, open = state.bookOpen === d;
       var prevCell = d === START_DATE ? inp(d, "opening_balance", e ? e.opening_balance : "") :
@@ -1502,7 +1544,7 @@
         '<td class="num">' + money(b.sales) + "</td>" +
         '<td class="num">' + money(gp) + "</td>" +
         '<td class="num">' + money(b.exp) + "</td>" +
-        '<td class="num ' + (net < 0 ? "neg" : "") + '">' + (b.hasReport || b.exp ? inr.format(net) : "–") + "</td>" +
+        '<td class="num ' + (net < 0 ? "neg" : "") + '">' + (b.hasReport || b.exp || inc ? inr.format(net) : "–") + "</td>" +
         '<td class="num">' + prevCell + "</td>" +
         '<td class="num">' + inp(d, "bar_collection", e ? e.bar_collection : "") + "</td>" +
         '<td class="num">' + money(b.duesIn) + "</td>" +
@@ -1518,7 +1560,7 @@
       if (open) row += detailRow(d);
       return row;
     }).join("");
-    var tn = t.g - t.e;
+    var tn = t.g + (t.inc || 0) - t.e;
     tbl.innerHTML = '<thead><tr><th>Date</th><th class="num">Sales</th><th class="num">Gross profit</th><th class="num">Expenses</th><th class="num">Net profit</th>' +
       '<th class="num">Prev day balance</th><th class="num">Bar counter</th><th class="num">Dues collected</th><th class="num">Credit given</th>' +
       '<th class="num">Cash collected</th><th class="num">Online received</th><th class="num">Remaining balance</th><th class="num">Mismatch</th><th></th></tr></thead><tbody>' + body + "</tbody>" +
@@ -1951,10 +1993,10 @@
     var val = row ? row[fd.name] : (fd.type === "date" ? defaultDate() : (fd.def || ""));
     if (val == null) val = "";
     if (fd.type === "select") {
-      var opts = fd.options.slice();
-      if (val && opts.indexOf(val) < 0) opts.push(val); // keep older categories when editing
+      var opts = fd.options.map(function (o) { return typeof o === "string" ? { v: o, l: o } : o; });
+      if (val && !opts.some(function (o) { return o.v === val; })) opts.push({ v: val, l: val }); // keep older values when editing
       return "<label>" + fd.label + '<select id="f-' + fd.name + '" name="' + fd.name + '">' + opts.map(function (o) {
-        return '<option' + (o === val ? " selected" : "") + ">" + esc(o) + "</option>";
+        return '<option value="' + esc(o.v) + '"' + (o.v === val ? " selected" : "") + ">" + esc(o.l) + "</option>";
       }).join("") + "</select></label>";
     }
     return "<label>" + fd.label + '<input id="f-' + fd.name + '" name="' + fd.name + '" type="' + fd.type + '"' +
@@ -1971,6 +2013,10 @@
       payload[fd.name] = fd.type === "number" ? (v === "" ? 0 : Number(v)) : String(v).trim();
     });
     if (!(payload.amount > 0)) { toast("Enter an amount above zero."); return; }
+    if (state.tab === "income") {
+      var known = state.allIncome.find(function (x) { return x.source && x.source.trim().toLowerCase() === String(payload.source).trim().toLowerCase(); });
+      if (known) payload.source = known.source.trim();
+    }
     var btn = e.target.querySelector(".primary"); btn.disabled = true;
     var res = state.editing ? await sb.from(T.table).update(payload).eq("id", state.editing.id) : await sb.from(T.table).insert(payload);
     btn.disabled = false;
@@ -2006,8 +2052,28 @@
       }).join("") + "</tbody>";
   }
 
+  function renderIncomeExtras() {
+    // Remember names already used, so they autocomplete with the same spelling
+    var names = {};
+    state.allIncome.forEach(function (x) { if (x.source) names[x.source.trim().toLowerCase()] = x.source.trim(); });
+    $("dl-sources").innerHTML = Object.keys(names).sort().map(function (k) { return "<option>" + esc(names[k]) + "</option>"; }).join("");
+    var g = {}, rows = state.ledger.income;
+    rows.forEach(function (x) {
+      var k = (x.source || "Not named").trim(), e = g[k] || (g[k] = { n: k, types: {}, amt: 0, count: 0 });
+      e.amt += Number(x.amount); e.count++; e.types[x.category] = 1;
+    });
+    var list = Object.keys(g).map(function (k) { return g[k]; }).sort(function (a, b) { return b.amt - a.amt; });
+    var box = $("income-by-source");
+    if (!box) { box = document.createElement("div"); box.id = "income-by-source"; box.style.marginTop = "18px"; $("entry-table").closest(".table-wrap").after(box); }
+    box.hidden = !list.length;
+    box.innerHTML = !list.length ? "" : '<h2 style="font-size:0.9rem;margin-bottom:8px">By distributor / buyer this month</h2><div class="table-wrap"><table><thead><tr><th>From</th><th>Type</th><th class="num">Entries</th><th class="num">Total</th></tr></thead><tbody>' +
+      list.map(function (e) { return "<tr><td>" + esc(e.n) + "</td><td>" + esc(Object.keys(e.types).join(", ")) + '</td><td class="num">' + e.count + '</td><td class="num">' + inr2.format(e.amt) + "</td></tr>"; }).join("") + "</tbody></table></div>";
+  }
+
   function renderLedger() {
+    var box = $("income-by-source"); if (box) box.hidden = state.tab !== "income";
     if (state.tab === "expenses") { renderExpensesByDate(); return; }
+    if (state.tab === "income") renderIncomeExtras();
     var T = LEDGERS[state.tab], rows = state.ledger[state.tab], tbl = $("entry-table");
     $("list-title").textContent = T.plural + " in " + new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
     $("list-total").textContent = inr2.format(sum(rows));
@@ -2016,7 +2082,7 @@
       rows.map(function (r) {
         return "<tr>" + T.cols.map(function (c) {
           var v = r[c.key];
-          if (c.date) v = fmtDate(v); else if (c.money) v = inr2.format(v); else if (c.num) v = Number(v) ? v : "";
+          if (c.date) v = fmtDate(v); else if (c.money) v = inr2.format(v); else if (c.num) v = Number(v) ? v : ""; else if (c.map) v = c.map[v] || v;
           return '<td class="' + (c.money || c.num ? "num" : "") + '">' + esc(v) + "</td>";
         }).join("") + '<td class="actions">' + (state.tab === "expenses" ? "" : '<button class="icon-btn" data-edit="' + r.id + '">Edit</button>') +
           '<button class="icon-btn del" data-del="' + r.id + '">Delete</button></td></tr>';
