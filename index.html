@@ -8,7 +8,9 @@
 <meta property="og:title" content="Nalagola Liquor">
 <meta property="og:description" content="Wine, beer and spirits.">
 <meta name="theme-color" content="#1b0d12">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231b0d12'/%3E%3Ctext x='32' y='44' font-family='Georgia,serif' font-size='36' text-anchor='middle' fill='%23d9b26f'%3EN%3C/text%3E%3C/svg%3E">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="logo-180.png">
+<meta property="og:image" content="https://nalagolacsshop.com/logo-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
@@ -61,9 +63,16 @@
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: 64px 16px 32px;
+    padding: 48px 16px 32px;
   }
-  .mark { width: 56px; height: 1px; background: var(--gold); margin-bottom: 28px; opacity: 0.85; }
+  .logo {
+    width: clamp(120px, 26vw, 168px);
+    height: auto;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    margin-bottom: 26px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(217, 178, 111, 0.18);
+  }
   h1 {
     font-family: "Cormorant Garamond", Georgia, serif;
     font-weight: 600;
@@ -203,6 +212,7 @@
 <body>
   <div class="gate" role="dialog" aria-modal="true" aria-labelledby="gate-q">
     <div class="gate-box">
+      <img src="logo.webp" alt="" width="88" height="88" style="display:block;margin:0 auto 14px;border-radius:50%">
       <div class="name">Nalagola Liquor</div>
       <p class="q" id="gate-q">Are you 21 or older?</p>
       <p class="sub">You must be of legal drinking age to enter this site.</p>
@@ -215,7 +225,7 @@
   </div>
 
   <main>
-    <div class="mark" aria-hidden="true"></div>
+    <img class="logo" src="logo.webp" alt="Nalagola CS Shop logo" width="168" height="168">
     <h1>Nalagola Liquor</h1>
     <p class="tagline">Wine, beer and spirits</p>
 
