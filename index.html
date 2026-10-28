@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nalagola Liquor</title>
+<meta name="description" content="Nalagola Liquor. Wine, beer and spirits.">
+<meta property="og:title" content="Nalagola Liquor">
+<meta property="og:description" content="Wine, beer and spirits.">
+<meta name="theme-color" content="#1b0d12">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231b0d12'/%3E%3Ctext x='32' y='44' font-family='Georgia,serif' font-size='36' text-anchor='middle' fill='%23d9b26f'%3EN%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #1b0d12;
+    --bg-2: #2c121b;
+    --gold: #d9b26f;
+    --gold-soft: rgba(217, 178, 111, 0.35);
+    --text: #f4ece4;
+    --muted: #b9a9a0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    background:
+      radial-gradient(ellipse at 50% 35%, var(--bg-2) 0%, var(--bg) 70%);
+    color: var(--text);
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 48px 20px;
+  }
+  .mark {
+    width: 56px;
+    height: 1px;
+    background: var(--gold);
+    margin-bottom: 28px;
+    opacity: 0.8;
+  }
+  h1 {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-weight: 600;
+    font-size: clamp(2.6rem, 9vw, 5rem);
+    letter-spacing: 0.02em;
+    line-height: 1.05;
+  }
+  .tagline {
+    margin-top: 16px;
+    font-size: clamp(1rem, 3.6vw, 1.15rem);
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+  .enter {
+    margin-top: 40px;
+    display: inline-block;
+    padding: 14px 48px;
+    border: 1px solid var(--gold);
+    border-radius: 999px;
+    color: var(--gold);
+    text-decoration: none;
+    font-size: 0.95rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .enter:hover, .enter:focus-visible {
+    background: var(--gold);
+    color: var(--bg);
+    outline: none;
+  }
+  .enter:focus-visible { box-shadow: 0 0 0 4px var(--gold-soft); }
+  footer {
+    padding: 20px;
+    text-align: center;
+    font-size: 0.78rem;
+    color: var(--muted);
+    opacity: 0.75;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+  <main>
+    <div class="mark" aria-hidden="true"></div>
+    <h1>Nalagola Liquor</h1>
+    <p class="tagline">Wine, beer and spirits</p>
+    <!-- Replace # with the second site's address once it is live -->
+    <a class="enter" href="#">Enter</a>
+  </main>
+  <footer>
+    Sale only to customers of legal drinking age. Please drink responsibly.<br>
+    &copy; <span id="yr">2026</span> Nalagola Liquor
+  </footer>
+  <script>
+    document.getElementById("yr").textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
