@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Admin | Nalagola CS Shop</title>
+<meta name="theme-color" content="#140a0e">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script>
+<style>
+  :root {
+    --bg: #140a0e;
+    --panel: #1e1015;
+    --panel-2: #26141b;
+    --line: rgba(217, 178, 111, 0.2);
+    --line-strong: rgba(217, 178, 111, 0.45);
+    --gold: #d9b26f;
+    --text: #f4ece4;
+    --muted: #b7a69d;
+    --green: #7fcf9a;
+    --red: #ef8f8f;
+    --focus: rgba(217, 178, 111, 0.35);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+  [hidden] { display: none !important; }
+  button, input, select { font: inherit; color: inherit; }
+  .serif { font-family: "Cormorant Garamond", Georgia, serif; font-weight: 600; }
+
+  /* ---------- Login ---------- */
+  .auth-wrap { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+  .auth-card {
+    width: 100%;
+    max-width: 380px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 32px 26px 28px;
+    text-align: center;
+  }
+  .auth-card img { width: 84px; height: 84px; border-radius: 50%; }
+  .auth-card h1 { margin-top: 14px; font-size: 1.8rem; }
+  .auth-card .sub { margin-top: 4px; color: var(--muted); font-size: 0.88rem; }
+  .auth-card form { margin-top: 24px; text-align: left; display: grid; gap: 14px; }
+  label { display: grid; gap: 6px; font-size: 0.8rem; color: var(--muted); }
+  input, select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 0.95rem;
+    color-scheme: dark;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--focus); }
+  .primary {
+    background: var(--gold);
+    color: #1b0d12;
+    border: 0;
+    border-radius: 10px;
+    padding: 11px 16px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .primary:hover { background: #e6c48a; }
+  .primary:disabled { opacity: 0.6; cursor: wait; }
+  .ghost {
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 9px 14px;
+    cursor: pointer;
+    font-size: 0.88rem;
+  }
+  .ghost:hover { border-color: var(--gold); color: var(--gold); }
+  .link-btn { background: none; border: 0; color: var(--muted); font-size: 0.82rem; cursor: pointer; text-decoration: underline; justify-self: center; }
+  .link-btn:hover { color: var(--gold); }
+  .msg { font-size: 0.85rem; line-height: 1.5; padding: 10px 12px; border-radius: 10px; }
+  .msg.err { background: rgba(239, 143, 143, 0.1); color: var(--red); border: 1px solid rgba(239, 143, 143, 0.3); }
+  .msg.ok { background: rgba(127, 207, 154, 0.1); color: var(--green); border: 1px solid rgba(127, 207, 154, 0.3); }
+
+  /* ---------- App ---------- */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: rgba(20, 10, 14, 0.94);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-inner {
+    max-width: 1160px;
+    margin: 0 auto;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .topbar img { width: 36px; height: 36px; border-radius: 50%; }
+  .topbar .title { font-size: 1.3rem; }
+  .topbar .title small { font-family: "Inter", sans-serif; font-weight: 500; font-size: 0.72rem; color: var(--gold); letter-spacing: 0.14em; text-transform: uppercase; margin-left: 6px; }
+  .spacer { flex: 1; }
+  .month-pick { display: flex; align-items: center; gap: 6px; }
+  .month-pick input { width: auto; padding: 7px 10px; }
+  .who { font-size: 0.8rem; color: var(--muted); }
+
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 20px 16px 48px; }
+
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+  .kpi .k { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .kpi .v { margin-top: 6px; font-size: 1.55rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .kpi .s { margin-top: 4px; font-size: 0.78rem; color: var(--muted); }
+  .kpi.profit { border-color: var(--line-strong); }
+  .pos { color: var(--green); }
+  .neg { color: var(--red); }
+  @media (max-width: 860px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+
+  .tabs { margin-top: 24px; display: flex; gap: 6px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+  .tab {
+    background: none;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    padding: 10px 14px;
+    cursor: pointer;
+    color: var(--muted);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .tab[aria-selected="true"] { color: var(--gold); border-color: var(--gold); }
+
+  .panel { margin-top: 18px; display: grid; grid-template-columns: 340px 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 900px) { .panel { grid-template-columns: minmax(0, 1fr); } }
+  .panel > *, .breakdowns > * { min-width: 0; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .card h2 { font-size: 0.95rem; font-weight: 600; margin-bottom: 14px; }
+  .form-grid { display: grid; gap: 12px; }
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .form-actions { display: flex; gap: 8px; margin-top: 4px; }
+  .form-actions .primary { flex: 1; }
+
+  .list-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .list-head h2 { margin: 0; flex: 1; }
+  .list-total { font-size: 0.85rem; color: var(--muted); }
+  .list-total b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th { text-align: left; font-weight: 500; color: var(--muted); font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 10px; border-bottom: 1px solid rgba(217, 178, 111, 0.08); vertical-align: top; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr:hover td { background: var(--panel-2); }
+  td.actions { white-space: nowrap; text-align: right; }
+  .icon-btn { background: none; border: 0; color: var(--muted); cursor: pointer; padding: 2px 6px; font-size: 0.8rem; text-decoration: underline; }
+  .icon-btn:hover { color: var(--gold); }
+  .icon-btn.del:hover { color: var(--red); }
+  .empty { text-align: center; color: var(--muted); padding: 28px 10px; font-size: 0.9rem; }
+
+  .breakdowns { margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 900px) { .breakdowns { grid-template-columns: 1fr; } }
+  .bar-row { display: grid; grid-template-columns: 130px 1fr 110px; gap: 10px; align-items: center; font-size: 0.85rem; padding: 5px 0; }
+  .bar { height: 8px; border-radius: 4px; background: rgba(217, 178, 111, 0.12); overflow: hidden; }
+  .bar span { display: block; height: 100%; background: var(--gold); border-radius: 4px; }
+  .bar-row .amt { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 20px;
+    transform: translateX(-50%);
+    background: var(--panel-2);
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 0.88rem;
+    z-index: 20;
+    max-width: calc(100% - 32px);
+  }
+  .note { margin-top: 28px; font-size: 0.78rem; color: var(--muted); line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div class="auth-wrap" id="view-login" hidden>
+  <div class="auth-card">
+    <img src="logo.webp" alt="">
+    <h1 class="serif">Nalagola CS Shop</h1>
+    <p class="sub">Admin sign in</p>
+
+    <form id="login-form" autocomplete="on">
+      <label>Email
+        <input type="email" id="login-email" autocomplete="username" required>
+      </label>
+      <label>Password
+        <input type="password" id="login-password" autocomplete="current-password" required>
+      </label>
+      <div id="login-msg" class="msg err" hidden></div>
+      <button class="primary" type="submit" id="login-btn">Sign in</button>
+      <button class="link-btn" type="button" id="forgot-btn">Forgot password?</button>
+    </form>
+
+    <form id="reset-form" hidden>
+      <label>New password (at least 8 characters)
+        <input type="password" id="new-password" autocomplete="new-password" minlength="8" required>
+      </label>
+      <div id="reset-msg" class="msg" hidden></div>
+      <button class="primary" type="submit">Save new password</button>
+    </form>
+  </div>
+</div>
+
+<!-- ============ NO ACCESS ============ -->
+<div class="auth-wrap" id="view-denied" hidden>
+  <div class="auth-card">
+    <img src="logo.webp" alt="">
+    <h1 class="serif">No admin access</h1>
+    <p class="sub" style="margin-top:10px">You're signed in, but this account isn't set up as the shop admin.</p>
+    <button class="ghost" style="margin-top:20px" id="denied-signout">Sign out</button>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="view-app" hidden>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <img src="logo.webp" alt="">
+      <div class="title serif">Nalagola CS Shop <small>Accounts</small></div>
+      <div class="spacer"></div>
+      <div class="month-pick">
+        <button class="ghost" id="prev-month" aria-label="Previous month">&lsaquo;</button>
+        <input type="month" id="month" aria-label="Month">
+        <button class="ghost" id="next-month" aria-label="Next month">&rsaquo;</button>
+      </div>
+      <span class="who" id="who"></span>
+      <button class="ghost" id="signout">Sign out</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="kpis" aria-label="Month summary">
+      <div class="kpi"><div class="k">Sales</div><div class="v" id="k-sales">–</div><div class="s" id="k-sales-s"></div></div>
+      <div class="kpi"><div class="k">Stock purchases</div><div class="v" id="k-purch">–</div><div class="s" id="k-purch-s"></div></div>
+      <div class="kpi"><div class="k">Expenses</div><div class="v" id="k-exp">–</div><div class="s" id="k-exp-s"></div></div>
+      <div class="kpi profit"><div class="k">Profit</div><div class="v" id="k-profit">–</div><div class="s">Sales − purchases − expenses</div></div>
+    </section>
+
+    <section class="breakdowns">
+      <div class="card"><h2>Sales by payment mode</h2><div id="bd-mode"></div></div>
+      <div class="card"><h2>Expenses by category</h2><div id="bd-exp"></div></div>
+    </section>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" data-tab="sales" aria-selected="true">Daily sales</button>
+      <button class="tab" role="tab" data-tab="expenses" aria-selected="false">Expenses</button>
+      <button class="tab" role="tab" data-tab="purchases" aria-selected="false">Stock purchases</button>
+    </nav>
+
+    <section class="panel">
+      <div class="card">
+        <h2 id="form-title">Add sale</h2>
+        <form id="entry-form" class="form-grid"></form>
+      </div>
+      <div class="card">
+        <div class="list-head">
+          <h2 id="list-title">Sales this month</h2>
+          <span class="list-total">Total <b id="list-total">₹0</b></span>
+          <button class="ghost" id="export-btn" type="button">Export CSV</button>
+        </div>
+        <div class="table-wrap"><table id="entry-table"></table></div>
+      </div>
+    </section>
+
+    <p class="note">Profit here is a simple cash view: money in from sales minus money out on stock and expenses in the same month. It doesn't account for unsold stock.</p>
+  </main>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<datalist id="dl-sale-cat">
+  <option>Whisky</option><option>Beer</option><option>Rum</option><option>Vodka</option>
+  <option>Wines</option><option>Overseas Spirits</option><option>Country Spirits</option><option>General</option>
+</datalist>
+<datalist id="dl-exp-cat">
+  <option>Rent</option><option>Salaries</option><option>Electricity</option><option>Licence &amp; Excise</option>
+  <option>Transport</option><option>Repairs &amp; Maintenance</option><option>Bank charges</option><option>Other</option>
+</datalist>
+
+<script>
+(function () {
+  // ---------- Config (public values; data is protected by database rules) ----------
+  var SUPABASE_URL = "https://kikavlhdhdjeqqygfvbv.supabase.co";
+  var SUPABASE_KEY = "sb_publishable_Xe16oJpxjHO31iWW_u9fNw_qtj2Vmc0";
+
+  var $ = function (id) { return document.getElementById(id); };
+  var inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
+  var inr2 = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  var fmtDate = function (d) {
+    var p = d.split("-");
+    return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+  };
+  var esc = function (s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  };
+  var todayISO = function () {
+    var d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 10);
+  };
+
+  if (!window.supabase) {
+    document.body.innerHTML = '<p style="padding:24px">Could not load the login library. Check your internet connection and reload.</p>';
+    return;
+  }
+  var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // ---------- Table definitions ----------
+  var TABLES = {
+    sales: {
+      table: "daily_sales", dateCol: "sale_date", label: "sale", plural: "Sales",
+      fields: [
+        { name: "sale_date", label: "Date", type: "date", required: true },
+        { name: "amount", label: "Amount (₹)", type: "number", required: true },
+        { name: "payment_mode", label: "Payment mode", type: "select", options: ["Cash", "UPI", "Card", "Credit", "Other"] },
+        { name: "category", label: "Category", type: "text", list: "dl-sale-cat", def: "General" },
+        { name: "description", label: "Note (optional)", type: "text" }
+      ],
+      cols: [
+        { key: "sale_date", label: "Date", date: true },
+        { key: "category", label: "Category" },
+        { key: "payment_mode", label: "Mode" },
+        { key: "description", label: "Note" },
+        { key: "amount", label: "Amount", money: true }
+      ]
+    },
+    expenses: {
+      table: "expenses", dateCol: "expense_date", label: "expense", plural: "Expenses",
+      fields: [
+        { name: "expense_date", label: "Date", type: "date", required: true },
+        { name: "amount", label: "Amount (₹)", type: "number", required: true },
+        { name: "category", label: "Category", type: "text", list: "dl-exp-cat", def: "Other" },
+        { name: "description", label: "Note (optional)", type: "text" }
+      ],
+      cols: [
+        { key: "expense_date", label: "Date", date: true },
+        { key: "category", label: "Category" },
+        { key: "description", label: "Note" },
+        { key: "amount", label: "Amount", money: true }
+      ]
+    },
+    purchases: {
+      table: "purchases", dateCol: "purchase_date", label: "purchase", plural: "Stock purchases",
+      fields: [
+        { name: "purchase_date", label: "Date", type: "date", required: true },
+        { name: "amount", label: "Total cost (₹)", type: "number", required: true },
+        { name: "supplier", label: "Supplier", type: "text" },
+        { name: "category", label: "Category", type: "text", list: "dl-sale-cat", def: "General" },
+        { name: "quantity", label: "Quantity (bottles/cases)", type: "number" },
+        { name: "description", label: "Note (optional)", type: "text" }
+      ],
+      cols: [
+        { key: "purchase_date", label: "Date", date: true },
+        { key: "supplier", label: "Supplier" },
+        { key: "category", label: "Category" },
+        { key: "quantity", label: "Qty", num: true },
+        { key: "description", label: "Note" },
+        { key: "amount", label: "Cost", money: true }
+      ]
+    }
+  };
+
+  var state = { tab: "sales", month: todayISO().slice(0, 7), data: { sales: [], expenses: [], purchases: [] }, editing: null };
+
+  // ---------- Helpers ----------
+  function show(view) {
+    ["view-login", "view-denied", "view-app"].forEach(function (v) { $(v).hidden = v !== view; });
+  }
+  var toastTimer;
+  function toast(text) {
+    var t = $("toast"); t.textContent = text; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.hidden = true; }, 2800);
+  }
+  function monthRange(m) {
+    var y = +m.slice(0, 4), mo = +m.slice(5, 7);
+    var last = new Date(y, mo, 0).getDate();
+    return [m + "-01", m + "-" + String(last).padStart(2, "0")];
+  }
+  function sum(rows) { return rows.reduce(function (a, r) { return a + Number(r.amount || 0); }, 0); }
+  function groupBy(rows, key) {
+    var g = {};
+    rows.forEach(function (r) { var k = r[key] || "Other"; g[k] = (g[k] || 0) + Number(r.amount || 0); });
+    return Object.keys(g).map(function (k) { return [k, g[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
+  }
+
+  // ---------- Auth ----------
+  async function route(session) {
+    if (!session) { show("view-login"); return; }
+    var uid = session.user.id;
+    var res = await sb.from("user_roles").select("role").eq("user_id", uid).eq("role", "admin").maybeSingle();
+    if (res.error || !res.data) { show("view-denied"); return; }
+    $("who").textContent = session.user.email;
+    show("view-app");
+    $("month").value = state.month;
+    renderForm();
+    await loadMonth();
+  }
+
+  $("login-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var btn = $("login-btn"), msg = $("login-msg");
+    btn.disabled = true; btn.textContent = "Signing in…"; msg.hidden = true;
+    var r = await sb.auth.signInWithPassword({ email: $("login-email").value.trim(), password: $("login-password").value });
+    btn.disabled = false; btn.textContent = "Sign in";
+    if (r.error) {
+      msg.textContent = r.error.message === "Invalid login credentials" ? "Wrong email or password." : r.error.message;
+      msg.className = "msg err"; msg.hidden = false; return;
+    }
+    $("login-password").value = "";
+  });
+
+  $("forgot-btn").addEventListener("click", async function () {
+    var email = $("login-email").value.trim(), msg = $("login-msg");
+    if (!email) { msg.textContent = "Type your email above first."; msg.className = "msg err"; msg.hidden = false; return; }
+    var r = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+    msg.textContent = r.error ? r.error.message : "If that email is registered, a reset link is on its way.";
+    msg.className = r.error ? "msg err" : "msg ok"; msg.hidden = false;
+  });
+
+  $("reset-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var msg = $("reset-msg");
+    var r = await sb.auth.updateUser({ password: $("new-password").value });
+    msg.textContent = r.error ? r.error.message : "Password saved. Opening your accounts…";
+    msg.className = r.error ? "msg err" : "msg ok"; msg.hidden = false;
+    if (!r.error) {
+      $("new-password").value = "";
+      setTimeout(async function () {
+        $("reset-form").hidden = true; $("login-form").hidden = false;
+        var s = await sb.auth.getSession(); route(s.data.session);
+      }, 900);
+    }
+  });
+
+  function signOut() { sb.auth.signOut().then(function () { show("view-login"); }); }
+  $("signout").addEventListener("click", signOut);
+  $("denied-signout").addEventListener("click", signOut);
+
+  sb.auth.onAuthStateChange(function (event, session) {
+    if (event === "PASSWORD_RECOVERY") {
+      show("view-login"); $("login-form").hidden = true; $("reset-form").hidden = false; return;
+    }
+    if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "INITIAL_SESSION") {
+      // Defer so Supabase finishes its own work before we query
+      setTimeout(function () { route(session); }, 0);
+    }
+  });
+
+  // ---------- Month navigation ----------
+  function shiftMonth(n) {
+    var y = +state.month.slice(0, 4), m = +state.month.slice(5, 7) - 1 + n;
+    var d = new Date(y, m, 1);
+    state.month = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+    $("month").value = state.month; loadMonth();
+  }
+  $("prev-month").addEventListener("click", function () { shiftMonth(-1); });
+  $("next-month").addEventListener("click", function () { shiftMonth(1); });
+  $("month").addEventListener("change", function () { if (this.value) { state.month = this.value; loadMonth(); } });
+
+  // ---------- Tabs ----------
+  document.querySelectorAll(".tab").forEach(function (t) {
+    t.addEventListener("click", function () {
+      state.tab = t.dataset.tab; state.editing = null;
+      document.querySelectorAll(".tab").forEach(function (x) { x.setAttribute("aria-selected", x === t ? "true" : "false"); });
+      renderForm(); renderTable();
+    });
+  });
+
+  // ---------- Data ----------
+  async function loadMonth() {
+    var r = monthRange(state.month);
+    var keys = Object.keys(TABLES);
+    var results = await Promise.all(keys.map(function (k) {
+      var T = TABLES[k];
+      return sb.from(T.table).select("*").gte(T.dateCol, r[0]).lte(T.dateCol, r[1])
+        .order(T.dateCol, { ascending: false }).order("created_at", { ascending: false });
+    }));
+    var failed = false;
+    results.forEach(function (res, i) {
+      if (res.error) { failed = true; state.data[keys[i]] = []; } else state.data[keys[i]] = res.data;
+    });
+    if (failed) toast("Some data couldn't load. Try reloading the page.");
+    renderSummary(); renderTable();
+  }
+
+  function renderSummary() {
+    var s = sum(state.data.sales), p = sum(state.data.purchases), e = sum(state.data.expenses), pr = s - p - e;
+    $("k-sales").textContent = inr.format(s);
+    $("k-purch").textContent = inr.format(p);
+    $("k-exp").textContent = inr.format(e);
+    $("k-profit").textContent = inr.format(pr);
+    $("k-profit").className = "v " + (pr >= 0 ? "pos" : "neg");
+    var days = {}; state.data.sales.forEach(function (r) { days[r.sale_date] = 1; });
+    var nd = Object.keys(days).length;
+    $("k-sales-s").textContent = nd ? nd + " day" + (nd > 1 ? "s" : "") + " recorded · avg " + inr.format(s / nd) + "/day" : "No sales recorded yet";
+    $("k-purch-s").textContent = state.data.purchases.length + " entr" + (state.data.purchases.length === 1 ? "y" : "ies");
+    $("k-exp-s").textContent = state.data.expenses.length + " entr" + (state.data.expenses.length === 1 ? "y" : "ies");
+    renderBars("bd-mode", groupBy(state.data.sales, "payment_mode"), "No sales this month");
+    renderBars("bd-exp", groupBy(state.data.expenses, "category"), "No expenses this month");
+  }
+
+  function renderBars(id, rows, emptyText) {
+    var el = $(id);
+    if (!rows.length) { el.innerHTML = '<div class="empty" style="padding:12px 0">' + emptyText + "</div>"; return; }
+    var max = rows[0][1] || 1;
+    el.innerHTML = rows.map(function (r) {
+      return '<div class="bar-row"><span>' + esc(r[0]) + '</span><div class="bar"><span style="width:' +
+        Math.max(2, (r[1] / max) * 100).toFixed(1) + '%"></span></div><span class="amt">' + inr.format(r[1]) + "</span></div>";
+    }).join("");
+  }
+
+  // ---------- Form ----------
+  function renderForm() {
+    var T = TABLES[state.tab], f = $("entry-form"), row = state.editing;
+    $("form-title").textContent = (row ? "Edit " : "Add ") + T.label;
+    var html = "";
+    var fields = T.fields.slice();
+    // Date + amount side by side
+    html += '<div class="row-2">' + fieldHTML(fields[0], row) + fieldHTML(fields[1], row) + "</div>";
+    fields.slice(2).forEach(function (fd) { html += fieldHTML(fd, row); });
+    html += '<div class="form-actions"><button class="primary" type="submit">' + (row ? "Save changes" : "Add " + T.label) + "</button>" +
+      (row ? '<button class="ghost" type="button" id="cancel-edit">Cancel</button>' : "") + "</div>";
+    f.innerHTML = html;
+    if (row) $("cancel-edit").addEventListener("click", function () { state.editing = null; renderForm(); });
+  }
+
+  function fieldHTML(fd, row) {
+    var val = row ? row[fd.name] : (fd.type === "date" ? defaultDate() : (fd.def || ""));
+    if (val == null) val = "";
+    var id = "f-" + fd.name;
+    var input;
+    if (fd.type === "select") {
+      input = '<select id="' + id + '" name="' + fd.name + '">' + fd.options.map(function (o) {
+        return "<option" + (String(val) === o ? " selected" : "") + ">" + o + "</option>";
+      }).join("") + "</select>";
+    } else {
+      input = '<input id="' + id + '" name="' + fd.name + '" type="' + fd.type + '"' +
+        (fd.type === "number" ? ' step="0.01" min="0" inputmode="decimal"' : "") +
+        (fd.list ? ' list="' + fd.list + '"' : "") +
+        (fd.required ? " required" : "") +
+        ' value="' + esc(fd.type === "number" && val === "" ? "" : val) + '">';
+    }
+    return "<label>" + fd.label + input + "</label>";
+  }
+
+  function defaultDate() {
+    var t = todayISO();
+    return t.slice(0, 7) === state.month ? t : state.month + "-01";
+  }
+
+  $("entry-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var T = TABLES[state.tab], payload = {};
+    T.fields.forEach(function (fd) {
+      var v = $("f-" + fd.name).value;
+      if (fd.type === "number") v = v === "" ? 0 : Number(v);
+      else v = String(v).trim();
+      payload[fd.name] = v;
+    });
+    if (!(payload.amount > 0)) { toast("Enter an amount above zero."); return; }
+    var btn = e.target.querySelector(".primary"); btn.disabled = true;
+    var res = state.editing
+      ? await sb.from(T.table).update(payload).eq("id", state.editing.id)
+      : await sb.from(T.table).insert(payload);
+    btn.disabled = false;
+    if (res.error) { toast("Couldn't save: " + res.error.message); return; }
+    toast(state.editing ? "Changes saved" : T.label.charAt(0).toUpperCase() + T.label.slice(1) + " added");
+    var keepDate = payload[T.dateCol];
+    state.editing = null;
+    if (keepDate.slice(0, 7) !== state.month) { state.month = keepDate.slice(0, 7); $("month").value = state.month; }
+    renderForm();
+    await loadMonth();
+  });
+
+  // ---------- Table ----------
+  function renderTable() {
+    var T = TABLES[state.tab], rows = state.data[state.tab], tbl = $("entry-table");
+    $("list-title").textContent = T.plural + " in " + new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    $("list-total").textContent = inr2.format(sum(rows));
+    if (!rows.length) { tbl.innerHTML = '<tr><td class="empty">Nothing recorded for this month yet.</td></tr>'; return; }
+    var head = "<thead><tr>" + T.cols.map(function (c) {
+      return '<th class="' + (c.money || c.num ? "num" : "") + '">' + c.label + "</th>";
+    }).join("") + "<th></th></tr></thead>";
+    var body = "<tbody>" + rows.map(function (r) {
+      return "<tr>" + T.cols.map(function (c) {
+        var v = r[c.key];
+        if (c.date) v = fmtDate(v);
+        else if (c.money) v = inr2.format(v);
+        else if (c.num) v = Number(v) ? v : "";
+        return '<td class="' + (c.money || c.num ? "num" : "") + '">' + esc(v) + "</td>";
+      }).join("") + '<td class="actions"><button class="icon-btn" data-edit="' + r.id + '">Edit</button>' +
+        '<button class="icon-btn del" data-del="' + r.id + '">Delete</button></td></tr>';
+    }).join("") + "</tbody>";
+    tbl.innerHTML = head + body;
+  }
+
+  $("entry-table").addEventListener("click", async function (e) {
+    var T = TABLES[state.tab];
+    var editId = e.target.getAttribute("data-edit"), delId = e.target.getAttribute("data-del");
+    if (editId) {
+      state.editing = state.data[state.tab].find(function (r) { return r.id === editId; });
+      renderForm();
+      $("entry-form").scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    if (delId) {
+      var row = state.data[state.tab].find(function (r) { return r.id === delId; });
+      if (!confirm("Delete this " + T.label + " of " + inr2.format(row.amount) + " on " + fmtDate(row[T.dateCol]) + "?")) return;
+      var res = await sb.from(T.table).delete().eq("id", delId);
+      if (res.error) { toast("Couldn't delete: " + res.error.message); return; }
+      if (state.editing && state.editing.id === delId) { state.editing = null; renderForm(); }
+      toast("Deleted"); loadMonth();
+    }
+  });
+
+  // ---------- CSV export ----------
+  $("export-btn").addEventListener("click", function () {
+    var T = TABLES[state.tab], rows = state.data[state.tab];
+    if (!rows.length) { toast("Nothing to export for this month."); return; }
+    var cols = T.cols.map(function (c) { return c.key; });
+    var csv = [T.cols.map(function (c) { return c.label; }).join(",")].concat(rows.map(function (r) {
+      return cols.map(function (k) {
+        var v = r[k] == null ? "" : String(r[k]);
+        return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+      }).join(",");
+    })).join("\n");
+    var blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "nalagola-" + state.tab + "-" + state.month + ".csv";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  });
+})();
+</script>
+</body>
+</html>
