@@ -232,6 +232,9 @@
   .diff-box.ok { background: rgba(127, 207, 154, 0.1); color: var(--green); border: 1px solid rgba(127, 207, 154, 0.35); }
   .diff-box.bad { background: rgba(239, 143, 143, 0.1); color: var(--red); border: 1px solid rgba(239, 143, 143, 0.4); }
   .sub-card { margin-top: 18px; }
+  .dues-wrap { margin-top: 18px; display: grid; gap: 18px; }
+  .dues-wrap > * { min-width: 0; }
+  #dues-form-card .form-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); align-items: end; }
   #book-table td:first-child, #book-table td.actions { white-space: nowrap; }
   #book-table td { vertical-align: middle; }
   #book-table { font-size: 0.82rem; }
@@ -388,6 +391,7 @@
         <label>Cash credit limit (₹) <input type="number" id="ob-limit" step="0.01" min="0" inputmode="decimal"></label>
         <label>Cash credit used (₹) <input type="number" id="ob-cc" step="0.01" min="0" inputmode="decimal"></label>
         <label>Cash not deposited (₹) <input type="number" id="ob-cash" step="0.01" min="0" inputmode="decimal"></label>
+        <label>Credit owed by customers (₹) <input type="number" id="ob-credit" step="0.01" min="0" inputmode="decimal"></label>
         <div class="form-actions" id="ob-actions">
           <button class="primary" type="submit">Save</button>
           <button class="ghost" type="button" id="ob-freeze">Save and freeze</button>
@@ -476,9 +480,9 @@
 
     <!-- ===== Dues (customer credit) ===== -->
     <section id="pane-dues" hidden>
-      <div class="panel">
-        <div class="card">
-          <h2 id="dues-form-title">Add entry</h2>
+      <div class="dues-wrap">
+        <div class="card" id="dues-form-card" hidden>
+          <h2 id="dues-form-title">Edit entry</h2>
           <form id="dues-form" class="form-grid">
             <div class="row-2">
               <label>Date <input type="date" id="d-date" required></label>
@@ -494,8 +498,8 @@
             <label>Phone (optional) <input type="tel" id="d-phone" inputmode="tel"></label>
             <label>Note (optional) <input type="text" id="d-note"></label>
             <div class="form-actions">
-              <button class="primary" type="submit" id="d-save">Save entry</button>
-              <button class="ghost" type="button" id="d-cancel" hidden>Cancel</button>
+              <button class="primary" type="submit" id="d-save">Save changes</button>
+              <button class="ghost" type="button" id="d-cancel">Cancel</button>
             </div>
           </form>
         </div>
@@ -503,6 +507,7 @@
           <div class="list-head">
             <h2 id="cust-title">Customers</h2>
             <span class="list-total">Outstanding <b id="dues-total">₹0</b></span>
+            <span class="list-total" id="dues-opening"></span>
             <div class="seg" id="cust-filter">
               <button type="button" data-f="all" aria-pressed="true">All</button>
               <button type="button" data-f="open" aria-pressed="false">Owing</button>
@@ -909,14 +914,14 @@
       var k = custKey(d.customer_name);
       per[k] = (per[k] || 0) + (d.entry_type === "credit" ? 1 : -1) * Number(d.amount);
     });
-    var credit = Object.keys(per).reduce(function (a, k) { return a + Math.max(0, per[k]); }, 0);
+    var credit = Number((state.cap.opening || {}).credit_opening || 0) + Object.keys(per).reduce(function (a, k) { return a + per[k]; }, 0);
     var asOf = "as of " + fmtDate(end);
     var parts = [
       { k: "stock", l: "Shop stock value", a: c.stock ? Number(c.stock.closing_value_cost) : 0, d: c.stock ? "at cost, " + fmtDate(c.stock.report_date) : "no report yet" },
       { k: "bevco", l: "Bevco wallet", a: bal.bevco, d: asOf, warn: bal.bevco < -0.5 },
       { k: "bank", l: "Bank balance", a: bal.bank, d: asOf },
       { k: "cash_credit", l: "Cash credit used", a: -bal.cc_used, minus: true, d: inr.format(Math.max(0, bal.cc_limit - bal.cc_used)) + " left of " + inr.format(bal.cc_limit) },
-      { k: "dues", l: "Credit given", a: credit, d: "still owed by customers" },
+      { k: "dues", l: "Credit given", a: credit, d: "owed by customers, " + asOf },
       { k: "cash_hand", l: "Cash not deposited", a: bal.cash_hand, d: asOf, warn: bal.cash_hand < -0.5 },
       { k: "remaining", l: "Remaining balance", a: c.ledger ? Number(c.ledger.shop_balance) : 0, d: c.ledger ? "shop, " + fmtDate(c.ledger.ledger_date) : "ledger not filled yet" }
     ];
@@ -955,8 +960,19 @@
   // Every movement for one account, oldest first. Amount is + when the balance goes up.
   function movements(acct) {
     var o = state.cap.opening || {}, m = [];
-    var opening = { bevco: o.bevco_wallet, bank: o.bank_balance, cash_credit: o.cc_used, cash_hand: o.cash_not_deposited }[acct];
+    var opening = { bevco: o.bevco_wallet, bank: o.bank_balance, cash_credit: o.cc_used, cash_hand: o.cash_not_deposited, dues: o.credit_opening }[acct];
     m.push({ date: START_DATE, desc: "Opening balance (morning of " + fmtDate(START_DATE) + ")", amt: Number(opening || 0), opening: true });
+    if (acct === "dues") {
+      var byDay = {};
+      state.dues.forEach(function (d) {
+        var x = byDay[d.entry_date] || (byDay[d.entry_date] = { given: 0, got: 0 });
+        if (d.entry_type === "credit") x.given += Number(d.amount); else x.got += Number(d.amount);
+      });
+      Object.keys(byDay).forEach(function (day) {
+        if (byDay[day].given) m.push({ date: day, desc: "Credit given", amt: byDay[day].given });
+        if (byDay[day].got) m.push({ date: day, desc: "Dues collected", amt: -byDay[day].got });
+      });
+    }
     if (acct === "bevco") state.allReports.forEach(function (r) {
       var c = Number(r.stock_in_cost || 0);
       if (r.report_date >= START_DATE && c) m.push({ date: r.report_date, desc: "Stock received (stock in at cost)", amt: -c });
@@ -977,7 +993,7 @@
     return m;
   }
 
-  var STMT_TITLE = { bevco: "Bevco wallet", bank: "Bank balance", cash_credit: "SBI cash credit (amount used)", cash_hand: "Cash not deposited",
+  var STMT_TITLE = { dues: "Credit given (owed by customers)", bevco: "Bevco wallet", bank: "Bank balance", cash_credit: "SBI cash credit (amount used)", cash_hand: "Cash not deposited",
     stock: "Shop stock value (closing stock at cost)", remaining: "Remaining shop balance" };
 
   function renderStatement() {
@@ -1005,8 +1021,8 @@
       all.forEach(function (x) { if (x.date < r[0]) bf += x.amt; });
       bal = bf;
       var inMonth = all.filter(function (x) { return x.date >= r[0] && x.date <= r[1]; });
-      var isCC = k === "cash_credit";
-      var colIn = isCC ? "Drawn" : "In", colOut = isCC ? "Repaid" : "Out", colBal = isCC ? "Used" : "Balance";
+      var isCC = k === "cash_credit", isDues = k === "dues";
+      var colIn = isCC ? "Drawn" : isDues ? "Credit given" : "In", colOut = isCC ? "Repaid" : isDues ? "Collected" : "Out", colBal = isCC ? "Used" : isDues ? "Outstanding" : "Balance";
       csv.push(["Date", "Details", colIn, colOut, colBal]);
       if (r[0] > START_DATE) { rows.push('<tr class="bf"><td>' + fmtDate(r[0]) + '</td><td>Brought forward</td><td></td><td></td><td class="num">' + inr2.format(bf) + "</td><td></td></tr>"); csv.push([r[0], "Brought forward", "", "", bf]); }
       inMonth.forEach(function (x, i) {
@@ -1033,7 +1049,6 @@
   $("cap-lines").addEventListener("click", function (e) {
     var b = e.target.closest("[data-stmt]"); if (!b) return;
     var k = b.dataset.stmt;
-    if (k === "dues") { selectTab("dues"); document.querySelector(".tabs").scrollIntoView({ behavior: "smooth", block: "start" }); return; }
     state.stmt = state.stmt === k ? null : k;
     if (!state.stmt) $("stmt").hidden = true;
     renderCapital();
@@ -1089,14 +1104,15 @@
     $("ob-limit").value = o.cc_limit != null ? o.cc_limit : 2000000;
     $("ob-cc").value = o.cc_used != null ? o.cc_used : "";
     $("ob-cash").value = o.cash_not_deposited != null ? o.cash_not_deposited : "";
-    ["ob-bevco", "ob-bank", "ob-limit", "ob-cc", "ob-cash"].forEach(function (id) { $(id).disabled = locked; });
+    $("ob-credit").value = o.credit_opening != null ? o.credit_opening : "";
+    ["ob-bevco", "ob-bank", "ob-limit", "ob-cc", "ob-cash", "ob-credit"].forEach(function (id) { $(id).disabled = locked; });
     f.classList.toggle("ob-locked", locked);
     f.querySelector('button[type="submit"]').hidden = locked; $("ob-freeze").hidden = locked;
   });
   $("ob-cancel").addEventListener("click", function () { $("ob-form").hidden = true; });
   async function saveOpening(freeze) {
     var p2 = { as_of: START_DATE, bevco_wallet: toNum($("ob-bevco").value), bank_balance: toNum($("ob-bank").value), cc_limit: toNum($("ob-limit").value),
-      cc_used: toNum($("ob-cc").value), cash_not_deposited: toNum($("ob-cash").value), frozen: !!freeze, updated_at: new Date().toISOString() };
+      cc_used: toNum($("ob-cc").value), cash_not_deposited: toNum($("ob-cash").value), credit_opening: toNum($("ob-credit").value), frozen: !!freeze, updated_at: new Date().toISOString() };
     if (freeze && !confirm("Freeze the 1 Oct opening balances? After this they can't be edited.")) return;
     var r = await sb.from("business_balances").upsert(p2, { onConflict: "as_of" });
     if (r.error) { toast("Couldn't save: " + r.error.message); return; }
@@ -1304,14 +1320,17 @@
 
   function resetDuesForm() {
     state.duesEditing = null;
-    $("dues-form-title").textContent = "Add entry";
+    $("dues-form-card").hidden = true;
+    $("dues-form-title").textContent = "Edit entry";
     $("d-date").value = defaultDate(); $("d-amount").value = ""; $("d-type").value = "credit";
     $("d-name").value = state.custSel ? (customers().find(function (c) { return c.key === state.custSel; }) || {}).name || "" : "";
-    $("d-phone").value = ""; $("d-note").value = ""; $("d-cancel").hidden = true; $("d-save").textContent = "Save entry";
+    $("d-phone").value = ""; $("d-note").value = ""; $("d-save").textContent = "Save changes";
   }
 
   function renderDues() {
-    var list = customers(), outstanding = list.reduce(function (a, c) { return a + Math.max(0, c.balance); }, 0);
+    var list = customers(), outstanding = list.reduce(function (a, c) { return a + c.balance; }, 0);
+    var co = state.cap.opening && Number(state.cap.opening.credit_opening || 0);
+    $("dues-opening").innerHTML = co ? "· plus <b>" + inr.format(co) + "</b> opening credit before " + fmtDate(START_DATE) : "";
     $("dues-total").textContent = inr2.format(outstanding);
     $("dl-customers").innerHTML = list.map(function (c) { return "<option>" + esc(c.name) + "</option>"; }).join("");
     var shown = state.custFilter === "open" ? list.filter(function (c) { return c.balance > 0.5; }) : list;
@@ -1389,10 +1408,10 @@
     var ed = e.target.getAttribute("data-dedit"), del = e.target.getAttribute("data-ddel");
     if (ed) {
       var d = state.dues.find(function (x) { return x.id === ed; });
-      state.duesEditing = ed; $("dues-form-title").textContent = "Edit entry";
+      state.duesEditing = ed; $("dues-form-title").textContent = "Edit entry"; $("dues-form-card").hidden = false;
       $("d-date").value = d.entry_date; $("d-amount").value = d.amount; $("d-type").value = d.entry_type;
       $("d-name").value = d.customer_name; $("d-phone").value = d.phone || ""; $("d-note").value = d.note || "";
-      $("d-cancel").hidden = false; $("d-save").textContent = "Save changes";
+      $("d-save").textContent = "Save changes";
       $("dues-form").scrollIntoView({ behavior: "smooth", block: "center" });
     }
     if (del) {
