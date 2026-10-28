@@ -651,7 +651,7 @@
     items: [], itemsFilter: "all",
     mismatches: [], missingDays: [], book: [], dues: [],
     custFilter: "all", custSel: null, duesEditing: null, bookOpen: null, expOpen: null,
-    allReports: [], allExp: [], allBook: [], cap: { stock: null, ledger: null, opening: null }, transfers: [], stmt: null,
+    allReports: [], allExp: [], allBook: [], cap: { stock: null, ledger: null, opening: null }, transfers: [], stmt: null, trEditing: null,
     editing: null, pending: null, pendingCost: null, detailDate: null, detailRows: [], detailFilter: "sold"
   };
 
@@ -947,7 +947,7 @@
     $("tr-list").innerHTML = !list.length ? "" : "<h3>Transfers this month</h3><div class=\"table-wrap\"><table><thead><tr><th>Date</th><th>From</th><th>To</th><th class=\"num\">Amount</th><th>Note</th><th></th></tr></thead><tbody>" +
       list.map(function (t) {
         return "<tr><td>" + fmtDate(t.transfer_date) + "</td><td>" + ACCT[t.from_account] + "</td><td>" + ACCT[t.to_account] + '</td><td class="num">' + inr2.format(t.amount) +
-          "</td><td>" + esc(t.note) + '</td><td class="actions"><button class="icon-btn del" data-deltr="' + t.id + '">Delete</button></td></tr>';
+          "</td><td>" + esc(t.note) + '</td><td class="actions"><button class="icon-btn" data-edittr="' + t.id + '">Edit</button><button class="icon-btn del" data-deltr="' + t.id + '">Delete</button></td></tr>';
       }).join("") + "</tbody></table></div>";
   }
 
@@ -970,8 +970,8 @@
     });
     state.transfers.forEach(function (t) {
       var a = Number(t.amount), note = t.note ? " · " + t.note : "";
-      if (t.from_account === acct) m.push({ date: t.transfer_date, desc: "Transfer to " + ACCT[t.to_account] + note, amt: acct === "cash_credit" ? a : -a });
-      if (t.to_account === acct) m.push({ date: t.transfer_date, desc: "Transfer from " + ACCT[t.from_account] + note, amt: acct === "cash_credit" ? -a : a });
+      if (t.from_account === acct) m.push({ date: t.transfer_date, desc: "Transfer to " + ACCT[t.to_account] + note, amt: acct === "cash_credit" ? a : -a, tid: t.id });
+      if (t.to_account === acct) m.push({ date: t.transfer_date, desc: "Transfer from " + ACCT[t.from_account] + note, amt: acct === "cash_credit" ? -a : a, tid: t.id });
     });
     m.sort(function (x, y) { return x.date < y.date ? -1 : x.date > y.date ? 1 : (y.opening ? 1 : 0) - (x.opening ? 1 : 0); });
     return m;
@@ -1008,19 +1008,21 @@
       var isCC = k === "cash_credit";
       var colIn = isCC ? "Drawn" : "In", colOut = isCC ? "Repaid" : "Out", colBal = isCC ? "Used" : "Balance";
       csv.push(["Date", "Details", colIn, colOut, colBal]);
-      if (r[0] > START_DATE) { rows.push('<tr class="bf"><td>' + fmtDate(r[0]) + '</td><td>Brought forward</td><td></td><td></td><td class="num">' + inr2.format(bf) + "</td></tr>"); csv.push([r[0], "Brought forward", "", "", bf]); }
+      if (r[0] > START_DATE) { rows.push('<tr class="bf"><td>' + fmtDate(r[0]) + '</td><td>Brought forward</td><td></td><td></td><td class="num">' + inr2.format(bf) + "</td><td></td></tr>"); csv.push([r[0], "Brought forward", "", "", bf]); }
       inMonth.forEach(function (x, i) {
         bal += x.amt;
         var last = i === inMonth.length - 1 || inMonth[i + 1].date !== x.date;
-        rows.push('<tr class="' + (last ? "day-end" : "") + '"><td>' + (i === 0 || inMonth[i - 1].date !== x.date ? fmtDate(x.date) : "") + "</td><td>" + esc(x.desc) +
+        rows.push('<tr class="' + (last ? "day-end" : "") + '"><td>' + fmtDate(x.date) + "</td><td>" + esc(x.desc) +
           '</td><td class="num">' + (x.amt > 0 ? inr2.format(x.amt) : "") + '</td><td class="num">' + (x.amt < 0 ? inr2.format(-x.amt) : "") +
-          '</td><td class="num">' + (last ? "<b>" + inr2.format(bal) + "</b>" : '<span style="color:var(--muted)">' + inr2.format(bal) + "</span>") + "</td></tr>");
+          '</td><td class="num">' + (last ? "<b>" + inr2.format(bal) + "</b>" : '<span style="color:var(--muted)">' + inr2.format(bal) + "</span>") +
+          '</td><td class="actions">' + (x.tid ? '<button class="icon-btn" data-edittr="' + x.tid + '">Edit</button>' : "") + "</td></tr>");
         csv.push([x.date, x.desc, x.amt > 0 ? x.amt : "", x.amt < 0 ? -x.amt : "", bal]);
       });
       el.innerHTML = head + (rows.length ? '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Details</th><th class="num">' + colIn + '</th><th class="num">' + colOut +
-        '</th><th class="num">' + colBal + "</th></tr></thead><tbody>" + rows.join("") + "</tbody></table></div>" : '<div class="empty">Nothing recorded this month.</div>');
+        '</th><th class="num">' + colBal + "</th><th></th></tr></thead><tbody>" + rows.join("") + "</tbody></table></div>" : '<div class="empty">Nothing recorded this month.</div>');
     }
     el.hidden = false;
+    el.onclick = function (e) { var id = e.target.getAttribute("data-edittr"); if (id) editTransfer(id); };
     $("stmt-close").onclick = function () { state.stmt = null; el.hidden = true; renderCapital(); };
     $("stmt-csv").onclick = function () { downloadCSV("nalagola-" + k + "-" + state.month + ".csv", csv[0], csv.slice(1)); };
   }
@@ -1038,24 +1040,34 @@
   // Transfers
   $("tr-open").addEventListener("click", function () {
     var f = $("tr-form"); $("ob-form").hidden = true; f.hidden = !f.hidden; if (f.hidden) return;
-    var end = monthRange(state.month)[1], t = todayISO();
-    $("tr-date").value = end < t ? end : t; $("tr-amount").value = ""; $("tr-note").value = "";
+    state.trEditing = null; f.querySelector(".primary").textContent = "Save transfer";
+    $("tr-date").value = addDays(lastRecordedDay(), 0); $("tr-amount").value = ""; $("tr-note").value = "";
     $("tr-amount").focus();
   });
-  $("tr-cancel").addEventListener("click", function () { $("tr-form").hidden = true; });
+  function editTransfer(id) {
+    var t = state.transfers.find(function (x) { return x.id === id; }); if (!t) return;
+    var f = $("tr-form"); $("ob-form").hidden = true; f.hidden = false; state.trEditing = id;
+    $("tr-date").value = t.transfer_date; $("tr-from").value = t.from_account; $("tr-to").value = t.to_account;
+    $("tr-amount").value = t.amount; $("tr-note").value = t.note || "";
+    f.querySelector(".primary").textContent = "Save changes";
+    f.scrollIntoView({ behavior: "smooth", block: "center" }); $("tr-date").focus();
+  }
+  $("tr-cancel").addEventListener("click", function () { $("tr-form").hidden = true; state.trEditing = null; });
   $("tr-form").addEventListener("submit", async function (e) {
     e.preventDefault();
     var p2 = { transfer_date: $("tr-date").value, from_account: $("tr-from").value, to_account: $("tr-to").value, amount: toNum($("tr-amount").value), note: $("tr-note").value.trim() };
     if (p2.from_account === p2.to_account) { toast("Pick two different accounts."); return; }
     if (!(p2.amount > 0)) { toast("Enter an amount above zero."); return; }
     if (p2.transfer_date < START_DATE) { toast("Transfers start from " + fmtLong(START_DATE) + "."); return; }
-    var r = await sb.from("account_transfers").insert(p2);
+    var editing = state.trEditing;
+    var r = editing ? await sb.from("account_transfers").update(p2).eq("id", editing) : await sb.from("account_transfers").insert(p2);
     if (r.error) { toast("Couldn't save: " + r.error.message); return; }
-    $("tr-form").hidden = true;
-    toast(inr.format(p2.amount) + " moved from " + ACCT[p2.from_account] + " to " + ACCT[p2.to_account]);
+    $("tr-form").hidden = true; state.trEditing = null;
+    toast(editing ? "Transfer updated" : inr.format(p2.amount) + " moved from " + ACCT[p2.from_account] + " to " + ACCT[p2.to_account]);
     loadMonth();
   });
   $("tr-list").addEventListener("click", async function (e) {
+    var ed = e.target.getAttribute("data-edittr"); if (ed) { editTransfer(ed); return; }
     var id = e.target.getAttribute("data-deltr"); if (!id) return;
     var t = state.transfers.find(function (x) { return x.id === id; });
     if (!confirm("Delete the transfer of " + inr2.format(t.amount) + " from " + ACCT[t.from_account] + " to " + ACCT[t.to_account] + " on " + fmtDate(t.transfer_date) + "?")) return;
