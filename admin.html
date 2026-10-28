@@ -944,7 +944,7 @@
     // This month's transfers
     var r = monthRange(state.month);
     var list = state.transfers.filter(function (t) { return t.transfer_date >= r[0] && t.transfer_date <= r[1]; }).slice().reverse();
-    $("tr-list").innerHTML = !list.length ? "" : "<h3>Transfers this month</h3><div class=\"table-wrap\"><table><thead><tr><th>Date</th><th>From</th><th>To</th><th class=\"num\">Amount</th><th>Note</th><th></th></tr></thead><tbody>" +
+    $("tr-list").innerHTML = true ? "" : "<h3>Transfers this month</h3><div class=\"table-wrap\"><table><thead><tr><th>Date</th><th>From</th><th>To</th><th class=\"num\">Amount</th><th>Note</th><th></th></tr></thead><tbody>" +
       list.map(function (t) {
         return "<tr><td>" + fmtDate(t.transfer_date) + "</td><td>" + ACCT[t.from_account] + "</td><td>" + ACCT[t.to_account] + '</td><td class="num">' + inr2.format(t.amount) +
           "</td><td>" + esc(t.note) + '</td><td class="actions"><button class="icon-btn" data-edittr="' + t.id + '">Edit</button><button class="icon-btn del" data-deltr="' + t.id + '">Delete</button></td></tr>';
@@ -1015,14 +1015,17 @@
         rows.push('<tr class="' + (last ? "day-end" : "") + '"><td>' + fmtDate(x.date) + "</td><td>" + esc(x.desc) +
           '</td><td class="num">' + (x.amt > 0 ? inr2.format(x.amt) : "") + '</td><td class="num">' + (x.amt < 0 ? inr2.format(-x.amt) : "") +
           '</td><td class="num">' + (last ? "<b>" + inr2.format(bal) + "</b>" : '<span style="color:var(--muted)">' + inr2.format(bal) + "</span>") +
-          '</td><td class="actions">' + (x.tid ? '<button class="icon-btn" data-edittr="' + x.tid + '">Edit</button>' : "") + "</td></tr>");
+          '</td><td class="actions">' + (x.tid ? '<button class="icon-btn" data-edittr="' + x.tid + '">Edit</button><button class="icon-btn del" data-deltr="' + x.tid + '">Delete</button>' : "") + "</td></tr>");
         csv.push([x.date, x.desc, x.amt > 0 ? x.amt : "", x.amt < 0 ? -x.amt : "", bal]);
       });
       el.innerHTML = head + (rows.length ? '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Details</th><th class="num">' + colIn + '</th><th class="num">' + colOut +
         '</th><th class="num">' + colBal + "</th><th></th></tr></thead><tbody>" + rows.join("") + "</tbody></table></div>" : '<div class="empty">Nothing recorded this month.</div>');
     }
     el.hidden = false;
-    el.onclick = function (e) { var id = e.target.getAttribute("data-edittr"); if (id) editTransfer(id); };
+    el.onclick = function (e) {
+      var id = e.target.getAttribute("data-edittr"); if (id) { editTransfer(id); return; }
+      var del = e.target.getAttribute("data-deltr"); if (del) deleteTransfer(del);
+    };
     $("stmt-close").onclick = function () { state.stmt = null; el.hidden = true; renderCapital(); };
     $("stmt-csv").onclick = function () { downloadCSV("nalagola-" + k + "-" + state.month + ".csv", csv[0], csv.slice(1)); };
   }
@@ -1066,15 +1069,13 @@
     toast(editing ? "Transfer updated" : inr.format(p2.amount) + " moved from " + ACCT[p2.from_account] + " to " + ACCT[p2.to_account]);
     loadMonth();
   });
-  $("tr-list").addEventListener("click", async function (e) {
-    var ed = e.target.getAttribute("data-edittr"); if (ed) { editTransfer(ed); return; }
-    var id = e.target.getAttribute("data-deltr"); if (!id) return;
+  async function deleteTransfer(id) {
     var t = state.transfers.find(function (x) { return x.id === id; });
     if (!confirm("Delete the transfer of " + inr2.format(t.amount) + " from " + ACCT[t.from_account] + " to " + ACCT[t.to_account] + " on " + fmtDate(t.transfer_date) + "?")) return;
     var r = await sb.from("account_transfers").delete().eq("id", id);
     if (r.error) { toast("Couldn't delete: " + r.error.message); return; }
     toast("Transfer deleted"); loadMonth();
-  });
+  }
 
   // Opening balances: editable until frozen, read-only after
   $("ob-open").addEventListener("click", function () {
