@@ -209,10 +209,30 @@
   .sub-card { margin-top: 18px; }
   #book-table td:first-child, #book-table td.actions { white-space: nowrap; }
   #book-table td { vertical-align: middle; }
+  #book-table { font-size: 0.82rem; }
+  #book-table th { font-size: 0.66rem; letter-spacing: 0.05em; }
+  .bd-grid { position: sticky; left: 0; }
+  #book-table td:first-child .tag { display: block; width: max-content; margin-top: 3px; }
+  #book-table th:first-child, #book-table tbody tr:not(.book-detail) td:first-child, #book-table tfoot td:first-child { position: sticky; left: 0; z-index: 1; background: var(--panel); }
+  #book-table tbody tr:not(.book-detail):hover td:first-child { background: var(--panel-2); }
+  #book-table tr.mm-row td:first-child { background: #2a1519; }
+  .upload-card { margin-top: 18px; display: grid; grid-template-columns: 300px 1fr; gap: 0 18px; align-items: start; }
+  .upload-card h2, .upload-card .hint { grid-column: 1 / -1; }
+  .upload-card .drop { grid-column: 1; }
+  .upload-card .preview { grid-column: 2; margin-top: 0; }
+  @media (max-width: 760px) { .upload-card { grid-template-columns: 1fr; } .upload-card .preview { grid-column: 1; margin-top: 14px; } }
+  .date-link { cursor: pointer; border-bottom: 1px dotted var(--line-strong); }
+  .date-link:hover { color: var(--gold); }
+  #month-table tbody tr { cursor: pointer; }
+  tr.sub-row > td { background: var(--panel-2); padding: 12px 16px; }
+  tr.sub-row:hover > td { background: var(--panel-2); }
+  .sub-table { width: 100%; font-size: 0.84rem; }
+  .sub-table td, .sub-table th { padding: 6px 8px; }
+  .sub-table th { position: static; background: transparent; }
   #book-table th { white-space: normal; line-height: 1.3; }
-  #book-table th, #book-table td { padding-left: 7px; padding-right: 7px; }
+  #book-table th, #book-table td { padding-left: 5px; padding-right: 5px; }
   #book-table .icon-btn { white-space: normal; text-align: right; }
-  .cell-in { width: 92px; padding: 6px 7px; font-size: 0.86rem; text-align: right; border-radius: 8px; font-variant-numeric: tabular-nums; }
+  .cell-in { width: 88px; padding: 6px 6px; font-size: 0.86rem; text-align: right; border-radius: 8px; font-variant-numeric: tabular-nums; }
   .cell-in.saving { border-color: var(--gold); }
   tr.book-detail > td { background: var(--panel-2); padding: 16px; }
   tr.book-detail:hover > td { background: var(--panel-2); }
@@ -303,7 +323,7 @@
     </section>
 
     <nav class="tabs" role="tablist">
-      <button class="tab" role="tab" data-tab="sales" aria-selected="true">Daily sales</button>
+      <button class="tab" role="tab" data-tab="sales" aria-selected="true">Monthly dashboard</button>
       <button class="tab" role="tab" data-tab="book" aria-selected="false">Daily ledger</button>
       <button class="tab" role="tab" data-tab="dues" aria-selected="false">Dues</button>
       <button class="tab" role="tab" data-tab="expenses" aria-selected="false">Expenses</button>
@@ -312,28 +332,15 @@
       <button class="tab" role="tab" data-tab="indent" aria-selected="false">Indent</button>
     </nav>
 
-    <!-- ===== Daily sales (stock report upload) ===== -->
+    <!-- ===== Monthly dashboard ===== -->
     <section id="pane-sales">
-      <div class="panel">
-        <div class="card">
-          <h2>Upload day's stock report</h2>
-          <p class="hint">The Excel sheet with Opening, Stock In, Stock Out and Closing for each item. Stock Out × MRP becomes the day's sales; Stock Out × cost price gives the profit.</p>
-          <label class="drop" id="rep-drop">
-            <input type="file" id="rep-file" accept=".xlsx,.xls,.csv">
-            <b>Choose file or drop it here</b>
-            <span>.xlsx, .xls or .csv</span>
-          </label>
-          <div id="rep-preview" class="preview" hidden></div>
+      <div class="card sub-card">
+        <div class="list-head">
+          <h2>Month by month</h2>
+          <span class="list-total">Click a month to open it</span>
         </div>
-        <div class="card">
-          <div class="list-head">
-            <h2 id="rep-title">Reports</h2>
-            <span class="list-total" id="stock-on-hand"></span>
-          </div>
-          <div class="table-wrap"><table id="rep-table"></table></div>
-        </div>
+        <div class="table-wrap"><table id="month-table"></table></div>
       </div>
-      <div class="card detail" id="rep-detail" hidden></div>
     </section>
 
     <!-- ===== Expenses / supplier payments (manual) ===== -->
@@ -399,7 +406,7 @@
             <label>Type
               <select id="d-type">
                 <option value="credit">Credit given (sold on udhaar)</option>
-                <option value="payment">Payment received</option>
+                <option value="payment">Dues collected</option>
               </select>
             </label>
             <label>Customer name <input type="text" id="d-name" list="dl-customers" autocomplete="off" required></label>
@@ -416,8 +423,8 @@
             <h2 id="cust-title">Customers</h2>
             <span class="list-total">Outstanding <b id="dues-total">₹0</b></span>
             <div class="seg" id="cust-filter">
-              <button type="button" data-f="open" aria-pressed="true">Owing</button>
-              <button type="button" data-f="all" aria-pressed="false">All</button>
+              <button type="button" data-f="all" aria-pressed="true">All</button>
+              <button type="button" data-f="open" aria-pressed="false">Owing</button>
             </div>
           </div>
           <div class="table-wrap"><table id="cust-table"></table></div>
@@ -443,14 +450,26 @@
 
     <!-- ===== Daily ledger ===== -->
     <section id="pane-book" hidden>
+      <div class="card upload-card">
+          <h2>Upload day's stock report</h2>
+          <p class="hint">The Excel sheet with Opening, Stock In, Stock Out and Closing for each item. Stock Out × MRP becomes the day's sales; Stock Out × cost price gives the profit.</p>
+          <label class="drop" id="rep-drop">
+            <input type="file" id="rep-file" accept=".xlsx,.xls,.csv">
+            <b>Choose file or drop it here</b>
+            <span>.xlsx, .xls or .csv</span>
+          </label>
+          <div id="rep-preview" class="preview" hidden></div>
+        </div>
       <div class="card sub-card">
         <div class="list-head">
           <h2 id="book-title">Daily ledger</h2>
+          <span class="list-total" id="stock-on-hand"></span>
           <button class="ghost" id="book-csv" type="button">Export CSV</button>
         </div>
-        <p class="hint">Mismatch = total sales + previous day's balance + dues collected − credit given − expenses − cash collected − online received − remaining balance. It should be ₹0 every day; anything else shows in red. Type cash, online and remaining balance straight into the row. Use <b>Expenses &amp; dues</b> on a row to add that day's expenses, dues collected and credit given. Each day's previous balance is the remaining balance from the day before.</p>
+        <p class="hint">Mismatch = total sales + previous day's balance + bar counter collection + dues collected − credit given − expenses − cash collected − online received − remaining balance. It should be ₹0 every day; anything else shows in red. Type bar counter, cash, online and remaining balance straight into the row. Click a date to see that day's items. Use <b>Details</b> on a row to add that day's expenses, dues collected and credit given. Each day's previous balance is the remaining balance from the day before.</p>
         <div class="table-wrap"><table id="book-table"></table></div>
       </div>
+      <div class="card detail" id="rep-detail" hidden></div>
     </section>
 
     <p class="note">Profit uses cost of goods sold: what each bottle sold cost you, taken from the cost price list at the time the report was uploaded. Supplier payments are a record of money paid out and aren't subtracted again, since the stock cost is already counted when the bottles sell.</p>
@@ -550,7 +569,8 @@
     reports: [], cats: [], ledger: { expenses: [], purchases: [] },
     items: [], itemsFilter: "all",
     mismatches: [], missingDays: [], book: [], dues: [],
-    custFilter: "open", custSel: null, duesEditing: null, bookOpen: null,
+    custFilter: "all", custSel: null, duesEditing: null, bookOpen: null, expOpen: null,
+    allReports: [], allExp: [], allBook: [],
     editing: null, pending: null, pendingCost: null, detailDate: null, detailRows: [], detailFilter: "sold"
   };
 
@@ -689,6 +709,7 @@
     if (LEDGERS[tab]) { renderForm(); renderLedger(); }
     if (tab === "dues") { resetDuesForm(); renderDues(); }
     if (tab === "book") renderBook();
+    if (tab === "sales") renderMonths();
     $("ledger-form-card").hidden = tab === "expenses";
     $("ledger-cat-card").hidden = tab !== "expenses";
   }
@@ -705,7 +726,10 @@
       fetchAll(function () { return sb.from("stock_mismatches").select("*").gte("report_date", r[0]).lte("report_date", r[1]).order("report_date").order("item_name"); }),
       Promise.resolve({ data: [], error: null }),
       sb.from("daily_ledger").select("*").gte("ledger_date", addDays(r[0], -1)).lte("ledger_date", r[1]).order("ledger_date"),
-      fetchAll(function () { return sb.from("customer_dues").select("*").order("entry_date", { ascending: false }).order("created_at", { ascending: false }); })
+      fetchAll(function () { return sb.from("customer_dues").select("*").order("entry_date", { ascending: false }).order("created_at", { ascending: false }); }),
+      fetchAll(function () { return sb.from("daily_report_summary").select("report_date,units_sold,sales_value,cost_value,gross_profit,closing_value_cost,missing_costs").order("report_date"); }),
+      fetchAll(function () { return sb.from("expenses").select("expense_date,amount").order("expense_date"); }),
+      fetchAll(function () { return sb.from("daily_ledger").select("ledger_date,bar_collection").order("ledger_date"); })
     ]);
     if (q.some(function (x) { return x.error; })) toast("Some data couldn't load. Try reloading the page.");
     state.reports = q[0].data || [];
@@ -716,7 +740,11 @@
     state.missingDays = (q[5].data || []).map(function (x) { return x.report_date; }).filter(function (d) { return d <= todayISO(); });
     state.book = q[6].data || [];
     state.dues = q[7].data || [];
+    state.allReports = q[8].data || [];
+    state.allExp = q[9].data || [];
+    state.allBook = q[10].data || [];
     renderSummary(); renderReports(); renderChecks();
+    if (state.tab === "sales") renderMonths();
     if (LEDGERS[state.tab]) renderLedger();
     if (state.tab === "dues") renderDues();
     if (state.tab === "book") renderBook();
@@ -772,45 +800,55 @@
   function mismatchCount(date) { return state.mismatches.filter(function (m) { return m.report_date === date; }).length; }
 
   function renderReports() {
-    var tbl = $("rep-table");
-    $("rep-title").textContent = "Reports in " + new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
     var latest = state.reports[0];
     $("stock-on-hand").innerHTML = latest ? "Stock on hand (" + fmtDate(latest.report_date) + "): <b>" + inr.format(latest.closing_value_cost) + "</b> at cost" : "";
-    if (!state.reports.length) { tbl.innerHTML = '<tr><td class="empty">No reports for this month yet. Upload the first one on the left.</td></tr>'; return; }
-    var expByDate = expensesByDate();
-    var tot = { u: 0, s: 0, c: 0, g: 0, e: 0 };
-    var rows = state.reports.map(function (r) { return { date: r.report_date, r: r }; });
-    var body = rows.map(function (row) {
-      var r = row.r, e = expByDate[r.report_date] || 0, net = Number(r.gross_profit) - e, mm = mismatchCount(r.report_date);
-      tot.u += Number(r.units_sold); tot.s += Number(r.sales_value); tot.c += Number(r.cost_value); tot.g += Number(r.gross_profit); tot.e += e;
-      return '<tr class="' + (state.detailDate === r.report_date ? "sel" : "") + '"><td>' + fmtDate(r.report_date) +
-        (mm ? ' <span class="tag bad" data-mismatch="' + r.report_date + '" title="Opening stock differs from the previous day\'s closing">' + mm + " mismatch" + (mm > 1 ? "es" : "") + "</span>" : "") +
-        (r.missing_costs > 0 ? ' <span class="tag warn" title="Items without a cost price">' + r.missing_costs + " no cost</span>" : "") + "</td>" +
-        '<td class="num">' + num.format(r.units_sold) + "</td>" +
-        '<td class="num">' + inr.format(r.sales_value) + "</td>" +
-        '<td class="num">' + inr.format(r.gross_profit) + "</td>" +
-        '<td class="num">' + pct(r.gross_profit, r.sales_value) + "</td>" +
-        '<td class="num">' + (e ? inr.format(e) : "–") + "</td>" +
-        '<td class="num ' + (net >= 0 ? "pos" : "neg") + '">' + inr.format(net) + "</td>" +
-        '<td class="actions"><button class="icon-btn" data-view="' + r.report_date + '">View</button></td></tr>';
-    }).join("");
-    var tn = tot.g - tot.e;
-    tbl.innerHTML = '<thead><tr><th>Date</th><th class="num">Bottles</th><th class="num">Sales</th><th class="num">Gross profit</th><th class="num">Margin</th><th class="num">Expenses</th><th class="num">Net</th><th></th></tr></thead>' +
-      "<tbody>" + body + "</tbody>" +
-      '<tfoot><tr><td>Total</td><td class="num">' + num.format(tot.u) + '</td><td class="num">' + inr.format(tot.s) + '</td><td class="num">' + inr.format(tot.g) +
-      '</td><td class="num">' + pct(tot.g, tot.s) + '</td><td class="num">' + inr.format(tot.e) + '</td><td class="num ' + (tn >= 0 ? "pos" : "neg") + '">' + inr.format(tn) + "</td><td></td></tr></tfoot>";
   }
+
+  function renderMonths() {
+    var tbl = $("month-table"), t = todayISO().slice(0, 7), m = {};
+    var bucket = function (k) { return m[k] || (m[k] = { days: 0, units: 0, sales: 0, gp: 0, exp: 0, bar: 0, stock: null, stockDate: "" }); };
+    state.allReports.forEach(function (r) {
+      var x = bucket(r.report_date.slice(0, 7));
+      x.days++; x.units += Number(r.units_sold); x.sales += Number(r.sales_value); x.gp += Number(r.gross_profit);
+      if (r.report_date >= x.stockDate) { x.stockDate = r.report_date; x.stock = Number(r.closing_value_cost); }
+    });
+    state.allExp.forEach(function (e) { bucket(e.expense_date.slice(0, 7)).exp += Number(e.amount); });
+    state.allBook.forEach(function (b) { bucket(b.ledger_date.slice(0, 7)).bar += Number(b.bar_collection || 0); });
+    var months = [];
+    for (var k = START_DATE.slice(0, 7); k <= t; ) {
+      months.push(k);
+      var y = +k.slice(0, 4), mo = +k.slice(5, 7) + 1; if (mo > 12) { mo = 1; y++; }
+      k = y + "-" + String(mo).padStart(2, "0");
+    }
+    Object.keys(m).forEach(function (k) { if (months.indexOf(k) < 0) months.push(k); });
+    months.sort().reverse();
+    var T = { days: 0, units: 0, sales: 0, gp: 0, exp: 0, bar: 0 };
+    var body = months.map(function (k) {
+      var x = m[k] || bucket(k), net = x.gp - x.exp;
+      T.days += x.days; T.units += x.units; T.sales += x.sales; T.gp += x.gp; T.exp += x.exp; T.bar += x.bar;
+      return '<tr data-month="' + k + '" class="' + (k === state.month ? "sel" : "") + '"><td>' +
+        new Date(k + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" }) + "</td>" +
+        '<td class="num">' + x.days + '</td><td class="num">' + num.format(x.units) + '</td><td class="num">' + inr.format(x.sales) +
+        '</td><td class="num">' + inr.format(x.gp) + '</td><td class="num">' + pct(x.gp, x.sales) + '</td><td class="num">' + inr.format(x.exp) +
+        '</td><td class="num ' + (net >= 0 ? "pos" : "neg") + '">' + inr.format(net) + '</td><td class="num">' + inr.format(x.bar) +
+        '</td><td class="num">' + (x.stock == null ? "–" : inr.format(x.stock)) + "</td></tr>";
+    }).join("");
+    var tn = T.gp - T.exp;
+    tbl.innerHTML = '<thead><tr><th>Month</th><th class="num">Days reported</th><th class="num">Bottles</th><th class="num">Sales</th><th class="num">Gross profit</th>' +
+      '<th class="num">Margin</th><th class="num">Expenses</th><th class="num">Net profit</th><th class="num">Bar counter</th><th class="num">Stock at month end</th></tr></thead>' +
+      "<tbody>" + body + '</tbody><tfoot><tr><td>Total</td><td class="num">' + T.days + '</td><td class="num">' + num.format(T.units) + '</td><td class="num">' + inr.format(T.sales) +
+      '</td><td class="num">' + inr.format(T.gp) + '</td><td class="num">' + pct(T.gp, T.sales) + '</td><td class="num">' + inr.format(T.exp) + '</td><td class="num ' + (tn >= 0 ? "pos" : "neg") + '">' +
+      inr.format(tn) + '</td><td class="num">' + inr.format(T.bar) + "</td><td></td></tr></tfoot>";
+  }
+  $("month-table").addEventListener("click", function (e) {
+    var tr = e.target.closest("tr[data-month]"); if (!tr) return;
+    state.month = tr.dataset.month; $("month").value = state.month; state.detailDate = null; loadMonth();
+  });
 
   async function showMismatches(date) {
-    selectTab("sales"); state.detailFilter = "mismatch"; await openDetail(date);
+    selectTab("book"); state.detailFilter = "mismatch"; await openDetail(date);
     $("rep-detail").scrollIntoView({ behavior: "smooth", block: "start" });
   }
-
-  $("rep-table").addEventListener("click", async function (e) {
-    var v = e.target.getAttribute("data-view"), m = e.target.getAttribute("data-mismatch");
-    if (v) { state.detailFilter = "sold"; await openDetail(v); $("rep-detail").scrollIntoView({ behavior: "smooth", block: "start" }); }
-    if (m) showMismatches(m);
-  });
 
   async function openDetail(date) {
     state.detailDate = date;
@@ -907,7 +945,7 @@
   $("checks").addEventListener("click", function (e) {
     var mm = e.target.getAttribute("data-check-mm"), bk = e.target.getAttribute("data-check-book");
     if (mm) showMismatches(mm);
-    if (e.target.getAttribute("data-check-up")) { selectTab("sales"); $("rep-drop").scrollIntoView({ behavior: "smooth", block: "center" }); }
+    if (e.target.getAttribute("data-check-up")) { selectTab("book"); $("rep-drop").scrollIntoView({ behavior: "smooth", block: "center" }); }
     if (bk) selectTab("book");
   });
 
@@ -940,32 +978,43 @@
     var shown = state.custFilter === "open" ? list.filter(function (c) { return c.balance > 0.5; }) : list;
     $("cust-title").textContent = list.filter(function (c) { return c.balance > 0.5; }).length + " customer" + (list.length === 1 ? "" : "s") + " owing";
     var ct = $("cust-table");
-    ct.innerHTML = !shown.length ? '<tr><td class="empty">' + (list.length ? "Nobody owes anything right now." : "No credit recorded yet.") + "</td></tr>" :
-      '<thead><tr><th>Customer</th><th>Phone</th><th class="num">Credit</th><th class="num">Paid</th><th class="num">Balance</th><th>Last entry</th></tr></thead><tbody>' +
+    ct.innerHTML = !shown.length ? '<tr><td class="empty">' + (list.length ? "Nobody owes anything right now." : "No dues recorded yet.") + "</td></tr>" :
+      '<thead><tr><th>Customer</th><th>Phone</th><th class="num">Credit given</th><th class="num">Collected</th><th class="num">Balance</th><th>Last entry</th></tr></thead><tbody>' +
       shown.map(function (c) {
-        return '<tr class="' + (state.custSel === c.key ? "sel" : "") + '"><td><span class="clickable" data-cust="' + esc(c.key) + '">' + esc(c.name) + "</span></td><td>" + esc(c.phone) +
+        var open = state.custSel === c.key;
+        var row = '<tr class="' + (open ? "sel" : "") + '"><td><span class="clickable" data-cust="' + esc(c.key) + '">' + esc(c.name) + "</span></td><td>" + esc(c.phone) +
           '</td><td class="num">' + inr2.format(c.credit) + '</td><td class="num">' + inr2.format(c.paid) + '</td><td class="num ' + (c.balance > 0.5 ? "neg" : "pos") + '">' +
           inr2.format(c.balance) + "</td><td>" + fmtDate(c.last) + "</td></tr>";
+        if (open) {
+          var hist = state.dues.filter(function (d) { return custKey(d.customer_name) === c.key; })
+            .sort(function (a, b) { return a.entry_date < b.entry_date ? 1 : -1; });
+          row += '<tr class="sub-row"><td colspan="6"><table class="sub-table"><thead><tr><th>Date</th><th>Type</th><th class="num">Amount</th><th>Note</th><th></th></tr></thead><tbody>' +
+            hist.map(function (d) {
+              return "<tr><td>" + fmtLong(d.entry_date) + "</td><td>" + (d.entry_type === "credit" ? '<span class="tag warn">Credit given</span>' : '<span class="tag ok">Collected</span>') +
+                '</td><td class="num">' + inr2.format(d.amount) + "</td><td>" + esc(d.note) + '</td><td class="actions"><button class="icon-btn" data-dedit="' + d.id +
+                '">Edit</button><button class="icon-btn del" data-ddel="' + d.id + '">Delete</button></td></tr>';
+            }).join("") + "</tbody></table></td></tr>";
+        }
+        return row;
       }).join("") + "</tbody>";
 
     var r = monthRange(state.month), sel = state.custSel;
-    var entries = sel ? state.dues.filter(function (d) { return custKey(d.customer_name) === sel; })
-                      : state.dues.filter(function (d) { return d.entry_date >= r[0] && d.entry_date <= r[1]; });
-    var selName = sel ? (list.find(function (c) { return c.key === sel; }) || {}).name : "";
-    $("dues-list-title").textContent = sel ? "All entries for " + selName : "Entries in " + new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
-    $("dues-clear").hidden = !sel;
+    var entries = state.dues.filter(function (d) { return d.entry_date >= r[0] && d.entry_date <= r[1]; });
+    $("dues-list-title").textContent = "All entries in " + new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    $("dues-clear").hidden = true;
     var dt = $("dues-table");
     dt.innerHTML = !entries.length ? '<tr><td class="empty">No entries.</td></tr>' :
       '<thead><tr><th>Date</th><th>Customer</th><th>Type</th><th class="num">Amount</th><th>Note</th><th></th></tr></thead><tbody>' +
       entries.map(function (d) {
         return "<tr><td>" + fmtDate(d.entry_date) + "</td><td>" + esc(d.customer_name) + "</td><td>" +
-          (d.entry_type === "credit" ? '<span class="tag warn">Credit given</span>' : '<span class="tag ok">Payment received</span>') +
+          (d.entry_type === "credit" ? '<span class="tag warn">Credit given</span>' : '<span class="tag ok">Collected</span>') +
           '</td><td class="num">' + inr2.format(d.amount) + "</td><td>" + esc(d.note) + '</td><td class="actions"><button class="icon-btn" data-dedit="' + d.id +
           '">Edit</button><button class="icon-btn del" data-ddel="' + d.id + '">Delete</button></td></tr>';
       }).join("") + "</tbody>";
   }
 
   $("cust-table").addEventListener("click", function (e) {
+    if (e.target.getAttribute("data-dedit") || e.target.getAttribute("data-ddel")) { duesRowAction(e); return; }
     var k = e.target.getAttribute("data-cust"); if (k == null) return;
     state.custSel = state.custSel === k ? null : k; resetDuesForm(); renderDues();
   });
@@ -996,7 +1045,8 @@
     resetDuesForm(); await loadMonth();
   });
 
-  $("dues-table").addEventListener("click", async function (e) {
+  $("dues-table").addEventListener("click", function (e) { duesRowAction(e); });
+  async function duesRowAction(e) {
     var ed = e.target.getAttribute("data-dedit"), del = e.target.getAttribute("data-ddel");
     if (ed) {
       var d = state.dues.find(function (x) { return x.id === ed; });
@@ -1014,7 +1064,7 @@
       if (state.duesEditing === del) resetDuesForm();
       toast("Deleted"); loadMonth();
     }
-  });
+  }
 
   $("dues-csv").addEventListener("click", function () {
     var list = customers();
@@ -1037,11 +1087,12 @@
     var prev = null;
     if (date === START_DATE) prev = entry && entry.opening_balance != null ? Number(entry.opening_balance) : null;
     else if (prevEntry) prev = Number(prevEntry.shop_balance);
-    var expected = (prev || 0) + sales + duesIn - credit - exp;
+    var bar = entry ? Number(entry.bar_collection || 0) : 0;
+    var expected = (prev || 0) + sales + bar + duesIn - credit - exp;
     var actual = entry ? Number(entry.cash_collection) + Number(entry.online_received) + Number(entry.shop_balance) : null;
-    return { date: date, entry: entry, hasReport: !!rep, prev: prev, sales: sales, duesIn: duesIn, credit: credit, exp: exp,
+    return { date: date, entry: entry, hasReport: !!rep, rep: rep || null, prev: prev, sales: sales, bar: bar, duesIn: duesIn, credit: credit, exp: exp,
       expected: expected, actual: actual, diff: entry ? actual - expected : null,
-      // Mismatch = sales + previous balance + dues received − credit − expenses − cash − online − remaining balance. Should be 0.
+      // Mismatch = sales + previous balance + bar counter + dues received − credit − expenses − cash − online − remaining balance. Should be 0.
       mismatch: entry ? expected - actual : null };
   }
 
@@ -1052,10 +1103,11 @@
     var b = bookRow(date), tr = document.querySelector('#book-table tr[data-row="' + date + '"]');
     if (!tr) return null;
     var val = function (f) { var i = tr.querySelector('input[data-f="' + f + '"]'); return i ? i.value : ""; };
-    var any = ["cash_collection", "online_received", "shop_balance"].some(function (f) { return val(f) !== ""; });
+    var any = ["cash_collection", "online_received", "shop_balance", "bar_collection"].some(function (f) { return val(f) !== ""; });
     if (!any && !b.entry) return null;
     var prev = date === START_DATE ? toNum(val("opening_balance")) : (b.prev || 0);
-    return prev + b.sales + b.duesIn - b.credit - b.exp - toNum(val("cash_collection")) - toNum(val("online_received")) - toNum(val("shop_balance"));
+    return prev + b.sales + toNum(val("bar_collection")) + b.duesIn - b.credit - b.exp -
+      toNum(val("cash_collection")) - toNum(val("online_received")) - toNum(val("shop_balance"));
   }
   function mismatchCell(m) {
     if (m == null) return '<span class="tag">not entered</span>';
@@ -1074,38 +1126,48 @@
     if (!days.length) { tbl.innerHTML = '<tr><td class="empty">The ledger starts on ' + fmtLong(START_DATE) + ".</td></tr>"; return; }
     // Keep focus on the box being typed in across re-renders
     var ae = document.activeElement, keep = ae && ae.classList && ae.classList.contains("cell-in") ? { d: ae.dataset.d, f: ae.dataset.f } : null;
-    var t = { s: 0, e: 0, di: 0, cr: 0, cash: 0, on: 0, m: 0 };
+    var t = { s: 0, g: 0, e: 0, bar: 0, di: 0, cr: 0, cash: 0, on: 0, m: 0 };
     var money = function (v) { return v ? inr.format(v) : "–"; };
     var inp = function (d, f, v) {
       return '<input class="cell-in" type="number" step="0.01" min="0" inputmode="decimal" data-d="' + d + '" data-f="' + f + '" value="' + (v == null ? "" : esc(v)) + '" placeholder="0">';
     };
     var body = days.map(function (d) {
-      var b = bookRow(d), e = b.entry;
-      t.s += b.sales; t.e += b.exp; t.di += b.duesIn; t.cr += b.credit;
-      if (e) { t.cash += Number(e.cash_collection); t.on += Number(e.online_received); t.m += b.mismatch; }
+      var b = bookRow(d), e = b.entry, gp = b.rep ? Number(b.rep.gross_profit) : 0, net = gp - b.exp, mm = mismatchCount(d);
+      t.s += b.sales; t.g += gp; t.e += b.exp; t.di += b.duesIn; t.cr += b.credit;
+      if (e) { t.cash += Number(e.cash_collection); t.on += Number(e.online_received); t.bar += b.bar; t.m += b.mismatch; }
       var bad = e && Math.abs(b.mismatch) >= 0.5, open = state.bookOpen === d;
       var prevCell = d === START_DATE ? inp(d, "opening_balance", e ? e.opening_balance : "") :
         (b.prev == null ? '<span title="Previous day not entered yet">–</span>' : inr.format(b.prev));
-      var row = '<tr data-row="' + d + '" class="' + (bad ? "mm-row" : "") + '"><td>' + fmtDate(d) + "</td>" +
+      var dateCell = (b.hasReport ? '<span class="date-link" data-view="' + d + '" title="See this day\'s items">' + fmtDate(d) + "</span>" : fmtDate(d)) +
+        (mm ? ' <span class="tag bad" data-mismatch="' + d + '" title="Opening stock differs from the previous day\'s closing">' + mm + " stock</span>" : "");
+      var row = '<tr data-row="' + d + '" class="' + (bad ? "mm-row" : "") + '"><td>' + dateCell + "</td>" +
         '<td class="num">' + money(b.sales) + "</td>" +
-        '<td class="num">' + prevCell + "</td>" +
+        '<td class="num">' + money(gp) + "</td>" +
         '<td class="num">' + money(b.exp) + "</td>" +
+        '<td class="num ' + (net < 0 ? "neg" : "") + '">' + (b.hasReport || b.exp ? inr.format(net) : "–") + "</td>" +
+        '<td class="num">' + prevCell + "</td>" +
+        '<td class="num">' + inp(d, "bar_collection", e ? e.bar_collection : "") + "</td>" +
         '<td class="num">' + money(b.duesIn) + "</td>" +
         '<td class="num">' + money(b.credit) + "</td>" +
         '<td class="num">' + inp(d, "cash_collection", e ? e.cash_collection : "") + "</td>" +
         '<td class="num">' + inp(d, "online_received", e ? e.online_received : "") + "</td>" +
         '<td class="num">' + inp(d, "shop_balance", e ? e.shop_balance : "") + "</td>" +
         '<td class="num mm-cell">' + mismatchCell(e ? b.mismatch : null) + "</td>" +
-        '<td class="actions"><button class="icon-btn" data-bopen="' + d + '">' + (open ? "Hide" : "Expenses &amp; dues") + "</button></td></tr>";
+        '<td class="actions"><button class="icon-btn" data-bopen="' + d + '">' + (open ? "Hide" : "Details") + "</button></td></tr>";
       if (open) row += detailRow(d);
       return row;
     }).join("");
-    tbl.innerHTML = '<thead><tr><th>Date</th><th class="num">Total sales</th><th class="num">Prev day balance</th><th class="num">Expenses</th>' +
-      '<th class="num">Dues collected</th><th class="num">Credit given</th><th class="num">Cash collected</th><th class="num">Online received</th>' +
-      '<th class="num">Remaining balance</th><th class="num">Mismatch</th><th></th></tr></thead><tbody>' + body + "</tbody>" +
-      '<tfoot><tr><td>Total</td><td class="num">' + inr.format(t.s) + '</td><td></td><td class="num">' + inr.format(t.e) + '</td><td class="num">' + inr.format(t.di) +
+    var tn = t.g - t.e;
+    tbl.innerHTML = '<thead><tr><th>Date</th><th class="num">Sales</th><th class="num">Gross profit</th><th class="num">Expenses</th><th class="num">Net profit</th>' +
+      '<th class="num">Prev day balance</th><th class="num">Bar counter</th><th class="num">Dues collected</th><th class="num">Credit given</th>' +
+      '<th class="num">Cash collected</th><th class="num">Online received</th><th class="num">Remaining balance</th><th class="num">Mismatch</th><th></th></tr></thead><tbody>' + body + "</tbody>" +
+      '<tfoot><tr><td>Total</td><td class="num">' + inr.format(t.s) + '</td><td class="num">' + inr.format(t.g) + '</td><td class="num">' + inr.format(t.e) +
+      '</td><td class="num ' + (tn < 0 ? "neg" : "pos") + '">' + inr.format(tn) + '</td><td></td><td class="num">' + inr.format(t.bar) + '</td><td class="num">' + inr.format(t.di) +
       '</td><td class="num">' + inr.format(t.cr) + '</td><td class="num">' + inr.format(t.cash) + '</td><td class="num">' + inr.format(t.on) +
       '</td><td></td><td class="num ' + (Math.abs(t.m) >= 0.5 ? "neg" : "pos") + '">' + inr2.format(Math.abs(t.m) >= 0.5 ? t.m : 0) + "</td><td></td></tr></tfoot>";
+    // Keep the expenses & dues panel in view when the table scrolls sideways
+    var wrap = tbl.closest(".table-wrap");
+    document.querySelectorAll("#book-table .bd-grid").forEach(function (g) { g.style.width = Math.max(260, wrap.clientWidth - 34) + "px"; });
     if (keep) {
       var el = document.querySelector('.cell-in[data-d="' + keep.d + '"][data-f="' + keep.f + '"]');
       if (el) { el.focus(); try { el.select(); } catch (x) {} }
@@ -1123,7 +1185,7 @@
       return '<div class="it"><span>' + esc(x.customer_name) + " · " + (x.entry_type === "payment" ? '<span class="pos">collected</span>' : '<span class="warn-t">credit given</span>') +
         "</span><span>" + inr2.format(x.amount) + '</span><button class="x-btn" data-deldue="' + x.id + '">Delete</button></div>';
     }).join("") : '<div class="none">No dues collected or credit given this day.</div>';
-    return '<tr class="book-detail"><td colspan="11"><div class="bd-grid">' +
+    return '<tr class="book-detail"><td colspan="14"><div class="bd-grid">' +
       '<div class="bd-box"><h3>Expenses on ' + fmtDate(d) + "</h3><div class=\"bd-list\">" + expList + "</div>" +
         '<form class="bd-add" data-addexp="' + d + '">' +
           "<select name=\"category\">" + EXP_CATS.map(function (c) { return "<option>" + esc(c) + "</option>"; }).join("") + "</select>" +
@@ -1148,10 +1210,10 @@
     var d = el.dataset.d, tr = el.closest("tr");
     var val = function (f) { var i = tr.querySelector('input[data-f="' + f + '"]'); return i ? i.value : ""; };
     var entry = bookRow(d).entry;
-    var allEmpty = ["cash_collection", "online_received", "shop_balance", "opening_balance"].every(function (f) { return val(f) === ""; });
+    var allEmpty = ["cash_collection", "online_received", "shop_balance", "opening_balance", "bar_collection"].every(function (f) { return val(f) === ""; });
     if (allEmpty && !entry) return;
     var payload = { ledger_date: d, cash_collection: toNum(val("cash_collection")), online_received: toNum(val("online_received")),
-      shop_balance: toNum(val("shop_balance")), updated_at: new Date().toISOString() };
+      shop_balance: toNum(val("shop_balance")), bar_collection: toNum(val("bar_collection")), updated_at: new Date().toISOString() };
     if (d === START_DATE) payload.opening_balance = toNum(val("opening_balance"));
     el.classList.add("saving");
     var r = await sb.from("daily_ledger").upsert(payload, { onConflict: "ledger_date" });
@@ -1159,6 +1221,8 @@
     if (r.error) { toast("Couldn't save " + fmtDate(d) + ": " + r.error.message); return; }
     var i = state.book.findIndex(function (b) { return b.ledger_date === d; });
     if (i >= 0) state.book[i] = Object.assign({}, state.book[i], payload); else state.book.push(payload);
+    var j = state.allBook.findIndex(function (b) { return b.ledger_date === d; });
+    if (j >= 0) state.allBook[j].bar_collection = payload.bar_collection; else state.allBook.push({ ledger_date: d, bar_collection: payload.bar_collection });
     renderBook(); // next day's previous balance and mismatch move with it
   });
   $("book-table").addEventListener("keydown", function (e) {
@@ -1167,6 +1231,9 @@
 
   $("book-table").addEventListener("click", async function (e) {
     var o = e.target.getAttribute("data-bopen"), de = e.target.getAttribute("data-delexp"), dd = e.target.getAttribute("data-deldue");
+    var v = e.target.getAttribute("data-view"), mm = e.target.getAttribute("data-mismatch");
+    if (v) { state.detailFilter = "sold"; await openDetail(v); $("rep-detail").scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+    if (mm) { showMismatches(mm); return; }
     if (o) { state.bookOpen = state.bookOpen === o ? null : o; renderBook(); }
     if (de) {
       var x = state.ledger.expenses.find(function (y) { return y.id === de; });
@@ -1209,9 +1276,9 @@
     var days = monthDays();
     if (!days.length) { toast("Nothing to export."); return; }
     downloadCSV("nalagola-ledger-" + state.month + ".csv",
-      ["Date", "Total sales", "Previous day balance", "Expenses", "Dues collected", "Credit given", "Cash collected", "Online received", "Remaining balance", "Mismatch"],
-      days.map(function (d) { var b = bookRow(d), e = b.entry;
-        return [d, b.sales, b.prev, b.exp, b.duesIn, b.credit, e && e.cash_collection, e && e.online_received, e && e.shop_balance, b.mismatch]; }));
+      ["Date", "Sales", "Gross profit", "Expenses", "Net profit", "Previous day balance", "Bar counter", "Dues collected", "Credit given", "Cash collected", "Online received", "Remaining balance", "Mismatch"],
+      days.map(function (d) { var b = bookRow(d), e = b.entry, gp = b.rep ? Number(b.rep.gross_profit) : 0;
+        return [d, b.sales, gp, b.exp, gp - b.exp, b.prev, e && e.bar_collection, b.duesIn, b.credit, e && e.cash_collection, e && e.online_received, e && e.shop_balance, b.mismatch]; }));
   });
 
   // ---------- Excel reading ----------
@@ -1548,7 +1615,33 @@
     renderForm(); await loadMonth();
   });
 
+  function renderExpensesByDate() {
+    var rows = state.ledger.expenses, tbl = $("entry-table");
+    $("list-title").textContent = "Expenses in " + new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    $("list-total").textContent = inr2.format(sum(rows));
+    if (!rows.length) { tbl.innerHTML = '<tr><td class="empty">No expenses this month yet. Add them from the Daily ledger.</td></tr>'; return; }
+    var by = {};
+    rows.forEach(function (r) { (by[r.expense_date] = by[r.expense_date] || []).push(r); });
+    var dates = Object.keys(by).sort().reverse();
+    tbl.innerHTML = '<thead><tr><th>Date</th><th class="num">Entries</th><th>Categories</th><th class="num">Total</th><th></th></tr></thead><tbody>' +
+      dates.map(function (d) {
+        var list = by[d], open = state.expOpen === d;
+        var cats = groupBy(list, "category").map(function (c) { return c[0]; }).join(", ");
+        var row = '<tr class="' + (open ? "sel" : "") + '"><td><span class="date-link" data-expday="' + d + '">' + fmtDate(d) + '</span></td><td class="num">' + list.length +
+          "</td><td>" + esc(cats) + '</td><td class="num">' + inr2.format(sum(list)) + '</td><td class="actions"><button class="icon-btn" data-expday="' + d + '">' + (open ? "Hide" : "Details") + "</button></td></tr>";
+        if (open) {
+          row += '<tr class="sub-row"><td colspan="5"><table class="sub-table"><thead><tr><th>Category</th><th>Note</th><th class="num">Amount</th><th></th></tr></thead><tbody>' +
+            list.map(function (x) {
+              return "<tr><td>" + esc(x.category) + "</td><td>" + esc(x.description) + '</td><td class="num">' + inr2.format(x.amount) +
+                '</td><td class="actions"><button class="icon-btn del" data-del="' + x.id + '">Delete</button></td></tr>';
+            }).join("") + "</tbody></table></td></tr>";
+        }
+        return row;
+      }).join("") + "</tbody>";
+  }
+
   function renderLedger() {
+    if (state.tab === "expenses") { renderExpensesByDate(); return; }
     var T = LEDGERS[state.tab], rows = state.ledger[state.tab], tbl = $("entry-table");
     $("list-title").textContent = T.plural + " in " + new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
     $("list-total").textContent = inr2.format(sum(rows));
@@ -1566,6 +1659,8 @@
 
   $("entry-table").addEventListener("click", async function (e) {
     var T = LEDGERS[state.tab];
+    var day = e.target.getAttribute("data-expday");
+    if (day) { state.expOpen = state.expOpen === day ? null : day; renderExpensesByDate(); return; }
     var editId = e.target.getAttribute("data-edit"), delId = e.target.getAttribute("data-del");
     if (editId) {
       state.editing = state.ledger[state.tab].find(function (r) { return r.id === editId; });
