@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Our Range | Nalagola CS Shop</title>
-<meta name="description" content="Whisky, beer, rum, vodka, wines, overseas spirits and country spirits at Nalagola CS Shop. Since 1975.">
+<meta name="description" content="Brands, sizes and MRP for whisky, beer, rum, vodka, gin, wines and country spirits at Nalagola CS Shop. Since 1975.">
 <meta property="og:title" content="Our Range | Nalagola CS Shop">
-<meta property="og:description" content="Whisky, beer, rum, vodka, wines, overseas spirits and country spirits. Since 1975.">
+<meta property="og:description" content="Brands, sizes and MRP of everything in stock at Nalagola CS Shop. Since 1975.">
 <meta property="og:image" content="https://nalagolacsshop.com/logo-180.png">
 <meta name="theme-color" content="#1b0d12">
 <link rel="icon" type="image/png" href="favicon.png">
@@ -32,9 +32,9 @@
     --gold-soft: rgba(217, 178, 111, 0.35);
     --text: #f4ece4;
     --muted: #c9b8ae;
-    --card: rgba(20, 8, 12, 0.66);
-    --card-hover: rgba(36, 14, 22, 0.8);
-    --line: rgba(217, 178, 111, 0.26);
+    --card: rgba(20, 8, 12, 0.7);
+    --card-2: rgba(36, 14, 22, 0.75);
+    --line: rgba(217, 178, 111, 0.24);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -47,7 +47,7 @@
     -webkit-font-smoothing: antialiased;
     background-color: var(--bg);
     background-image:
-      linear-gradient(180deg, rgba(27, 13, 18, 0.78) 0%, rgba(27, 13, 18, 0.7) 50%, rgba(12, 5, 8, 0.92) 100%),
+      linear-gradient(180deg, rgba(27, 13, 18, 0.8) 0%, rgba(27, 13, 18, 0.74) 50%, rgba(12, 5, 8, 0.94) 100%),
       url("bg.jpg");
     background-size: cover;
     background-position: center bottom;
@@ -55,170 +55,108 @@
   }
   @media (max-width: 800px) { body { background-attachment: scroll; } }
   a { color: inherit; }
+  [hidden] { display: none !important; }
 
   header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    max-width: 1080px;
-    width: 100%;
-    margin: 0 auto;
-    padding: 18px 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    max-width: 1120px; width: 100%; margin: 0 auto; padding: 18px 16px;
   }
   .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
   .brand img { width: 44px; height: 44px; border-radius: 50%; }
   .brand span { font-family: "Cormorant Garamond", Georgia, serif; font-size: 1.35rem; font-weight: 600; }
-  .home-link {
-    font-size: 0.85rem;
-    color: var(--muted);
-    text-decoration: none;
-    border-bottom: 1px solid transparent;
-  }
+  .home-link { font-size: 0.85rem; color: var(--muted); text-decoration: none; border-bottom: 1px solid transparent; }
   .home-link:hover { color: var(--gold); border-color: var(--gold); }
 
-  main { flex: 1; max-width: 1080px; width: 100%; margin: 0 auto; padding: 24px 16px 48px; }
-  .intro { text-align: center; margin-bottom: 40px; }
-  .eyebrow {
-    font-size: 0.74rem;
-    font-weight: 500;
-    letter-spacing: 0.32em;
-    text-transform: uppercase;
-    color: var(--gold);
-  }
-  h1 {
-    margin-top: 12px;
-    font-family: "Cormorant Garamond", Georgia, serif;
-    font-weight: 600;
-    font-size: clamp(2.2rem, 7vw, 3.6rem);
-    line-height: 1.1;
-  }
-  .intro p.lead { margin-top: 12px; color: var(--muted); font-size: 1rem; line-height: 1.6; }
+  main { flex: 1; max-width: 1120px; width: 100%; margin: 0 auto; padding: 16px 16px 48px; }
+  .intro { text-align: center; margin-bottom: 26px; }
+  .eyebrow { font-size: 0.74rem; font-weight: 500; letter-spacing: 0.32em; text-transform: uppercase; color: var(--gold); }
+  h1 { margin-top: 12px; font-family: "Cormorant Garamond", Georgia, serif; font-weight: 600; font-size: clamp(2.2rem, 7vw, 3.6rem); line-height: 1.1; }
+  .lead { margin-top: 12px; color: var(--muted); font-size: 1rem; line-height: 1.6; }
+  .asof { margin-top: 6px; font-size: 0.8rem; color: var(--muted); opacity: 0.85; }
 
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-    gap: 16px;
+  /* Search + category chips */
+  .tools {
+    position: sticky; top: 0; z-index: 5; padding: 12px 0; margin-bottom: 8px;
+    background: linear-gradient(180deg, rgba(20, 9, 13, 0.97) 70%, rgba(20, 9, 13, 0));
   }
-  .card {
-    display: flex;
-    flex-direction: column;
-    padding: 24px 22px 20px;
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    -webkit-backdrop-filter: blur(6px);
-    backdrop-filter: blur(6px);
-    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  .search {
+    width: 100%; max-width: 460px; display: block; margin: 0 auto;
+    background: rgba(12, 5, 8, 0.7); color: var(--text); border: 1px solid var(--line); border-radius: 999px;
+    padding: 11px 18px; font: inherit; font-size: 0.95rem;
   }
-  .card:hover { transform: translateY(-3px); border-color: var(--gold); background: var(--card-hover); }
-  .icon {
-    width: 52px;
-    height: 52px;
-    border-radius: 50%;
-    display: grid;
-    place-items: center;
-    border: 1px solid var(--line);
-    color: var(--gold);
-    margin-bottom: 18px;
+  .search:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); }
+  .chips { margin-top: 12px; display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; justify-content: center; flex-wrap: wrap; }
+  .chip {
+    border: 1px solid var(--line); border-radius: 999px; padding: 6px 13px; font-size: 0.82rem; color: var(--muted);
+    text-decoration: none; white-space: nowrap; background: rgba(12, 5, 8, 0.5);
   }
-  .icon svg { width: 28px; height: 28px; }
-  .card h2 {
-    font-family: "Cormorant Garamond", Georgia, serif;
-    font-size: 1.65rem;
-    font-weight: 600;
-    line-height: 1.1;
-  }
-  .card p { margin-top: 8px; font-size: 0.9rem; line-height: 1.55; color: var(--muted); flex: 1; }
+  .chip:hover { color: var(--gold); border-color: var(--gold); }
+  .chip b { color: var(--gold); font-weight: 500; margin-left: 4px; }
+
+  /* Category sections */
+  .cat { margin-top: 30px; scroll-margin-top: 120px; }
+  .cat-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-bottom: 12px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .icon { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line); color: var(--gold); flex: none; }
+  .icon svg { width: 24px; height: 24px; }
+  .cat-head h2 { font-family: "Cormorant Garamond", Georgia, serif; font-size: 1.9rem; font-weight: 600; line-height: 1; }
+  .cat-head .count { font-size: 0.8rem; color: var(--muted); }
+  .cat-head .spacer { flex: 1; }
   .ask {
-    margin-top: 18px;
-    align-self: flex-start;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: var(--gold);
-    text-decoration: none;
-    border-bottom: 1px solid var(--gold-soft);
-    padding-bottom: 2px;
+    display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: 500; color: var(--gold);
+    text-decoration: none; border-bottom: 1px solid var(--gold-soft); padding-bottom: 2px;
   }
   .ask:hover, .ask:focus-visible { border-color: var(--gold); outline: none; }
   .ask svg { width: 14px; height: 14px; }
 
-  .help {
-    margin-top: 40px;
-    text-align: center;
-    padding: 28px 20px;
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    background: var(--card);
+  .brands { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+  .b-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px;
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
   }
+  .b-card h3 { font-family: "Cormorant Garamond", Georgia, serif; font-size: 1.3rem; font-weight: 600; line-height: 1.15; }
+  .sizes { margin-top: 8px; display: grid; gap: 3px; }
+  .size { display: flex; align-items: baseline; gap: 8px; font-size: 0.88rem; }
+  .size .ml { color: var(--muted); white-space: nowrap; }
+  .size .dots { flex: 1; border-bottom: 1px dotted rgba(217, 178, 111, 0.25); transform: translateY(-4px); min-width: 12px; }
+  .size .mrp { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  @media (max-width: 600px) {
+    .brands { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .b-card { padding: 10px 11px; border-radius: 12px; }
+    .b-card h3 { font-size: 1.05rem; }
+    .size { font-size: 0.78rem; gap: 4px; }
+    .cat-head h2 { font-size: 1.6rem; }
+  }
+  .empty-cat { font-size: 0.9rem; color: var(--muted); padding: 4px 0 6px; }
+  .no-match { text-align: center; color: var(--muted); padding: 30px 10px; }
+  .loading { text-align: center; color: var(--muted); padding: 40px 10px; }
+
+  .help { margin-top: 40px; text-align: center; padding: 28px 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); }
   .help p { color: var(--muted); font-size: 0.95rem; }
   .help-btns { margin-top: 16px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
   .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 11px 22px;
-    border-radius: 999px;
-    border: 1px solid var(--line);
-    background: rgba(20, 8, 12, 0.45);
-    text-decoration: none;
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: border-color 0.2s ease, color 0.2s ease;
+    display: inline-flex; align-items: center; gap: 8px; padding: 11px 22px; border-radius: 999px; border: 1px solid var(--line);
+    background: rgba(20, 8, 12, 0.45); text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: border-color 0.2s ease, color 0.2s ease;
   }
   .btn:hover, .btn:focus-visible { border-color: var(--gold); color: var(--gold); outline: none; }
   .btn svg { width: 18px; height: 18px; }
+  .note { margin-top: 14px; font-size: 0.78rem; color: var(--muted); text-align: center; }
 
-  footer {
-    padding: 20px 16px 24px;
-    text-align: center;
-    font-size: 0.78rem;
-    color: var(--muted);
-    opacity: 0.8;
-    line-height: 1.6;
-  }
+  footer { padding: 20px 16px 24px; text-align: center; font-size: 0.78rem; color: var(--muted); opacity: 0.8; line-height: 1.6; }
 
   /* Age check */
   .gate {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 50;
-    align-items: center;
-    justify-content: center;
-    padding: 16px;
-    background: rgba(12, 5, 8, 0.92);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
+    display: none; position: fixed; inset: 0; z-index: 50; align-items: center; justify-content: center; padding: 16px;
+    background: rgba(12, 5, 8, 0.92); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
   }
   .gate-on .gate { display: flex; }
   .gate-on body { overflow: hidden; }
-  .gate-box {
-    width: 100%;
-    max-width: 380px;
-    text-align: center;
-    padding: 36px 28px;
-    border: 1px solid var(--line);
-    border-radius: 18px;
-    background: rgba(27, 13, 18, 0.95);
-  }
+  .gate-box { width: 100%; max-width: 380px; text-align: center; padding: 36px 28px; border: 1px solid var(--line); border-radius: 18px; background: rgba(27, 13, 18, 0.95); }
   .gate-box img { display: block; margin: 0 auto 14px; border-radius: 50%; }
   .gate-box .name { font-family: "Cormorant Garamond", Georgia, serif; font-size: 1.8rem; font-weight: 600; }
   .gate-box .q { margin-top: 14px; font-size: 1.05rem; }
   .gate-box .sub { margin-top: 6px; font-size: 0.82rem; color: var(--muted); }
   .gate-actions { margin-top: 26px; display: flex; gap: 12px; justify-content: center; }
-  .gate-actions button {
-    font: inherit;
-    font-size: 0.95rem;
-    font-weight: 500;
-    padding: 12px 0;
-    width: 120px;
-    border-radius: 999px;
-    cursor: pointer;
-  }
+  .gate-actions button { font: inherit; font-size: 0.95rem; font-weight: 500; padding: 12px 0; width: 120px; border-radius: 999px; cursor: pointer; }
   .yes { background: var(--gold); color: var(--bg); border: 1px solid var(--gold); }
   .no { background: transparent; color: var(--text); border: 1px solid var(--line); }
   .gate-actions button:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--gold-soft); }
@@ -252,60 +190,16 @@
     <section class="intro">
       <p class="eyebrow">Since 1975</p>
       <h1>Our range</h1>
-      <p class="lead">Pick a category and message us on WhatsApp to check what's in stock today.</p>
+      <p class="lead">Every brand on our shelves, with the sizes we have and their MRP.</p>
+      <p class="asof" id="asof"></p>
     </section>
 
-    <section class="grid" aria-label="Categories">
-      <!-- EDIT: change any line of text below. data-cat is what goes in the WhatsApp message -->
-      <article class="card" data-cat="whisky">
-        <div class="icon"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 12h28l-3 28a3 3 0 0 1-3 2.6H16a3 3 0 0 1-3-2.6z"/><path d="M11.5 24h25"/><rect x="18" y="27" width="8" height="8" rx="1.5"/><rect x="25" y="30" width="7" height="7" rx="1.5"/></svg></div>
-        <h2>Whisky</h2>
-        <p>Indian whiskies, blends and single malts for every budget.</p>
-        <a class="ask" href="#">Ask on WhatsApp <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>
-      </article>
+    <div class="tools">
+      <input class="search" id="search" type="search" placeholder="Search a brand, e.g. Old Monk" aria-label="Search brands">
+      <nav class="chips" id="chips" aria-label="Categories"></nav>
+    </div>
 
-      <article class="card" data-cat="beer">
-        <div class="icon"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 16h22v24a3 3 0 0 1-3 3H13a3 3 0 0 1-3-3z"/><path d="M32 21h4a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4h-4"/><path d="M10 16a5 5 0 0 1 5-6 6 6 0 0 1 11 0 5 5 0 0 1 6 6"/><path d="M16 22v14M21 22v14M26 22v14"/></svg></div>
-        <h2>Beer</h2>
-        <p>Lagers and strong beers in bottles and cans.</p>
-        <a class="ask" href="#">Ask on WhatsApp <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>
-      </article>
-
-      <article class="card" data-cat="rum">
-        <div class="icon"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 5h8v8l6 6v21a3 3 0 0 1-3 3H17a3 3 0 0 1-3-3V19l6-6z"/><rect x="17" y="24" width="14" height="10" rx="1.5"/></svg></div>
-        <h2>Rum</h2>
-        <p>Dark, white and spiced rums, from old favourites to new labels.</p>
-        <a class="ask" href="#">Ask on WhatsApp <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>
-      </article>
-
-      <article class="card" data-cat="vodka">
-        <div class="icon"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4h6v10c3 2 5 4 5 7v19a3 3 0 0 1-3 3H19a3 3 0 0 1-3-3V21c0-3 2-5 5-7z"/><path d="M16 27h16"/></svg></div>
-        <h2>Vodka</h2>
-        <p>Plain and flavoured vodkas, Indian and imported.</p>
-        <a class="ask" href="#">Ask on WhatsApp <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>
-      </article>
-
-      <article class="card" data-cat="wine">
-        <div class="icon"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 5h20c1 9-2 17-10 18-8-1-11-9-10-18z"/><path d="M15 13h18"/><path d="M24 23v16M16 43h16"/></svg></div>
-        <h2>Wines</h2>
-        <p>Red, white, rosé and sparkling, for dinner or a gift.</p>
-        <a class="ask" href="#">Ask on WhatsApp <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>
-      </article>
-
-      <article class="card" data-cat="overseas spirits">
-        <div class="icon"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="24" cy="24" r="18"/><path d="M6 24h36"/><path d="M24 6c5 5 7 11 7 18s-2 13-7 18c-5-5-7-11-7-18s2-13 7-18z"/></svg></div>
-        <h2>Overseas Spirits</h2>
-        <p>Imported whisky, gin, tequila, cognac and liqueurs.</p>
-        <a class="ask" href="#">Ask on WhatsApp <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>
-      </article>
-
-      <article class="card" data-cat="country spirits">
-        <div class="icon"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 6h10M20 6v6c-7 2-12 8-12 15a16 16 0 0 0 32 0c0-7-5-13-12-15V6"/><path d="M10 28h28"/></svg></div>
-        <h2>Country Spirits</h2>
-        <p>Local favourites at everyday prices.</p>
-        <a class="ask" href="#">Ask on WhatsApp <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>
-      </article>
-    </section>
+    <div id="catalogue"><div class="loading">Loading today's range…</div></div>
 
     <section class="help">
       <p>Looking for a particular brand? Call or message us and we'll keep it ready for you.</p>
@@ -319,6 +213,7 @@
           WhatsApp
         </a>
       </div>
+      <p class="note">Prices are MRP. Stock changes through the day, so message us before you come in for a specific bottle.</p>
     </section>
   </main>
 
@@ -331,17 +226,177 @@
     // EDIT: shop phone / WhatsApp number with country code 91, digits only. Used by every button on this page.
     var SHOP_NUMBER = "919999999999";
 
-    document.getElementById("yr").textContent = new Date().getFullYear();
+    // Public, read-only price list (brand, size, MRP only) from the shop database
+    var SUPABASE_URL = "https://kikavlhdhdjeqqygfvbv.supabase.co";
+    var SUPABASE_KEY = "sb_publishable_Xe16oJpxjHO31iWW_u9fNw_qtj2Vmc0";
 
+    // EDIT: how short codes in the stock sheet should read on the website.
+    // Left side is the item name without its type letter and size (e.g. "RS W 750" -> "RS").
+    var DISPLAY_NAMES = {
+      "RS": "Royal Stag",
+      "BP": "Blenders Pride",
+      "BP RESERVE": "Blenders Pride Reserve",
+      "RC": "Royal Challenge",
+      "IB": "Imperial Blue",
+      "IB DUAL CASK": "Imperial Blue Dual Cask",
+      "MCD NO1": "McDowell's No.1",
+      "MCD NO1 LUXURY": "McDowell's No.1 Luxury",
+      "MCD XXX": "McDowell's XXX Rum",
+      "MCD PREMIUM": "McDowell's Premium",
+      "OC ELITE": "Officer's Choice Elite",
+      "JW RED LEBEL": "Johnnie Walker Red Label",
+      "JW BLACK LEBEL": "Johnnie Walker Black Label",
+      "TEACHERS HIGHLAND": "Teacher's Highland Cream",
+      "MAGIC MOMENT": "Magic Moments",
+      "MAGIC MOMENT APPLE": "Magic Moments Green Apple",
+      "MAGIC MOMENT PINK": "Magic Moments Pink",
+      "MAGIC MO LEMON": "Magic Moments Lemon",
+      "SMIRNOFF MINTY JAMUN": "Smirnoff Minty Jamun",
+      "WILLIAM LAWSON'S": "William Lawson's",
+      "VAT 69": "VAT 69",
+      "OLD MONK XXX": "Old Monk XXX Rum",
+      "BLACK & WHITE": "Black & White",
+      "HAYWARDS 5000": "Haywards 5000",
+      "COSMOS FIFTY": "Cosmos Fifty",
+      "100 PIPERS": "100 Pipers"
+    };
+
+    // Category order, icons and the line under each heading
+    var ICONS = {
+      whisky: '<path d="M10 12h28l-3 28a3 3 0 0 1-3 2.6H16a3 3 0 0 1-3-2.6z"/><path d="M11.5 24h25"/><rect x="18" y="27" width="8" height="8" rx="1.5"/><rect x="25" y="30" width="7" height="7" rx="1.5"/>',
+      beer: '<path d="M10 16h22v24a3 3 0 0 1-3 3H13a3 3 0 0 1-3-3z"/><path d="M32 21h4a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4h-4"/><path d="M10 16a5 5 0 0 1 5-6 6 6 0 0 1 11 0 5 5 0 0 1 6 6"/><path d="M16 22v14M21 22v14M26 22v14"/>',
+      rum: '<path d="M20 5h8v8l6 6v21a3 3 0 0 1-3 3H17a3 3 0 0 1-3-3V19l6-6z"/><rect x="17" y="24" width="14" height="10" rx="1.5"/>',
+      vodka: '<path d="M21 4h6v10c3 2 5 4 5 7v19a3 3 0 0 1-3 3H19a3 3 0 0 1-3-3V21c0-3 2-5 5-7z"/><path d="M16 27h16"/>',
+      gin: '<path d="M16 6h16l-2 14a6 6 0 0 1-12 0z"/><path d="M24 26v14M17 42h14"/><circle cx="27" cy="12" r="2"/>',
+      wine: '<path d="M14 5h20c1 9-2 17-10 18-8-1-11-9-10-18z"/><path d="M15 13h18"/><path d="M24 23v16M16 43h16"/>',
+      globe: '<circle cx="24" cy="24" r="18"/><path d="M6 24h36"/><path d="M24 6c5 5 7 11 7 18s-2 13-7 18c-5-5-7-11-7-18s2-13 7-18z"/>',
+      country: '<path d="M19 6h10M20 6v6c-7 2-12 8-12 15a16 16 0 0 0 32 0c0-7-5-13-12-15V6"/><path d="M10 28h28"/>',
+      other: '<path d="M18 4h12v9l5 6v22a3 3 0 0 1-3 3H16a3 3 0 0 1-3-3V19l5-6z"/>'
+    };
+    var CATEGORIES = [
+      { name: "Whisky", icon: "whisky" },
+      { name: "Beer", icon: "beer" },
+      { name: "Rum", icon: "rum" },
+      { name: "Vodka", icon: "vodka" },
+      { name: "Gin", icon: "gin" },
+      { name: "Wines", icon: "wine" },
+      { name: "Overseas Spirits", icon: "globe" },
+      { name: "Country Spirits", icon: "country" }
+    ];
+    var TYPE_CODES = ["W", "R", "V", "B", "G", "IML", "CL", "WN", "WINE", "BR", "T", "TQ"];
+    var KEEP_UPPER = ["XXX", "VAT", "IB", "BP", "RC", "OC", "MCD", "JW", "IML", "II", "III", "XO", "VSOP", "VS"];
+
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+    function slug(s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-"); }
+    function baseName(item) {
+      var t = String(item).trim().toUpperCase().split(/\s+/);
+      for (var i = t.length - 2; i >= 1; i--) { if (TYPE_CODES.indexOf(t[i]) >= 0) return t.slice(0, i).join(" "); }
+      // No type code: drop a trailing size number if present
+      if (/^\d+$/.test(t[t.length - 1])) t.pop();
+      return t.join(" ");
+    }
+    function titleCase(s) {
+      return s.split(" ").map(function (w) {
+        if (KEEP_UPPER.indexOf(w) >= 0 || /\d/.test(w)) return w;
+        return w.charAt(0) + w.slice(1).toLowerCase();
+      }).join(" ");
+    }
+    function displayName(base) { return DISPLAY_NAMES[base] || titleCase(base); }
+    function fmtSize(ml) {
+      ml = Number(ml);
+      if (!ml) return "";
+      return ml >= 1000 ? (ml / 1000).toString().replace(/\.0+$/, "") + " L" : ml + " ml";
+    }
+    var inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
+    function waLink(msg) { return "https://wa.me/" + SHOP_NUMBER + (msg ? "?text=" + encodeURIComponent(msg) : ""); }
+    var ARROW = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg>';
+
+    var data = { cats: [], asOf: null };
+
+    // Group the rows into category -> brand -> sizes
+    function build(rows) {
+      var byCat = {};
+      rows.forEach(function (r) {
+        var cat = r.category || "Other", base = baseName(r.item_name), name = displayName(base);
+        var c = byCat[cat] || (byCat[cat] = {});
+        var b = c[name] || (c[name] = { name: name, sizes: [] });
+        var key = r.size_ml + "|" + r.mrp;
+        if (!b.sizes.some(function (s) { return s.key === key; })) b.sizes.push({ key: key, ml: Number(r.size_ml) || 0, mrp: Number(r.mrp) });
+        if (!data.asOf || r.as_of > data.asOf) data.asOf = r.as_of;
+      });
+      var known = CATEGORIES.map(function (c) { return c.name; });
+      var order = CATEGORIES.slice();
+      Object.keys(byCat).forEach(function (k) { if (known.indexOf(k) < 0) order.push({ name: k, icon: "other" }); });
+      data.cats = order.map(function (c) {
+        var brands = Object.keys(byCat[c.name] || {}).sort(function (a, b) { return a.localeCompare(b); }).map(function (n) {
+          var b = byCat[c.name][n];
+          b.sizes.sort(function (x, y) { return y.ml - x.ml || x.mrp - y.mrp; });
+          return b;
+        });
+        return { name: c.name, icon: c.icon, brands: brands };
+      });
+    }
+
+    function render() {
+      var q = document.getElementById("search").value.trim().toLowerCase();
+      var out = document.getElementById("catalogue"), any = false;
+      out.innerHTML = data.cats.map(function (c) {
+        var brands = q ? c.brands.filter(function (b) { return b.name.toLowerCase().indexOf(q) >= 0; }) : c.brands;
+        if (q && !brands.length) return "";
+        any = true;
+        var head = '<div class="cat-head"><div class="icon"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+          ICONS[c.icon] + "</svg></div><div><h2>" + esc(c.name) + '</h2><div class="count">' +
+          (c.brands.length ? c.brands.length + " brand" + (c.brands.length > 1 ? "s" : "") + " in stock" : "Ask us for availability") +
+          '</div></div><div class="spacer"></div><a class="ask" target="_blank" rel="noopener" href="' +
+          waLink("Hi, which " + c.name.toLowerCase() + " brands do you have in stock today?") + '">Ask on WhatsApp ' + ARROW + "</a></div>";
+        var body = brands.length
+          ? '<div class="brands">' + brands.map(function (b) {
+              return '<article class="b-card"><h3>' + esc(b.name) + '</h3><div class="sizes">' + b.sizes.map(function (s) {
+                return '<div class="size"><span class="ml">' + esc(fmtSize(s.ml)) + '</span><span class="dots"></span><span class="mrp">' + inr.format(s.mrp) + "</span></div>";
+              }).join("") + "</div></article>";
+            }).join("") + "</div>"
+          : '<p class="empty-cat">Not on the shelf right now. Message us and we\'ll try to arrange it.</p>';
+        return '<section class="cat" id="cat-' + slug(c.name) + '">' + head + body + "</section>";
+      }).join("");
+      if (!any) out.innerHTML = '<div class="no-match">No brand matches "' + esc(q) + '". Try another name, or ask us on WhatsApp.</div>';
+    }
+
+    function renderChips() {
+      document.getElementById("chips").innerHTML = data.cats.map(function (c) {
+        return '<a class="chip" href="#cat-' + slug(c.name) + '">' + esc(c.name) + (c.brands.length ? "<b>" + c.brands.length + "</b>" : "") + "</a>";
+      }).join("");
+    }
+
+    function fallback() {
+      // If the price list can't load, still show the categories with WhatsApp links
+      data.cats = CATEGORIES.map(function (c) { return { name: c.name, icon: c.icon, brands: [] }; });
+      renderChips(); render();
+      document.getElementById("asof").textContent = "Couldn't load today's price list. Please message us for availability.";
+    }
+
+    async function load() {
+      try {
+        var res = await fetch(SUPABASE_URL + "/rest/v1/rpc/public_catalogue", {
+          method: "POST",
+          headers: { "apikey": SUPABASE_KEY, "Content-Type": "application/json" },
+          body: "{}"
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        var rows = await res.json();
+        if (!Array.isArray(rows) || !rows.length) { fallback(); return; }
+        build(rows); renderChips(); render();
+        if (data.asOf) {
+          var p = data.asOf.split("-");
+          document.getElementById("asof").textContent = "Updated " + new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+        }
+      } catch (e) { fallback(); }
+    }
+
+    document.getElementById("search").addEventListener("input", render);
+    document.getElementById("yr").textContent = new Date().getFullYear();
     document.getElementById("call-btn").href = "tel:+" + SHOP_NUMBER;
-    document.getElementById("wa-btn").href = "https://wa.me/" + SHOP_NUMBER;
-    document.querySelectorAll(".card").forEach(function (card) {
-      var msg = "Hi, which " + card.dataset.cat + " brands do you have in stock today?";
-      var link = card.querySelector(".ask");
-      link.href = "https://wa.me/" + SHOP_NUMBER + "?text=" + encodeURIComponent(msg);
-      link.target = "_blank";
-      link.rel = "noopener";
-    });
+    document.getElementById("wa-btn").href = waLink("");
+    load();
 
     (function () {
       var root = document.documentElement;
