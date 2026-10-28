@@ -181,6 +181,10 @@
     line-height: 1.6;
   }
 
+  .sep { margin: 0 6px; opacity: 0.6; }
+  .admin-link { color: var(--muted); text-decoration: none; border-bottom: 1px solid transparent; }
+  .admin-link:hover, .admin-link:focus-visible { color: var(--gold); border-color: var(--gold); outline: none; }
+
   /* Age check */
   .gate {
     display: none;
@@ -287,6 +291,8 @@
   <footer>
     Sale only to customers aged 21 and above. Please drink responsibly.<br>
     &copy; <span id="yr">2026</span> Nalagola CS Shop
+    <span class="sep" aria-hidden="true">·</span>
+    <a class="admin-link" href="admin.html">Owner login</a>
   </footer>
 
   <script>
