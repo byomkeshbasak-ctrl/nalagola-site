@@ -380,7 +380,9 @@
       fields: [
         { name: "expense_date", label: "Date", type: "date", required: true },
         { name: "amount", label: "Amount (₹)", type: "number", required: true },
-        { name: "category", label: "Category", type: "text", list: "dl-exp-cat", def: "Other" },
+        { name: "category", label: "Category", type: "select", def: "Salary",
+          // EDIT: expense categories shown in the dropdown
+          options: ["Salary", "Transport", "Tea", "Discount", "Rent", "Electricity", "Licence & Excise", "Repairs", "Misc"] },
         { name: "description", label: "Note (optional)", type: "text" }
       ],
       cols: [
@@ -988,6 +990,13 @@
   function fieldHTML(fd, row) {
     var val = row ? row[fd.name] : (fd.type === "date" ? defaultDate() : (fd.def || ""));
     if (val == null) val = "";
+    if (fd.type === "select") {
+      var opts = fd.options.slice();
+      if (val && opts.indexOf(val) < 0) opts.push(val); // keep older categories when editing
+      return "<label>" + fd.label + '<select id="f-' + fd.name + '" name="' + fd.name + '">' + opts.map(function (o) {
+        return '<option' + (o === val ? " selected" : "") + ">" + esc(o) + "</option>";
+      }).join("") + "</select></label>";
+    }
     return "<label>" + fd.label + '<input id="f-' + fd.name + '" name="' + fd.name + '" type="' + fd.type + '"' +
       (fd.type === "number" ? ' step="0.01" min="0" inputmode="decimal"' : "") + (fd.list ? ' list="' + fd.list + '"' : "") +
       (fd.required ? " required" : "") + ' value="' + esc(val) + '"></label>';
