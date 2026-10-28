@@ -839,7 +839,7 @@
       sb.from("purchases").select("*").gte("purchase_date", r[0]).lte("purchase_date", r[1]).order("purchase_date", { ascending: false }).order("created_at", { ascending: false }),
       fetchAll(function () { return sb.from("stock_mismatches").select("*").gte("report_date", r[0]).lte("report_date", r[1]).order("report_date").order("item_name"); }),
       Promise.resolve({ data: [], error: null }),
-      sb.from("daily_ledger").select("*").gte("ledger_date", addDays(r[0], -1)).lte("ledger_date", r[1]).order("ledger_date"),
+      sb.from("daily_ledger").select("*").gte("ledger_date", START_DATE).lte("ledger_date", r[1]).order("ledger_date"),
       fetchAll(function () { return sb.from("customer_dues").select("*").order("entry_date", { ascending: false }).order("created_at", { ascending: false }); }),
       fetchAll(function () { return sb.from("daily_report_summary").select("report_date,units_sold,sales_value,cost_value,gross_profit,closing_value_cost,missing_costs,stock_in_cost").order("report_date"); }),
       fetchAll(function () { return sb.from("expenses").select("expense_date,amount").order("expense_date"); }),
@@ -1276,8 +1276,8 @@
     var table;
     if (f === "mismatch") {
       table = '<div class="msg err" style="margin-bottom:12px">These items opened on ' + fmtDate(date) + " with a different count from what they closed with on " +
-        fmtDate(addDays(date, -1)) + ". Check the counts, then upload the corrected sheet for whichever day was wrong. Uploading a day again replaces it.</div>" +
-        '<div class="table-wrap tall"><table><thead><tr><th>Item</th><th class="num">MRP</th><th class="num">Closing ' + fmtDate(addDays(date, -1)) +
+        fmtDate(mm[0].prev_date || addDays(date, -1)) + ". Check the counts, then upload the corrected sheet for whichever day was wrong. Uploading a day again replaces it.</div>" +
+        '<div class="table-wrap tall"><table><thead><tr><th>Item</th><th class="num">MRP</th><th class="num">Closing ' + fmtDate(mm[0].prev_date || addDays(date, -1)) +
         '</th><th class="num">Opening ' + fmtDate(date) + '</th><th class="num">Difference</th></tr></thead><tbody>' +
         mm.map(function (m) {
           var d = Number(m.difference);
@@ -1328,10 +1328,10 @@
 
   function renderChecks() {
     var el = $("checks"), items = [];
-    var byDate = {}; state.mismatches.forEach(function (m) { byDate[m.report_date] = (byDate[m.report_date] || 0) + 1; });
+    var byDate = {}, prevOf = {}; state.mismatches.forEach(function (m) { byDate[m.report_date] = (byDate[m.report_date] || 0) + 1; prevOf[m.report_date] = m.prev_date; });
     Object.keys(byDate).sort().forEach(function (d) {
       items.push("<li><span><b>" + fmtDate(d) + ":</b> " + byDate[d] + " item" + (byDate[d] > 1 ? "s" : "") +
-        " opened differently from " + fmtDate(addDays(d, -1)) + "'s closing stock.</span><button class=\"go\" data-check-mm=\"" + d + "\">Show items</button></li>");
+        " opened differently from " + fmtDate(prevOf[d] || addDays(d, -1)) + "'s closing stock.</span><button class=\"go\" data-check-mm=\"" + d + "\">Show items</button></li>");
     });
     if (!items.length) { el.hidden = true; el.innerHTML = ""; return; }
     el.className = "checks bad";
@@ -1478,7 +1478,8 @@
   //   should equal  cash collection + online received + remaining shop balance
   function bookRow(date) {
     var entry = state.book.find(function (b) { return b.ledger_date === date; }) || null;
-    var prevEntry = state.book.find(function (b) { return b.ledger_date === addDays(date, -1); }) || null;
+    var prevEntry = null;
+    state.book.forEach(function (b) { if (b.ledger_date < date && (!prevEntry || b.ledger_date > prevEntry.ledger_date)) prevEntry = b; });
     var rep = state.reports.find(function (r) { return r.report_date === date; });
     var sales = rep ? Number(rep.sales_value) : 0;
     var duesIn = 0, credit = 0;
@@ -1487,10 +1488,11 @@
     var prev = null;
     if (date === START_DATE) prev = entry && entry.opening_balance != null ? Number(entry.opening_balance) : null;
     else if (prevEntry) prev = Number(prevEntry.shop_balance);
+    var prevDate = prevEntry ? prevEntry.ledger_date : null;
     var bar = entry ? Number(entry.bar_collection || 0) : 0;
     var expected = (prev || 0) + sales + bar + duesIn - credit - exp;
     var actual = entry ? Number(entry.cash_collection) + Number(entry.online_received) + Number(entry.shop_balance) : null;
-    return { date: date, entry: entry, hasReport: !!rep, rep: rep || null, prev: prev, sales: sales, bar: bar, duesIn: duesIn, credit: credit, exp: exp,
+    return { date: date, entry: entry, hasReport: !!rep, rep: rep || null, prev: prev, prevDate: prevDate, sales: sales, bar: bar, duesIn: duesIn, credit: credit, exp: exp,
       expected: expected, actual: actual, diff: entry ? actual - expected : null,
       // Mismatch = sales + previous balance + bar counter + dues received − credit − expenses − cash − online − remaining balance. Should be 0.
       mismatch: entry ? expected - actual : null };
@@ -1520,10 +1522,21 @@
     tr.classList.toggle("mm-row", bad);
   }
 
+  // Days shown in the ledger: days with an uploaded stock report, plus any day that already has entries
+  function ledgerDays() {
+    var r = monthRange(state.month), set = {};
+    var add = function (d) { if (d && d >= START_DATE && d >= r[0] && d <= r[1]) set[d] = 1; };
+    state.reports.forEach(function (x) { add(x.report_date); });
+    state.book.forEach(function (x) { add(x.ledger_date); });
+    state.ledger.expenses.forEach(function (x) { add(x.expense_date); });
+    state.dues.forEach(function (x) { add(x.entry_date); });
+    return Object.keys(set).sort();
+  }
+
   function renderBook() {
-    var days = monthDays().slice().reverse(), tbl = $("book-table");
+    var days = ledgerDays().slice().reverse(), tbl = $("book-table");
     $("book-title").textContent = "Daily ledger, " + new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
-    if (!days.length) { tbl.innerHTML = '<tr><td class="empty">The ledger starts on ' + fmtLong(START_DATE) + ".</td></tr>"; return; }
+    if (!days.length) { tbl.innerHTML = '<tr><td class="empty">No stock report uploaded for this month yet. Upload a day\'s Excel above and that day appears here.</td></tr>'; return; }
     // Keep focus on the box being typed in across re-renders
     var ae = document.activeElement, keep = ae && ae.classList && ae.classList.contains("cell-in") ? { d: ae.dataset.d, f: ae.dataset.f } : null;
     var t = { s: 0, g: 0, e: 0, bar: 0, di: 0, cr: 0, cash: 0, on: 0, m: 0 };
@@ -1537,7 +1550,7 @@
       if (e) { t.cash += Number(e.cash_collection); t.on += Number(e.online_received); t.bar += b.bar; t.m += b.mismatch; }
       var bad = e && Math.abs(b.mismatch) >= 0.5, open = state.bookOpen === d;
       var prevCell = d === START_DATE ? inp(d, "opening_balance", e ? e.opening_balance : "") :
-        (b.prev == null ? '<span title="Previous day not entered yet">–</span>' : inr.format(b.prev));
+        (b.prev == null ? '<span title="Previous day not entered yet">–</span>' : '<span title="Remaining balance of ' + fmtDate(b.prevDate) + '">' + inr.format(b.prev) + "</span>");
       var dateCell = (b.hasReport ? '<span class="date-link" data-view="' + d + '" title="See this day\'s items">' + fmtDate(d) + "</span>" : fmtDate(d)) +
         (mm ? ' <span class="tag bad" data-mismatch="' + d + '" title="Opening stock differs from the previous day\'s closing">' + mm + " stock</span>" : "");
       var row = '<tr data-row="' + d + '" class="' + (bad ? "mm-row" : "") + '"><td>' + dateCell + "</td>" +
@@ -1680,7 +1693,7 @@
   });
 
   $("book-csv").addEventListener("click", function () {
-    var days = monthDays();
+    var days = ledgerDays();
     if (!days.length) { toast("Nothing to export."); return; }
     downloadCSV("nalagola-ledger-" + state.month + ".csv",
       ["Date", "Sales", "Gross profit", "Expenses", "Net profit", "Previous day balance", "Bar counter", "Dues collected", "Credit given", "Cash collected", "Online received", "Remaining balance", "Mismatch"],
@@ -1831,8 +1844,9 @@
     if (p.date < START_DATE) {
       carry = '<div class="msg warn">This date is before ' + fmtLong(START_DATE) + ", when the accounts start. It will be saved but not stock-matched.</div>";
     } else if (p.date > START_DATE) {
-      var pd = addDays(p.date, -1);
-      var pl = await fetchAll(function () { return sb.from("stock_report_lines").select("item_name,mrp,closing_stock").eq("report_date", pd); });
+      var pq = await sb.from("stock_reports").select("report_date").lt("report_date", p.date).order("report_date", { ascending: false }).limit(1);
+      var pd = pq.data && pq.data.length ? pq.data[0].report_date : null;
+      var pl = !pd ? { data: [], error: null } : await fetchAll(function () { return sb.from("stock_report_lines").select("item_name,mrp,closing_stock").eq("report_date", pd); });
       if (!pl.error && pl.data.length) {
         var pm = {}; pl.data.forEach(function (x) { var k = x.item_name + "|" + Number(x.mrp); pm[k] = (pm[k] || 0) + Number(x.closing_stock); });
         var om = {}; p.lines.forEach(function (l) { om[l.item_name + "|" + l.mrp] = l.opening_stock; });
