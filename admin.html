@@ -11,6 +11,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script>
+<!-- Excel reader (official SheetJS build) -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
   :root {
     --bg: #140a0e;
@@ -23,6 +25,7 @@
     --muted: #b7a69d;
     --green: #7fcf9a;
     --red: #ef8f8f;
+    --amber: #e8c27a;
     --focus: rgba(217, 178, 111, 0.35);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -41,13 +44,8 @@
   /* ---------- Login ---------- */
   .auth-wrap { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
   .auth-card {
-    width: 100%;
-    max-width: 380px;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 18px;
-    padding: 32px 26px 28px;
-    text-align: center;
+    width: 100%; max-width: 380px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 18px; padding: 32px 26px 28px; text-align: center;
   }
   .auth-card img { width: 84px; height: 84px; border-radius: 50%; }
   .auth-card h1 { margin-top: 14px; font-size: 1.8rem; }
@@ -55,33 +53,19 @@
   .auth-card form { margin-top: 24px; text-align: left; display: grid; gap: 14px; }
   label { display: grid; gap: 6px; font-size: 0.8rem; color: var(--muted); }
   input, select {
-    width: 100%;
-    background: var(--bg);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 10px 12px;
-    font-size: 0.95rem;
-    color-scheme: dark;
+    width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 12px; font-size: 0.95rem; color-scheme: dark;
   }
   input:focus, select:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--focus); }
   .primary {
-    background: var(--gold);
-    color: #1b0d12;
-    border: 0;
-    border-radius: 10px;
-    padding: 11px 16px;
-    font-weight: 600;
-    cursor: pointer;
+    background: var(--gold); color: #1b0d12; border: 0; border-radius: 10px; padding: 11px 16px;
+    font-weight: 600; cursor: pointer;
   }
   .primary:hover { background: #e6c48a; }
   .primary:disabled { opacity: 0.6; cursor: wait; }
   .ghost {
-    background: transparent;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 9px 14px;
-    cursor: pointer;
-    font-size: 0.88rem;
+    background: transparent; border: 1px solid var(--line); border-radius: 10px; padding: 9px 14px;
+    cursor: pointer; font-size: 0.88rem;
   }
   .ghost:hover { border-color: var(--gold); color: var(--gold); }
   .link-btn { background: none; border: 0; color: var(--muted); font-size: 0.82rem; cursor: pointer; text-decoration: underline; justify-self: center; }
@@ -89,26 +73,14 @@
   .msg { font-size: 0.85rem; line-height: 1.5; padding: 10px 12px; border-radius: 10px; }
   .msg.err { background: rgba(239, 143, 143, 0.1); color: var(--red); border: 1px solid rgba(239, 143, 143, 0.3); }
   .msg.ok { background: rgba(127, 207, 154, 0.1); color: var(--green); border: 1px solid rgba(127, 207, 154, 0.3); }
+  .msg.warn { background: rgba(232, 194, 122, 0.08); color: var(--amber); border: 1px solid rgba(232, 194, 122, 0.3); }
 
   /* ---------- App ---------- */
   .topbar {
-    position: sticky;
-    top: 0;
-    z-index: 5;
-    background: rgba(20, 10, 14, 0.94);
-    -webkit-backdrop-filter: blur(8px);
-    backdrop-filter: blur(8px);
-    border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; z-index: 5; background: rgba(20, 10, 14, 0.94);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line);
   }
-  .topbar-inner {
-    max-width: 1160px;
-    margin: 0 auto;
-    padding: 12px 16px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
+  .topbar-inner { max-width: 1200px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .topbar img { width: 36px; height: 36px; border-radius: 50%; }
   .topbar .title { font-size: 1.3rem; }
   .topbar .title small { font-family: "Inter", sans-serif; font-weight: 500; font-size: 0.72rem; color: var(--gold); letter-spacing: 0.14em; text-transform: uppercase; margin-left: 6px; }
@@ -117,75 +89,94 @@
   .month-pick input { width: auto; padding: 7px 10px; }
   .who { font-size: 0.8rem; color: var(--muted); }
 
-  .wrap { max-width: 1160px; margin: 0 auto; padding: 20px 16px 48px; }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 20px 16px 48px; }
 
   .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
   .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
   .kpi .k { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
   .kpi .v { margin-top: 6px; font-size: 1.55rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .kpi .s { margin-top: 4px; font-size: 0.78rem; color: var(--muted); }
+  .kpi .s { margin-top: 4px; font-size: 0.78rem; color: var(--muted); line-height: 1.45; }
   .kpi.profit { border-color: var(--line-strong); }
   .pos { color: var(--green); }
   .neg { color: var(--red); }
+  .warn-t { color: var(--amber); }
   @media (max-width: 860px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
 
   .tabs { margin-top: 24px; display: flex; gap: 6px; border-bottom: 1px solid var(--line); overflow-x: auto; }
   .tab {
-    background: none;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    padding: 10px 14px;
-    cursor: pointer;
-    color: var(--muted);
-    font-weight: 500;
-    white-space: nowrap;
+    background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 14px; cursor: pointer;
+    color: var(--muted); font-weight: 500; white-space: nowrap;
   }
   .tab[aria-selected="true"] { color: var(--gold); border-color: var(--gold); }
 
-  .panel { margin-top: 18px; display: grid; grid-template-columns: 340px 1fr; gap: 18px; align-items: start; }
-  @media (max-width: 900px) { .panel { grid-template-columns: minmax(0, 1fr); } }
+  .panel { margin-top: 18px; display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 18px; align-items: start; }
+  @media (max-width: 960px) { .panel { grid-template-columns: minmax(0, 1fr); } }
   .panel > *, .breakdowns > * { min-width: 0; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
   .card h2 { font-size: 0.95rem; font-weight: 600; margin-bottom: 14px; }
+  .card p.hint { font-size: 0.82rem; color: var(--muted); line-height: 1.55; margin-bottom: 14px; }
   .form-grid { display: grid; gap: 12px; }
   .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .form-actions { display: flex; gap: 8px; margin-top: 4px; }
   .form-actions .primary { flex: 1; }
 
+  .drop {
+    border: 1.5px dashed var(--line-strong); border-radius: 12px; padding: 22px 14px; text-align: center;
+    cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .drop:hover, .drop.over { background: var(--panel-2); border-color: var(--gold); }
+  .drop b { display: block; font-size: 0.92rem; }
+  .drop span { display: block; margin-top: 4px; font-size: 0.78rem; color: var(--muted); }
+  .drop input { display: none; }
+
+  .preview { margin-top: 14px; display: grid; gap: 10px; }
+  .pv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .pv { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .pv .k { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+  .pv .v { margin-top: 3px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .warn-list { font-size: 0.8rem; line-height: 1.6; max-height: 140px; overflow: auto; margin-top: 6px; color: var(--muted); }
+
   .list-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
   .list-head h2 { margin: 0; flex: 1; }
   .list-total { font-size: 0.85rem; color: var(--muted); }
   .list-total b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .search { width: 200px; padding: 7px 10px; font-size: 0.85rem; }
   .table-wrap { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
-  th { text-align: left; font-weight: 500; color: var(--muted); font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-  td { padding: 10px; border-bottom: 1px solid rgba(217, 178, 111, 0.08); vertical-align: top; }
+  .table-wrap.tall { max-height: 520px; overflow-y: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  th {
+    text-align: left; font-weight: 500; color: var(--muted); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; position: sticky; top: 0; background: var(--panel);
+  }
+  td { padding: 9px 10px; border-bottom: 1px solid rgba(217, 178, 111, 0.08); vertical-align: top; }
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   tr:hover td { background: var(--panel-2); }
+  tr.sel td { background: var(--panel-2); }
+  tfoot td { font-weight: 600; border-top: 1px solid var(--line); border-bottom: 0; }
   td.actions { white-space: nowrap; text-align: right; }
   .icon-btn { background: none; border: 0; color: var(--muted); cursor: pointer; padding: 2px 6px; font-size: 0.8rem; text-decoration: underline; }
   .icon-btn:hover { color: var(--gold); }
   .icon-btn.del:hover { color: var(--red); }
   .empty { text-align: center; color: var(--muted); padding: 28px 10px; font-size: 0.9rem; }
+  .tag { display: inline-block; font-size: 0.72rem; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .tag.warn { color: var(--amber); border-color: rgba(232, 194, 122, 0.35); }
+
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .seg button { background: none; border: 0; padding: 7px 12px; cursor: pointer; font-size: 0.82rem; color: var(--muted); }
+  .seg button[aria-pressed="true"] { background: var(--panel-2); color: var(--gold); }
 
   .breakdowns { margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-  @media (max-width: 900px) { .breakdowns { grid-template-columns: 1fr; } }
+  @media (max-width: 960px) { .breakdowns { grid-template-columns: 1fr; } }
   .bar-row { display: grid; grid-template-columns: 130px 1fr 110px; gap: 10px; align-items: center; font-size: 0.85rem; padding: 5px 0; }
   .bar { height: 8px; border-radius: 4px; background: rgba(217, 178, 111, 0.12); overflow: hidden; }
   .bar span { display: block; height: 100%; background: var(--gold); border-radius: 4px; }
   .bar-row .amt { text-align: right; font-variant-numeric: tabular-nums; }
 
+  .detail { margin-top: 18px; }
+
   .toast {
-    position: fixed;
-    left: 50%;
-    bottom: 20px;
-    transform: translateX(-50%);
-    background: var(--panel-2);
-    border: 1px solid var(--line-strong);
-    border-radius: 10px;
-    padding: 10px 16px;
-    font-size: 0.88rem;
-    z-index: 20;
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--panel-2);
+    border: 1px solid var(--line-strong); border-radius: 10px; padding: 10px 16px; font-size: 0.88rem; z-index: 20;
     max-width: calc(100% - 32px);
   }
   .note { margin-top: 28px; font-size: 0.78rem; color: var(--muted); line-height: 1.6; }
@@ -199,19 +190,13 @@
     <img src="logo.webp" alt="">
     <h1 class="serif">Nalagola CS Shop</h1>
     <p class="sub">Admin sign in</p>
-
     <form id="login-form" autocomplete="on">
-      <label>Email
-        <input type="email" id="login-email" autocomplete="username" required>
-      </label>
-      <label>Password
-        <input type="password" id="login-password" autocomplete="current-password" required>
-      </label>
+      <label>Email <input type="email" id="login-email" autocomplete="username" required></label>
+      <label>Password <input type="password" id="login-password" autocomplete="current-password" required></label>
       <div id="login-msg" class="msg err" hidden></div>
       <button class="primary" type="submit" id="login-btn">Sign in</button>
       <button class="link-btn" type="button" id="forgot-btn">Forgot password?</button>
     </form>
-
     <form id="reset-form" hidden>
       <label>New password (at least 8 characters)
         <input type="password" id="new-password" autocomplete="new-password" minlength="8" required>
@@ -251,47 +236,102 @@
 
   <main class="wrap">
     <section class="kpis" aria-label="Month summary">
-      <div class="kpi"><div class="k">Sales</div><div class="v" id="k-sales">–</div><div class="s" id="k-sales-s"></div></div>
-      <div class="kpi"><div class="k">Stock purchases</div><div class="v" id="k-purch">–</div><div class="s" id="k-purch-s"></div></div>
+      <div class="kpi"><div class="k">Sales (at MRP)</div><div class="v" id="k-sales">–</div><div class="s" id="k-sales-s"></div></div>
+      <div class="kpi"><div class="k">Gross profit</div><div class="v" id="k-gp">–</div><div class="s" id="k-gp-s"></div></div>
       <div class="kpi"><div class="k">Expenses</div><div class="v" id="k-exp">–</div><div class="s" id="k-exp-s"></div></div>
-      <div class="kpi profit"><div class="k">Profit</div><div class="v" id="k-profit">–</div><div class="s">Sales − purchases − expenses</div></div>
+      <div class="kpi profit"><div class="k">Net profit</div><div class="v" id="k-net">–</div><div class="s">Gross profit − expenses</div></div>
     </section>
 
     <section class="breakdowns">
-      <div class="card"><h2>Sales by payment mode</h2><div id="bd-mode"></div></div>
+      <div class="card"><h2>Sales by category</h2><div id="bd-cat"></div></div>
       <div class="card"><h2>Expenses by category</h2><div id="bd-exp"></div></div>
     </section>
 
     <nav class="tabs" role="tablist">
       <button class="tab" role="tab" data-tab="sales" aria-selected="true">Daily sales</button>
       <button class="tab" role="tab" data-tab="expenses" aria-selected="false">Expenses</button>
-      <button class="tab" role="tab" data-tab="purchases" aria-selected="false">Stock purchases</button>
+      <button class="tab" role="tab" data-tab="purchases" aria-selected="false">Supplier payments</button>
+      <button class="tab" role="tab" data-tab="items" aria-selected="false">Items &amp; costs</button>
     </nav>
 
-    <section class="panel">
-      <div class="card">
-        <h2 id="form-title">Add sale</h2>
-        <form id="entry-form" class="form-grid"></form>
-      </div>
-      <div class="card">
-        <div class="list-head">
-          <h2 id="list-title">Sales this month</h2>
-          <span class="list-total">Total <b id="list-total">₹0</b></span>
-          <button class="ghost" id="export-btn" type="button">Export CSV</button>
+    <!-- ===== Daily sales (stock report upload) ===== -->
+    <section id="pane-sales">
+      <div class="panel">
+        <div class="card">
+          <h2>Upload day's stock report</h2>
+          <p class="hint">The Excel sheet with Opening, Stock In, Stock Out and Closing for each item. Stock Out × MRP becomes the day's sales; Stock Out × cost price gives the profit.</p>
+          <label class="drop" id="rep-drop">
+            <input type="file" id="rep-file" accept=".xlsx,.xls,.csv">
+            <b>Choose file or drop it here</b>
+            <span>.xlsx, .xls or .csv</span>
+          </label>
+          <div id="rep-preview" class="preview" hidden></div>
         </div>
-        <div class="table-wrap"><table id="entry-table"></table></div>
+        <div class="card">
+          <div class="list-head">
+            <h2 id="rep-title">Reports</h2>
+            <span class="list-total" id="stock-on-hand"></span>
+          </div>
+          <div class="table-wrap"><table id="rep-table"></table></div>
+        </div>
+      </div>
+      <div class="card detail" id="rep-detail" hidden></div>
+    </section>
+
+    <!-- ===== Expenses / supplier payments (manual) ===== -->
+    <section id="pane-ledger" hidden>
+      <div class="panel">
+        <div class="card">
+          <h2 id="form-title">Add expense</h2>
+          <form id="entry-form" class="form-grid"></form>
+        </div>
+        <div class="card">
+          <div class="list-head">
+            <h2 id="list-title">Expenses</h2>
+            <span class="list-total">Total <b id="list-total">₹0</b></span>
+            <button class="ghost" id="export-btn" type="button">Export CSV</button>
+          </div>
+          <div class="table-wrap"><table id="entry-table"></table></div>
+        </div>
       </div>
     </section>
 
-    <p class="note">Profit here is a simple cash view: money in from sales minus money out on stock and expenses in the same month. It doesn't account for unsold stock.</p>
+    <!-- ===== Items & costs ===== -->
+    <section id="pane-items" hidden>
+      <div class="panel">
+        <div class="card">
+          <h2>Upload cost prices</h2>
+          <p class="hint">Excel sheet with Item Name, MRP and Cost Price. Items are matched on name and MRP, so the same brand at a revised MRP keeps its own cost.</p>
+          <label class="drop" id="cost-drop">
+            <input type="file" id="cost-file" accept=".xlsx,.xls,.csv">
+            <b>Choose file or drop it here</b>
+            <span>.xlsx, .xls or .csv</span>
+          </label>
+          <div id="cost-preview" class="preview" hidden></div>
+        </div>
+        <div class="card">
+          <div class="list-head">
+            <h2 id="items-title">Items</h2>
+            <input class="search" id="items-search" type="search" placeholder="Search items">
+            <div class="seg" id="items-filter">
+              <button type="button" data-f="all" aria-pressed="true">All</button>
+              <button type="button" data-f="missing" aria-pressed="false">No cost</button>
+            </div>
+          </div>
+          <div class="table-wrap tall"><table id="items-table"></table></div>
+        </div>
+      </div>
+    </section>
+
+    <p class="note">Profit uses cost of goods sold: what each bottle sold cost you, taken from the cost price list at the time the report was uploaded. Supplier payments are a record of money paid out and aren't subtracted again, since the stock cost is already counted when the bottles sell.</p>
   </main>
 </div>
 
 <div class="toast" id="toast" hidden></div>
 
-<datalist id="dl-sale-cat">
-  <option>Whisky</option><option>Beer</option><option>Rum</option><option>Vodka</option>
-  <option>Wines</option><option>Overseas Spirits</option><option>Country Spirits</option><option>General</option>
+<datalist id="dl-cat">
+  <option>Whisky</option><option>Beer</option><option>Rum</option><option>Vodka</option><option>Gin</option>
+  <option>Wines</option><option>Overseas Spirits</option><option>Country Spirits</option><option>Other</option>
 </datalist>
 <datalist id="dl-exp-cat">
   <option>Rent</option><option>Salaries</option><option>Electricity</option><option>Licence &amp; Excise</option>
@@ -307,9 +347,15 @@
   var $ = function (id) { return document.getElementById(id); };
   var inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
   var inr2 = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  var num = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 });
+  var pct = function (a, b) { return b ? (a / b * 100).toFixed(1) + "%" : "–"; };
   var fmtDate = function (d) {
     var p = d.split("-");
     return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+  };
+  var fmtLong = function (d) {
+    var p = d.split("-");
+    return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "long", year: "numeric" });
   };
   var esc = function (s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -327,25 +373,8 @@
   }
   var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // ---------- Table definitions ----------
-  var TABLES = {
-    sales: {
-      table: "daily_sales", dateCol: "sale_date", label: "sale", plural: "Sales",
-      fields: [
-        { name: "sale_date", label: "Date", type: "date", required: true },
-        { name: "amount", label: "Amount (₹)", type: "number", required: true },
-        { name: "payment_mode", label: "Payment mode", type: "select", options: ["Cash", "UPI", "Card", "Credit", "Other"] },
-        { name: "category", label: "Category", type: "text", list: "dl-sale-cat", def: "General" },
-        { name: "description", label: "Note (optional)", type: "text" }
-      ],
-      cols: [
-        { key: "sale_date", label: "Date", date: true },
-        { key: "category", label: "Category" },
-        { key: "payment_mode", label: "Mode" },
-        { key: "description", label: "Note" },
-        { key: "amount", label: "Amount", money: true }
-      ]
-    },
+  // ---------- Manual ledgers ----------
+  var LEDGERS = {
     expenses: {
       table: "expenses", dateCol: "expense_date", label: "expense", plural: "Expenses",
       fields: [
@@ -362,12 +391,12 @@
       ]
     },
     purchases: {
-      table: "purchases", dateCol: "purchase_date", label: "purchase", plural: "Stock purchases",
+      table: "purchases", dateCol: "purchase_date", label: "supplier payment", plural: "Supplier payments",
       fields: [
         { name: "purchase_date", label: "Date", type: "date", required: true },
-        { name: "amount", label: "Total cost (₹)", type: "number", required: true },
+        { name: "amount", label: "Amount paid (₹)", type: "number", required: true },
         { name: "supplier", label: "Supplier", type: "text" },
-        { name: "category", label: "Category", type: "text", list: "dl-sale-cat", def: "General" },
+        { name: "category", label: "Category", type: "text", list: "dl-cat", def: "Other" },
         { name: "quantity", label: "Quantity (bottles/cases)", type: "number" },
         { name: "description", label: "Note (optional)", type: "text" }
       ],
@@ -377,45 +406,65 @@
         { key: "category", label: "Category" },
         { key: "quantity", label: "Qty", num: true },
         { key: "description", label: "Note" },
-        { key: "amount", label: "Cost", money: true }
+        { key: "amount", label: "Amount", money: true }
       ]
     }
   };
 
-  var state = { tab: "sales", month: todayISO().slice(0, 7), data: { sales: [], expenses: [], purchases: [] }, editing: null };
+  var state = {
+    tab: "sales",
+    month: todayISO().slice(0, 7),
+    reports: [], cats: [], ledger: { expenses: [], purchases: [] },
+    items: [], itemsFilter: "all",
+    editing: null, pending: null, pendingCost: null, detailDate: null, detailRows: [], detailFilter: "sold"
+  };
 
   // ---------- Helpers ----------
-  function show(view) {
-    ["view-login", "view-denied", "view-app"].forEach(function (v) { $(v).hidden = v !== view; });
-  }
+  function show(view) { ["view-login", "view-denied", "view-app"].forEach(function (v) { $(v).hidden = v !== view; }); }
   var toastTimer;
   function toast(text) {
     var t = $("toast"); t.textContent = text; t.hidden = false;
-    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.hidden = true; }, 2800);
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.hidden = true; }, 3200);
   }
   function monthRange(m) {
     var y = +m.slice(0, 4), mo = +m.slice(5, 7);
     var last = new Date(y, mo, 0).getDate();
     return [m + "-01", m + "-" + String(last).padStart(2, "0")];
   }
-  function sum(rows) { return rows.reduce(function (a, r) { return a + Number(r.amount || 0); }, 0); }
-  function groupBy(rows, key) {
-    var g = {};
-    rows.forEach(function (r) { var k = r[key] || "Other"; g[k] = (g[k] || 0) + Number(r.amount || 0); });
+  function sum(rows, key) { key = key || "amount"; return rows.reduce(function (a, r) { return a + Number(r[key] || 0); }, 0); }
+  function groupBy(rows, key, val) {
+    val = val || "amount"; var g = {};
+    rows.forEach(function (r) { var k = r[key] || "Other"; g[k] = (g[k] || 0) + Number(r[val] || 0); });
     return Object.keys(g).map(function (k) { return [k, g[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
+  }
+  var normKey = function (s) { return String(s == null ? "" : s).toLowerCase().replace(/[^a-z0-9]/g, ""); };
+  var toNum = function (v) {
+    if (v == null || v === "") return 0;
+    if (typeof v === "number") return v;
+    var n = Number(String(v).replace(/[,₹\s]/g, ""));
+    return isNaN(n) ? 0 : n;
+  };
+  var cleanName = function (s) { return String(s == null ? "" : s).replace(/\s+/g, " ").trim().toUpperCase(); };
+
+  // Category from the item code, e.g. "RS W 750" -> Whisky, "BAZIGAR IML 300" -> Country Spirits
+  var TYPE_CODES = { W: "Whisky", R: "Rum", V: "Vodka", B: "Beer", G: "Gin", IML: "Country Spirits", CL: "Country Spirits",
+    WN: "Wines", WINE: "Wines", BR: "Brandy", T: "Tequila", TQ: "Tequila" };
+  function categoryOf(name) {
+    var t = cleanName(name).split(" ");
+    for (var i = t.length - 2; i >= 1; i--) { if (TYPE_CODES[t[i]]) return TYPE_CODES[t[i]]; }
+    return "Other";
   }
 
   // ---------- Auth ----------
   async function route(session) {
     if (!session) { show("view-login"); return; }
-    var uid = session.user.id;
-    var res = await sb.from("user_roles").select("role").eq("user_id", uid).eq("role", "admin").maybeSingle();
+    var res = await sb.from("user_roles").select("role").eq("user_id", session.user.id).eq("role", "admin").maybeSingle();
     if (res.error || !res.data) { show("view-denied"); return; }
     $("who").textContent = session.user.email;
     show("view-app");
     $("month").value = state.month;
-    renderForm();
-    await loadMonth();
+    selectTab(state.tab);
+    await Promise.all([loadMonth(), loadItems()]);
   }
 
   $("login-form").addEventListener("submit", async function (e) {
@@ -459,11 +508,8 @@
   $("denied-signout").addEventListener("click", signOut);
 
   sb.auth.onAuthStateChange(function (event, session) {
-    if (event === "PASSWORD_RECOVERY") {
-      show("view-login"); $("login-form").hidden = true; $("reset-form").hidden = false; return;
-    }
+    if (event === "PASSWORD_RECOVERY") { show("view-login"); $("login-form").hidden = true; $("reset-form").hidden = false; return; }
     if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "INITIAL_SESSION") {
-      // Defer so Supabase finishes its own work before we query
       setTimeout(function () { route(session); }, 0);
     }
   });
@@ -473,56 +519,79 @@
     var y = +state.month.slice(0, 4), m = +state.month.slice(5, 7) - 1 + n;
     var d = new Date(y, m, 1);
     state.month = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
-    $("month").value = state.month; loadMonth();
+    $("month").value = state.month; state.detailDate = null; loadMonth();
   }
   $("prev-month").addEventListener("click", function () { shiftMonth(-1); });
   $("next-month").addEventListener("click", function () { shiftMonth(1); });
-  $("month").addEventListener("change", function () { if (this.value) { state.month = this.value; loadMonth(); } });
+  $("month").addEventListener("change", function () { if (this.value) { state.month = this.value; state.detailDate = null; loadMonth(); } });
 
   // ---------- Tabs ----------
-  document.querySelectorAll(".tab").forEach(function (t) {
-    t.addEventListener("click", function () {
-      state.tab = t.dataset.tab; state.editing = null;
-      document.querySelectorAll(".tab").forEach(function (x) { x.setAttribute("aria-selected", x === t ? "true" : "false"); });
-      renderForm(); renderTable();
-    });
-  });
+  function selectTab(tab) {
+    state.tab = tab; state.editing = null;
+    document.querySelectorAll(".tab").forEach(function (x) { x.setAttribute("aria-selected", x.dataset.tab === tab ? "true" : "false"); });
+    $("pane-sales").hidden = tab !== "sales";
+    $("pane-ledger").hidden = !(tab === "expenses" || tab === "purchases");
+    $("pane-items").hidden = tab !== "items";
+    if (LEDGERS[tab]) { renderForm(); renderLedger(); }
+  }
+  document.querySelectorAll(".tab").forEach(function (t) { t.addEventListener("click", function () { selectTab(t.dataset.tab); }); });
 
   // ---------- Data ----------
   async function loadMonth() {
     var r = monthRange(state.month);
-    var keys = Object.keys(TABLES);
-    var results = await Promise.all(keys.map(function (k) {
-      var T = TABLES[k];
-      return sb.from(T.table).select("*").gte(T.dateCol, r[0]).lte(T.dateCol, r[1])
-        .order(T.dateCol, { ascending: false }).order("created_at", { ascending: false });
-    }));
-    var failed = false;
-    results.forEach(function (res, i) {
-      if (res.error) { failed = true; state.data[keys[i]] = []; } else state.data[keys[i]] = res.data;
-    });
-    if (failed) toast("Some data couldn't load. Try reloading the page.");
-    renderSummary(); renderTable();
+    var q = await Promise.all([
+      sb.from("daily_report_summary").select("*").gte("report_date", r[0]).lte("report_date", r[1]).order("report_date", { ascending: false }),
+      sb.from("daily_category_summary").select("*").gte("report_date", r[0]).lte("report_date", r[1]),
+      sb.from("expenses").select("*").gte("expense_date", r[0]).lte("expense_date", r[1]).order("expense_date", { ascending: false }).order("created_at", { ascending: false }),
+      sb.from("purchases").select("*").gte("purchase_date", r[0]).lte("purchase_date", r[1]).order("purchase_date", { ascending: false }).order("created_at", { ascending: false })
+    ]);
+    if (q.some(function (x) { return x.error; })) toast("Some data couldn't load. Try reloading the page.");
+    state.reports = q[0].data || [];
+    state.cats = q[1].data || [];
+    state.ledger.expenses = q[2].data || [];
+    state.ledger.purchases = q[3].data || [];
+    renderSummary(); renderReports();
+    if (LEDGERS[state.tab]) renderLedger();
+    if (state.detailDate && state.reports.some(function (x) { return x.report_date === state.detailDate; })) openDetail(state.detailDate);
+    else { state.detailDate = null; $("rep-detail").hidden = true; }
+  }
+
+  async function loadItems() {
+    var all = [], from = 0, page = 1000;
+    while (true) {
+      var r = await sb.from("items").select("*").order("item_name").order("mrp").range(from, from + page - 1);
+      if (r.error) { toast("Couldn't load items: " + r.error.message); break; }
+      all = all.concat(r.data); if (r.data.length < page) break; from += page;
+    }
+    state.items = all; renderItems();
+  }
+
+  function expensesByDate() {
+    var m = {}; state.ledger.expenses.forEach(function (e) { m[e.expense_date] = (m[e.expense_date] || 0) + Number(e.amount || 0); });
+    return m;
   }
 
   function renderSummary() {
-    var s = sum(state.data.sales), p = sum(state.data.purchases), e = sum(state.data.expenses), pr = s - p - e;
-    $("k-sales").textContent = inr.format(s);
-    $("k-purch").textContent = inr.format(p);
-    $("k-exp").textContent = inr.format(e);
-    $("k-profit").textContent = inr.format(pr);
-    $("k-profit").className = "v " + (pr >= 0 ? "pos" : "neg");
-    var days = {}; state.data.sales.forEach(function (r) { days[r.sale_date] = 1; });
-    var nd = Object.keys(days).length;
-    $("k-sales-s").textContent = nd ? nd + " day" + (nd > 1 ? "s" : "") + " recorded · avg " + inr.format(s / nd) + "/day" : "No sales recorded yet";
-    $("k-purch-s").textContent = state.data.purchases.length + " entr" + (state.data.purchases.length === 1 ? "y" : "ies");
-    $("k-exp-s").textContent = state.data.expenses.length + " entr" + (state.data.expenses.length === 1 ? "y" : "ies");
-    renderBars("bd-mode", groupBy(state.data.sales, "payment_mode"), "No sales this month");
-    renderBars("bd-exp", groupBy(state.data.expenses, "category"), "No expenses this month");
+    var sales = sum(state.reports, "sales_value"), gp = sum(state.reports, "gross_profit"), cost = sum(state.reports, "cost_value");
+    var exp = sum(state.ledger.expenses), net = gp - exp, units = sum(state.reports, "units_sold");
+    var missing = sum(state.reports, "missing_costs");
+    $("k-sales").textContent = inr.format(sales);
+    var nd = state.reports.length;
+    $("k-sales-s").textContent = nd ? nd + " day" + (nd > 1 ? "s" : "") + " · " + num.format(units) + " bottles · avg " + inr.format(sales / nd) + "/day" : "No reports uploaded yet";
+    $("k-gp").textContent = inr.format(gp);
+    $("k-gp-s").innerHTML = "Margin " + pct(gp, sales) + " · cost " + inr.format(cost) +
+      (missing ? '<br><span class="warn-t">' + missing + " item line" + (missing > 1 ? "s" : "") + " without a cost price</span>" : "");
+    $("k-exp").textContent = inr.format(exp);
+    $("k-exp-s").textContent = state.ledger.expenses.length + " entr" + (state.ledger.expenses.length === 1 ? "y" : "ies");
+    $("k-net").textContent = inr.format(net);
+    $("k-net").className = "v " + (net >= 0 ? "pos" : "neg");
+    renderBars("bd-cat", groupBy(state.cats, "category", "sales_value"), "No sales this month");
+    renderBars("bd-exp", groupBy(state.ledger.expenses, "category"), "No expenses this month");
   }
 
   function renderBars(id, rows, emptyText) {
     var el = $(id);
+    rows = rows.filter(function (r) { return r[1] > 0; });
     if (!rows.length) { el.innerHTML = '<div class="empty" style="padding:12px 0">' + emptyText + "</div>"; return; }
     var max = rows[0][1] || 1;
     el.innerHTML = rows.map(function (r) {
@@ -531,101 +600,442 @@
     }).join("");
   }
 
-  // ---------- Form ----------
+  // ---------- Stock reports list ----------
+  function renderReports() {
+    var tbl = $("rep-table");
+    $("rep-title").textContent = "Reports in " + new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    var latest = state.reports[0];
+    $("stock-on-hand").innerHTML = latest ? "Stock on hand (" + fmtDate(latest.report_date) + "): <b>" + inr.format(latest.closing_value_cost) + "</b> at cost" : "";
+    if (!state.reports.length) { tbl.innerHTML = '<tr><td class="empty">No reports for this month yet. Upload the first one on the left.</td></tr>'; return; }
+    var expByDate = expensesByDate();
+    var tot = { u: 0, s: 0, c: 0, g: 0, e: 0 };
+    var body = state.reports.map(function (r) {
+      var e = expByDate[r.report_date] || 0, net = Number(r.gross_profit) - e;
+      tot.u += Number(r.units_sold); tot.s += Number(r.sales_value); tot.c += Number(r.cost_value); tot.g += Number(r.gross_profit); tot.e += e;
+      return '<tr class="' + (state.detailDate === r.report_date ? "sel" : "") + '"><td>' + fmtDate(r.report_date) +
+        (r.missing_costs > 0 ? ' <span class="tag warn" title="Items without a cost price">' + r.missing_costs + " no cost</span>" : "") + "</td>" +
+        '<td class="num">' + num.format(r.units_sold) + "</td>" +
+        '<td class="num">' + inr.format(r.sales_value) + "</td>" +
+        '<td class="num">' + inr.format(r.gross_profit) + "</td>" +
+        '<td class="num">' + pct(r.gross_profit, r.sales_value) + "</td>" +
+        '<td class="num">' + (e ? inr.format(e) : "–") + "</td>" +
+        '<td class="num ' + (net >= 0 ? "pos" : "neg") + '">' + inr.format(net) + "</td>" +
+        '<td class="actions"><button class="icon-btn" data-view="' + r.report_date + '">View</button>' +
+        '<button class="icon-btn del" data-delrep="' + r.report_date + '">Delete</button></td></tr>';
+    }).join("");
+    var tn = tot.g - tot.e;
+    tbl.innerHTML = '<thead><tr><th>Date</th><th class="num">Bottles</th><th class="num">Sales</th><th class="num">Gross profit</th><th class="num">Margin</th><th class="num">Expenses</th><th class="num">Net</th><th></th></tr></thead>' +
+      "<tbody>" + body + "</tbody>" +
+      '<tfoot><tr><td>Total</td><td class="num">' + num.format(tot.u) + '</td><td class="num">' + inr.format(tot.s) + '</td><td class="num">' + inr.format(tot.g) +
+      '</td><td class="num">' + pct(tot.g, tot.s) + '</td><td class="num">' + inr.format(tot.e) + '</td><td class="num ' + (tn >= 0 ? "pos" : "neg") + '">' + inr.format(tn) + "</td><td></td></tr></tfoot>";
+  }
+
+  $("rep-table").addEventListener("click", async function (e) {
+    var v = e.target.getAttribute("data-view"), d = e.target.getAttribute("data-delrep");
+    if (v) { state.detailFilter = "sold"; await openDetail(v); $("rep-detail").scrollIntoView({ behavior: "smooth", block: "start" }); }
+    if (d) {
+      if (!confirm("Delete the stock report for " + fmtLong(d) + "? Its sales will be removed from the totals.")) return;
+      var r = await sb.from("stock_reports").delete().eq("report_date", d);
+      if (r.error) { toast("Couldn't delete: " + r.error.message); return; }
+      if (state.detailDate === d) state.detailDate = null;
+      toast("Report deleted"); loadMonth();
+    }
+  });
+
+  async function openDetail(date) {
+    state.detailDate = date;
+    var r = await sb.from("stock_report_lines").select("*").eq("report_date", date).order("item_name").range(0, 4999);
+    if (r.error) { toast("Couldn't load items: " + r.error.message); return; }
+    state.detailRows = r.data; renderDetail(); renderReports();
+  }
+
+  function renderDetail() {
+    var el = $("rep-detail"), date = state.detailDate, f = state.detailFilter;
+    var rows = state.detailRows.filter(function (x) {
+      return f === "sold" ? Number(x.stock_out) > 0 : f === "in" ? Number(x.stock_in) > 0 : f === "nocost" ? x.cost_price == null : true;
+    });
+    if (f === "sold") rows.sort(function (a, b) { return b.sale_value - a.sale_value; });
+    var counts = {
+      sold: state.detailRows.filter(function (x) { return Number(x.stock_out) > 0; }).length,
+      in: state.detailRows.filter(function (x) { return Number(x.stock_in) > 0; }).length,
+      nocost: state.detailRows.filter(function (x) { return x.cost_price == null; }).length,
+      all: state.detailRows.length
+    };
+    var segBtn = function (k, label) { return '<button type="button" data-df="' + k + '" aria-pressed="' + (f === k) + '">' + label + " (" + counts[k] + ")</button>"; };
+    var head = '<div class="list-head"><h2>' + fmtLong(date) + '</h2><div class="seg" id="detail-seg">' +
+      segBtn("sold", "Sold") + segBtn("in", "Received") + (counts.nocost ? segBtn("nocost", "No cost") : "") + segBtn("all", "All stock") +
+      '</div><button class="ghost" id="detail-csv" type="button">Export CSV</button><button class="ghost" id="detail-close" type="button">Close</button></div>';
+    var table;
+    if (!rows.length) table = '<div class="empty">Nothing to show.</div>';
+    else {
+      var gp = function (x) { return x.cost_price == null ? null : Number(x.sale_value) - Number(x.cost_value); };
+      table = '<div class="table-wrap tall"><table><thead><tr><th>Item</th><th>Category</th><th class="num">MRP</th><th class="num">Cost</th>' +
+        '<th class="num">Opening</th><th class="num">In</th><th class="num">Sold</th><th class="num">Closing</th><th class="num">Sales</th><th class="num">Profit</th></tr></thead><tbody>' +
+        rows.map(function (x) {
+          var p = gp(x);
+          return "<tr><td>" + esc(x.item_name) + "</td><td>" + esc(x.category) + '</td><td class="num">' + inr2.format(x.mrp) + '</td><td class="num">' +
+            (x.cost_price == null ? '<span class="tag warn">missing</span>' : inr2.format(x.cost_price)) + '</td><td class="num">' + num.format(x.opening_stock) +
+            '</td><td class="num">' + (Number(x.stock_in) ? num.format(x.stock_in) : "") + '</td><td class="num">' + (Number(x.stock_out) ? num.format(x.stock_out) : "") +
+            '</td><td class="num">' + num.format(x.closing_stock) + '</td><td class="num">' + (Number(x.sale_value) ? inr.format(x.sale_value) : "") +
+            '</td><td class="num">' + (p == null || !Number(x.stock_out) ? "" : inr2.format(p)) + "</td></tr>";
+        }).join("") + "</tbody></table></div>";
+    }
+    el.innerHTML = head + table; el.hidden = false;
+    $("detail-close").onclick = function () { state.detailDate = null; el.hidden = true; renderReports(); };
+    $("detail-csv").onclick = function () {
+      downloadCSV("nalagola-stock-" + date + ".csv",
+        ["Item", "Category", "Brand", "Size", "MRP", "Cost", "Opening", "In", "Sold", "Closing", "Sales", "Cost of sales"],
+        state.detailRows.map(function (x) { return [x.item_name, x.category, x.brand, x.size_ml, x.mrp, x.cost_price, x.opening_stock, x.stock_in, x.stock_out, x.closing_stock, x.sale_value, x.cost_value]; }));
+    };
+    document.querySelectorAll("#detail-seg button").forEach(function (b) {
+      b.onclick = function () { state.detailFilter = b.dataset.df; renderDetail(); };
+    });
+  }
+
+  // ---------- Excel reading ----------
+  function readSheet(file) {
+    return new Promise(function (resolve, reject) {
+      if (!window.XLSX) { reject(new Error("The Excel reader didn't load. Check your connection and reload the page.")); return; }
+      var fr = new FileReader();
+      fr.onload = function () {
+        try {
+          var wb = XLSX.read(new Uint8Array(fr.result), { type: "array", cellDates: true });
+          var ws = wb.Sheets[wb.SheetNames[0]];
+          resolve(XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null, blankrows: false }));
+        } catch (e) { reject(e); }
+      };
+      fr.onerror = function () { reject(fr.error); };
+      fr.readAsArrayBuffer(file);
+    });
+  }
+
+  function findDate(rows) {
+    for (var i = 0; i < Math.min(rows.length, 12); i++) {
+      for (var j = 0; j < (rows[i] || []).length; j++) {
+        var v = rows[i][j];
+        if (v instanceof Date && !isNaN(v)) return v.getFullYear() + "-" + String(v.getMonth() + 1).padStart(2, "0") + "-" + String(v.getDate()).padStart(2, "0");
+        var m = String(v == null ? "" : v).match(/(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
+        if (m) return m[3] + "-" + m[2].padStart(2, "0") + "-" + m[1].padStart(2, "0");
+      }
+    }
+    return null;
+  }
+
+  function parseStockReport(rows) {
+    var hi = -1, map = {};
+    for (var i = 0; i < Math.min(rows.length, 30); i++) {
+      var keys = (rows[i] || []).map(normKey);
+      if (keys.indexOf("itemname") >= 0) { hi = i; keys.forEach(function (k, j) { if (k && map[k] == null) map[k] = j; }); break; }
+    }
+    if (hi < 0) throw new Error("Couldn't find the header row with 'ItemName' in this sheet.");
+    var col = function (names) { for (var k = 0; k < names.length; k++) if (map[names[k]] != null) return map[names[k]]; return null; };
+    var c = {
+      name: col(["itemname"]), mrp: col(["mrp"]), brand: col(["brandname", "brand"]), size: col(["isize", "size"]),
+      open: col(["openingstock", "opening", "openingbalance"]), inn: col(["stockin", "purchase", "receipt"]),
+      out: col(["stockout", "sales", "sold"]), close: col(["closingstock", "closing", "closingbalance"])
+    };
+    var missingCols = [];
+    if (c.mrp == null) missingCols.push("MRP");
+    if (c.out == null) missingCols.push("StockOut");
+    if (missingCols.length) throw new Error("This sheet is missing the column(s): " + missingCols.join(", ") + ".");
+    var lines = [], seen = {};
+    for (var r = hi + 1; r < rows.length; r++) {
+      var row = rows[r] || [], nm = cleanName(row[c.name]);
+      if (!nm || /GRAND TOTAL|^TOTAL$/.test(nm)) continue;
+      var L = {
+        item_name: nm,
+        brand: c.brand != null ? String(row[c.brand] || "").trim() : "",
+        size_ml: c.size != null && toNum(row[c.size]) ? Math.round(toNum(row[c.size])) : "",
+        category: categoryOf(nm),
+        mrp: toNum(row[c.mrp]),
+        opening_stock: c.open != null ? toNum(row[c.open]) : 0,
+        stock_in: c.inn != null ? toNum(row[c.inn]) : 0,
+        stock_out: toNum(row[c.out]),
+        closing_stock: c.close != null ? toNum(row[c.close]) : 0
+      };
+      var key = L.item_name + "|" + L.mrp;
+      if (seen[key]) { seen[key].opening_stock += L.opening_stock; seen[key].stock_in += L.stock_in; seen[key].stock_out += L.stock_out; seen[key].closing_stock += L.closing_stock; continue; }
+      seen[key] = L; lines.push(L);
+    }
+    if (!lines.length) throw new Error("No item rows found under the header.");
+    return { date: findDate(rows), lines: lines, hasClose: c.close != null && c.open != null };
+  }
+
+  function parseCostSheet(rows) {
+    var hi = -1, map = {};
+    for (var i = 0; i < Math.min(rows.length, 30); i++) {
+      var keys = (rows[i] || []).map(normKey);
+      var hasItem = keys.some(function (k) { return k === "itemname" || k === "item"; });
+      var hasCost = keys.some(function (k) { return k.indexOf("cost") === 0; });
+      if (hasItem && hasCost) { hi = i; keys.forEach(function (k, j) { if (k && map[k] == null) map[k] = j; }); break; }
+    }
+    if (hi < 0) throw new Error("Couldn't find a header row with 'Item Name' and 'Cost Price'.");
+    var ci = map.itemname != null ? map.itemname : map.item;
+    var cm = map.mrp;
+    var cc = Object.keys(map).filter(function (k) { return k.indexOf("cost") === 0; }).map(function (k) { return map[k]; })[0];
+    if (cm == null) throw new Error("The cost sheet needs an MRP column so items can be matched.");
+    var out = [], seen = {};
+    for (var r = hi + 1; r < rows.length; r++) {
+      var row = rows[r] || [], nm = cleanName(row[ci]);
+      if (!nm) continue;
+      var mrp = toNum(row[cm]), cost = row[cc] == null || row[cc] === "" ? null : toNum(row[cc]);
+      if (cost == null) continue;
+      seen[nm + "|" + mrp] = { item_name: nm, mrp: mrp, cost_price: cost, category: categoryOf(nm) };
+    }
+    Object.keys(seen).forEach(function (k) { out.push(seen[k]); });
+    if (!out.length) throw new Error("No items with a cost price found.");
+    return out;
+  }
+
+  function wireDrop(dropId, inputId, handler) {
+    var drop = $(dropId), input = $(inputId);
+    input.addEventListener("change", function () { if (input.files[0]) handler(input.files[0]); input.value = ""; });
+    ["dragenter", "dragover"].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("over"); }); });
+    ["dragleave", "drop"].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove("over"); }); });
+    drop.addEventListener("drop", function (e) { var f = e.dataTransfer.files[0]; if (f) handler(f); });
+  }
+
+  // ---------- Stock report upload ----------
+  wireDrop("rep-drop", "rep-file", async function (file) {
+    var pv = $("rep-preview");
+    pv.hidden = false; pv.innerHTML = '<div class="msg">Reading ' + esc(file.name) + "…</div>";
+    try {
+      var parsed = parseStockReport(await readSheet(file));
+      parsed.fileName = file.name;
+      state.pending = parsed;
+      await renderPending();
+    } catch (e) {
+      state.pending = null;
+      pv.innerHTML = '<div class="msg err">' + esc(e.message || e) + "</div>";
+    }
+  });
+
+  function costLookup() {
+    var m = {}; state.items.forEach(function (i) { if (i.cost_price != null) m[i.item_name + "|" + Number(i.mrp)] = Number(i.cost_price); });
+    return m;
+  }
+
+  async function renderPending() {
+    var p = state.pending, pv = $("rep-preview");
+    if (!p.date) p.date = todayISO();
+    var costs = costLookup();
+    var sales = 0, cogs = 0, units = 0, inCost = 0, noCost = [], badBal = [];
+    p.lines.forEach(function (l) {
+      var c = costs[l.item_name + "|" + l.mrp];
+      sales += l.stock_out * l.mrp; units += l.stock_out;
+      if (c == null) { if (l.stock_out || l.stock_in || l.closing_stock) noCost.push(l.item_name + " @ ₹" + l.mrp); }
+      else { cogs += l.stock_out * c; inCost += l.stock_in * c; }
+      if (p.hasClose && Math.abs(l.opening_stock + l.stock_in - l.stock_out - l.closing_stock) > 0.001) badBal.push(l.item_name);
+    });
+    var soldWithCost = p.lines.reduce(function (a, l) { return a + (costs[l.item_name + "|" + l.mrp] != null ? l.stock_out * l.mrp : 0); }, 0);
+    var gp = soldWithCost - cogs;
+
+    // Does today's opening match the last report's closing?
+    var carry = "";
+    var prev = await sb.from("stock_reports").select("report_date").lt("report_date", p.date).order("report_date", { ascending: false }).limit(1);
+    if (!prev.error && prev.data && prev.data.length) {
+      var pd = prev.data[0].report_date;
+      var pl = await sb.from("stock_report_lines").select("item_name,mrp,closing_stock").eq("report_date", pd).range(0, 4999);
+      if (!pl.error) {
+        var pm = {}; pl.data.forEach(function (x) { pm[x.item_name + "|" + Number(x.mrp)] = Number(x.closing_stock); });
+        var off = p.lines.filter(function (l) { var k = l.item_name + "|" + l.mrp; return k in pm && Math.abs(pm[k] - l.opening_stock) > 0.001; });
+        carry = off.length
+          ? '<div class="msg warn">' + off.length + " item" + (off.length > 1 ? "s" : "") + " open differently from the " + fmtDate(pd) + " closing stock." +
+            '<div class="warn-list">' + off.slice(0, 30).map(function (l) { var k = l.item_name + "|" + l.mrp; return esc(l.item_name) + ": closed " + pm[k] + ", opens " + l.opening_stock; }).join("<br>") + "</div></div>"
+          : '<div class="msg ok">Opening stock matches the ' + fmtDate(pd) + " closing stock.</div>";
+      }
+    }
+    var exists = await sb.from("stock_reports").select("report_date").eq("report_date", p.date).maybeSingle();
+    var replacing = !exists.error && exists.data;
+
+    pv.innerHTML =
+      '<label>Report date <input type="date" id="pv-date" value="' + p.date + '"></label>' +
+      (replacing ? '<div class="msg warn">A report for this date is already saved. Saving will replace it.</div>' : "") +
+      '<div class="pv-grid">' +
+        '<div class="pv"><div class="k">Items</div><div class="v">' + p.lines.length + "</div></div>" +
+        '<div class="pv"><div class="k">Bottles sold</div><div class="v">' + num.format(units) + "</div></div>" +
+        '<div class="pv"><div class="k">Sales</div><div class="v">' + inr.format(sales) + "</div></div>" +
+        '<div class="pv"><div class="k">Gross profit</div><div class="v ' + (gp >= 0 ? "pos" : "neg") + '">' + inr.format(gp) + " · " + pct(gp, soldWithCost) + "</div></div>" +
+        '<div class="pv"><div class="k">Cost of sales</div><div class="v">' + inr.format(cogs) + "</div></div>" +
+        '<div class="pv"><div class="k">Stock received</div><div class="v">' + inr.format(inCost) + "</div></div>" +
+      "</div>" +
+      (noCost.length ? '<div class="msg warn">' + noCost.length + " item" + (noCost.length > 1 ? "s have" : " has") + " no cost price yet, so " + (noCost.length > 1 ? "they're" : "it's") +
+        " left out of the profit. Upload costs under Items &amp; costs and they'll be filled in." +
+        '<div class="warn-list">' + noCost.slice(0, 40).map(esc).join("<br>") + "</div></div>" : '<div class="msg ok">Every item has a cost price.</div>') +
+      (badBal.length ? '<div class="msg warn">' + badBal.length + " row" + (badBal.length > 1 ? "s don't" : " doesn't") + " add up (opening + in − out ≠ closing):" +
+        '<div class="warn-list">' + badBal.slice(0, 30).map(esc).join("<br>") + "</div></div>" : "") +
+      carry +
+      '<div class="form-actions"><button class="primary" id="pv-save" type="button">' + (replacing ? "Replace report" : "Save report") + '</button><button class="ghost" id="pv-cancel" type="button">Cancel</button></div>';
+
+    $("pv-date").onchange = function () { if (this.value) { p.date = this.value; renderPending(); } };
+    $("pv-cancel").onclick = function () { state.pending = null; pv.hidden = true; pv.innerHTML = ""; };
+    $("pv-save").onclick = savePending;
+  }
+
+  async function savePending() {
+    var p = state.pending, btn = $("pv-save");
+    btn.disabled = true; btn.textContent = "Saving…";
+    var r = await sb.rpc("save_stock_report", { p_date: p.date, p_file_name: p.fileName, p_lines: p.lines });
+    btn.disabled = false; btn.textContent = "Save report";
+    if (r.error) { toast("Couldn't save: " + r.error.message); return; }
+    toast("Report for " + fmtDate(p.date) + " saved (" + r.data + " items)");
+    state.pending = null; $("rep-preview").hidden = true; $("rep-preview").innerHTML = "";
+    if (p.date.slice(0, 7) !== state.month) { state.month = p.date.slice(0, 7); $("month").value = state.month; }
+    state.detailDate = p.date; state.detailFilter = "sold";
+    await Promise.all([loadMonth(), loadItems()]);
+  }
+
+  // ---------- Cost upload ----------
+  wireDrop("cost-drop", "cost-file", async function (file) {
+    var pv = $("cost-preview");
+    pv.hidden = false; pv.innerHTML = '<div class="msg">Reading ' + esc(file.name) + "…</div>";
+    try {
+      var rows = parseCostSheet(await readSheet(file));
+      var have = {}; state.items.forEach(function (i) { have[i.item_name + "|" + Number(i.mrp)] = i; });
+      var added = 0, changed = 0, same = 0;
+      rows.forEach(function (x) {
+        var h = have[x.item_name + "|" + x.mrp];
+        if (!h) added++; else if (h.cost_price == null || Number(h.cost_price) !== x.cost_price) changed++; else same++;
+      });
+      state.pendingCost = rows;
+      pv.innerHTML = '<div class="pv-grid">' +
+        '<div class="pv"><div class="k">Items in file</div><div class="v">' + rows.length + "</div></div>" +
+        '<div class="pv"><div class="k">New</div><div class="v">' + added + "</div></div>" +
+        '<div class="pv"><div class="k">Cost added or changed</div><div class="v">' + changed + "</div></div>" +
+        '<div class="pv"><div class="k">Unchanged</div><div class="v">' + same + "</div></div></div>" +
+        '<div class="msg">New cost prices apply to reports you upload from now on, and to any saved report lines that had no cost yet. Reports already costed keep their old cost.</div>' +
+        '<div class="form-actions"><button class="primary" id="cost-save" type="button">Save cost prices</button><button class="ghost" id="cost-cancel" type="button">Cancel</button></div>';
+      $("cost-cancel").onclick = function () { state.pendingCost = null; pv.hidden = true; pv.innerHTML = ""; };
+      $("cost-save").onclick = saveCosts;
+    } catch (e) {
+      state.pendingCost = null; pv.innerHTML = '<div class="msg err">' + esc(e.message || e) + "</div>";
+    }
+  });
+
+  async function saveCosts() {
+    var rows = state.pendingCost, btn = $("cost-save");
+    btn.disabled = true; btn.textContent = "Saving…";
+    var have = {}; state.items.forEach(function (i) { have[i.item_name + "|" + Number(i.mrp)] = i; });
+    var payload = rows.map(function (x) {
+      var h = have[x.item_name + "|" + x.mrp];
+      return { item_name: x.item_name, mrp: x.mrp, cost_price: x.cost_price, category: h ? h.category : x.category,
+        brand: h ? h.brand : "", size_ml: h ? h.size_ml : null, updated_at: new Date().toISOString() };
+    });
+    for (var i = 0; i < payload.length; i += 500) {
+      var r = await sb.from("items").upsert(payload.slice(i, i + 500), { onConflict: "item_name,mrp" });
+      if (r.error) { btn.disabled = false; btn.textContent = "Save cost prices"; toast("Couldn't save: " + r.error.message); return; }
+    }
+    var f = await sb.rpc("fill_missing_costs");
+    var filled = f.error ? 0 : f.data;
+    toast(payload.length + " cost prices saved" + (filled ? "; " + filled + " report lines updated" : ""));
+    state.pendingCost = null; $("cost-preview").hidden = true; $("cost-preview").innerHTML = "";
+    await Promise.all([loadItems(), loadMonth()]);
+  }
+
+  // ---------- Items table ----------
+  function renderItems() {
+    var q = normKey($("items-search").value), f = state.itemsFilter;
+    var rows = state.items.filter(function (i) {
+      if (f === "missing" && i.cost_price != null) return false;
+      return !q || normKey(i.item_name).indexOf(q) >= 0 || normKey(i.category).indexOf(q) >= 0;
+    });
+    var missing = state.items.filter(function (i) { return i.cost_price == null; }).length;
+    $("items-title").textContent = state.items.length + " items" + (missing ? " · " + missing + " without cost" : "");
+    var tbl = $("items-table");
+    if (!rows.length) { tbl.innerHTML = '<tr><td class="empty">' + (state.items.length ? "No items match." : "No items yet. Upload a cost sheet or a stock report.") + "</td></tr>"; return; }
+    tbl.innerHTML = '<thead><tr><th>Item</th><th>Category</th><th class="num">MRP</th><th class="num">Cost</th><th class="num">Margin</th><th></th></tr></thead><tbody>' +
+      rows.map(function (i) {
+        var m = i.cost_price == null ? null : Number(i.mrp) - Number(i.cost_price);
+        return "<tr><td>" + esc(i.item_name) + "</td><td>" + esc(i.category) + '</td><td class="num">' + inr2.format(i.mrp) + '</td><td class="num">' +
+          (i.cost_price == null ? '<span class="tag warn">missing</span>' : inr2.format(i.cost_price)) + '</td><td class="num">' +
+          (m == null ? "" : inr2.format(m) + " · " + pct(m, i.mrp)) + '</td><td class="actions"><button class="icon-btn" data-edititem="' + i.id + '">Edit</button></td></tr>';
+      }).join("") + "</tbody>";
+  }
+  $("items-search").addEventListener("input", renderItems);
+  document.querySelectorAll("#items-filter button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      state.itemsFilter = b.dataset.f;
+      document.querySelectorAll("#items-filter button").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+      renderItems();
+    });
+  });
+  $("items-table").addEventListener("click", async function (e) {
+    var id = e.target.getAttribute("data-edititem"); if (!id) return;
+    var it = state.items.find(function (i) { return i.id === id; });
+    var c = prompt("Cost price for " + it.item_name + " (MRP ₹" + it.mrp + ")", it.cost_price == null ? "" : it.cost_price);
+    if (c === null) return;
+    var cat = prompt("Category for " + it.item_name + " (Whisky, Beer, Rum, Vodka, Gin, Wines, Overseas Spirits, Country Spirits, Other)", it.category);
+    if (cat === null) return;
+    var cost = c.trim() === "" ? null : toNum(c);
+    var r = await sb.from("items").update({ cost_price: cost, category: cat.trim() || "Other", updated_at: new Date().toISOString() }).eq("id", id);
+    if (r.error) { toast("Couldn't save: " + r.error.message); return; }
+    var f = await sb.rpc("fill_missing_costs");
+    toast("Item updated" + (!f.error && f.data ? "; " + f.data + " report lines filled" : ""));
+    await Promise.all([loadItems(), loadMonth()]);
+  });
+
+  // ---------- Manual ledgers (expenses, supplier payments) ----------
   function renderForm() {
-    var T = TABLES[state.tab], f = $("entry-form"), row = state.editing;
+    var T = LEDGERS[state.tab], f = $("entry-form"), row = state.editing;
     $("form-title").textContent = (row ? "Edit " : "Add ") + T.label;
-    var html = "";
-    var fields = T.fields.slice();
-    // Date + amount side by side
-    html += '<div class="row-2">' + fieldHTML(fields[0], row) + fieldHTML(fields[1], row) + "</div>";
-    fields.slice(2).forEach(function (fd) { html += fieldHTML(fd, row); });
+    var html = '<div class="row-2">' + fieldHTML(T.fields[0], row) + fieldHTML(T.fields[1], row) + "</div>";
+    T.fields.slice(2).forEach(function (fd) { html += fieldHTML(fd, row); });
     html += '<div class="form-actions"><button class="primary" type="submit">' + (row ? "Save changes" : "Add " + T.label) + "</button>" +
       (row ? '<button class="ghost" type="button" id="cancel-edit">Cancel</button>' : "") + "</div>";
     f.innerHTML = html;
     if (row) $("cancel-edit").addEventListener("click", function () { state.editing = null; renderForm(); });
   }
-
   function fieldHTML(fd, row) {
     var val = row ? row[fd.name] : (fd.type === "date" ? defaultDate() : (fd.def || ""));
     if (val == null) val = "";
-    var id = "f-" + fd.name;
-    var input;
-    if (fd.type === "select") {
-      input = '<select id="' + id + '" name="' + fd.name + '">' + fd.options.map(function (o) {
-        return "<option" + (String(val) === o ? " selected" : "") + ">" + o + "</option>";
-      }).join("") + "</select>";
-    } else {
-      input = '<input id="' + id + '" name="' + fd.name + '" type="' + fd.type + '"' +
-        (fd.type === "number" ? ' step="0.01" min="0" inputmode="decimal"' : "") +
-        (fd.list ? ' list="' + fd.list + '"' : "") +
-        (fd.required ? " required" : "") +
-        ' value="' + esc(fd.type === "number" && val === "" ? "" : val) + '">';
-    }
-    return "<label>" + fd.label + input + "</label>";
+    return "<label>" + fd.label + '<input id="f-' + fd.name + '" name="' + fd.name + '" type="' + fd.type + '"' +
+      (fd.type === "number" ? ' step="0.01" min="0" inputmode="decimal"' : "") + (fd.list ? ' list="' + fd.list + '"' : "") +
+      (fd.required ? " required" : "") + ' value="' + esc(val) + '"></label>';
   }
-
-  function defaultDate() {
-    var t = todayISO();
-    return t.slice(0, 7) === state.month ? t : state.month + "-01";
-  }
+  function defaultDate() { var t = todayISO(); return t.slice(0, 7) === state.month ? t : state.month + "-01"; }
 
   $("entry-form").addEventListener("submit", async function (e) {
     e.preventDefault();
-    var T = TABLES[state.tab], payload = {};
+    var T = LEDGERS[state.tab], payload = {};
     T.fields.forEach(function (fd) {
       var v = $("f-" + fd.name).value;
-      if (fd.type === "number") v = v === "" ? 0 : Number(v);
-      else v = String(v).trim();
-      payload[fd.name] = v;
+      payload[fd.name] = fd.type === "number" ? (v === "" ? 0 : Number(v)) : String(v).trim();
     });
     if (!(payload.amount > 0)) { toast("Enter an amount above zero."); return; }
     var btn = e.target.querySelector(".primary"); btn.disabled = true;
-    var res = state.editing
-      ? await sb.from(T.table).update(payload).eq("id", state.editing.id)
-      : await sb.from(T.table).insert(payload);
+    var res = state.editing ? await sb.from(T.table).update(payload).eq("id", state.editing.id) : await sb.from(T.table).insert(payload);
     btn.disabled = false;
     if (res.error) { toast("Couldn't save: " + res.error.message); return; }
-    toast(state.editing ? "Changes saved" : T.label.charAt(0).toUpperCase() + T.label.slice(1) + " added");
-    var keepDate = payload[T.dateCol];
-    state.editing = null;
-    if (keepDate.slice(0, 7) !== state.month) { state.month = keepDate.slice(0, 7); $("month").value = state.month; }
-    renderForm();
-    await loadMonth();
+    toast(state.editing ? "Changes saved" : "Saved");
+    var d = payload[T.dateCol]; state.editing = null;
+    if (d.slice(0, 7) !== state.month) { state.month = d.slice(0, 7); $("month").value = state.month; }
+    renderForm(); await loadMonth();
   });
 
-  // ---------- Table ----------
-  function renderTable() {
-    var T = TABLES[state.tab], rows = state.data[state.tab], tbl = $("entry-table");
+  function renderLedger() {
+    var T = LEDGERS[state.tab], rows = state.ledger[state.tab], tbl = $("entry-table");
     $("list-title").textContent = T.plural + " in " + new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
     $("list-total").textContent = inr2.format(sum(rows));
     if (!rows.length) { tbl.innerHTML = '<tr><td class="empty">Nothing recorded for this month yet.</td></tr>'; return; }
-    var head = "<thead><tr>" + T.cols.map(function (c) {
-      return '<th class="' + (c.money || c.num ? "num" : "") + '">' + c.label + "</th>";
-    }).join("") + "<th></th></tr></thead>";
-    var body = "<tbody>" + rows.map(function (r) {
-      return "<tr>" + T.cols.map(function (c) {
-        var v = r[c.key];
-        if (c.date) v = fmtDate(v);
-        else if (c.money) v = inr2.format(v);
-        else if (c.num) v = Number(v) ? v : "";
-        return '<td class="' + (c.money || c.num ? "num" : "") + '">' + esc(v) + "</td>";
-      }).join("") + '<td class="actions"><button class="icon-btn" data-edit="' + r.id + '">Edit</button>' +
-        '<button class="icon-btn del" data-del="' + r.id + '">Delete</button></td></tr>';
-    }).join("") + "</tbody>";
-    tbl.innerHTML = head + body;
+    tbl.innerHTML = "<thead><tr>" + T.cols.map(function (c) { return '<th class="' + (c.money || c.num ? "num" : "") + '">' + c.label + "</th>"; }).join("") + "<th></th></tr></thead><tbody>" +
+      rows.map(function (r) {
+        return "<tr>" + T.cols.map(function (c) {
+          var v = r[c.key];
+          if (c.date) v = fmtDate(v); else if (c.money) v = inr2.format(v); else if (c.num) v = Number(v) ? v : "";
+          return '<td class="' + (c.money || c.num ? "num" : "") + '">' + esc(v) + "</td>";
+        }).join("") + '<td class="actions"><button class="icon-btn" data-edit="' + r.id + '">Edit</button><button class="icon-btn del" data-del="' + r.id + '">Delete</button></td></tr>';
+      }).join("") + "</tbody>";
   }
 
   $("entry-table").addEventListener("click", async function (e) {
-    var T = TABLES[state.tab];
+    var T = LEDGERS[state.tab];
     var editId = e.target.getAttribute("data-edit"), delId = e.target.getAttribute("data-del");
     if (editId) {
-      state.editing = state.data[state.tab].find(function (r) { return r.id === editId; });
-      renderForm();
-      $("entry-form").scrollIntoView({ behavior: "smooth", block: "center" });
+      state.editing = state.ledger[state.tab].find(function (r) { return r.id === editId; });
+      renderForm(); $("entry-form").scrollIntoView({ behavior: "smooth", block: "center" });
     }
     if (delId) {
-      var row = state.data[state.tab].find(function (r) { return r.id === delId; });
+      var row = state.ledger[state.tab].find(function (r) { return r.id === delId; });
       if (!confirm("Delete this " + T.label + " of " + inr2.format(row.amount) + " on " + fmtDate(row[T.dateCol]) + "?")) return;
       var res = await sb.from(T.table).delete().eq("id", delId);
       if (res.error) { toast("Couldn't delete: " + res.error.message); return; }
@@ -634,24 +1044,21 @@
     }
   });
 
-  // ---------- CSV export ----------
   $("export-btn").addEventListener("click", function () {
-    var T = TABLES[state.tab], rows = state.data[state.tab];
+    var T = LEDGERS[state.tab], rows = state.ledger[state.tab];
     if (!rows.length) { toast("Nothing to export for this month."); return; }
-    var cols = T.cols.map(function (c) { return c.key; });
-    var csv = [T.cols.map(function (c) { return c.label; }).join(",")].concat(rows.map(function (r) {
-      return cols.map(function (k) {
-        var v = r[k] == null ? "" : String(r[k]);
-        return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
-      }).join(",");
-    })).join("\n");
+    downloadCSV("nalagola-" + state.tab + "-" + state.month + ".csv", T.cols.map(function (c) { return c.label; }),
+      rows.map(function (r) { return T.cols.map(function (c) { return r[c.key]; }); }));
+  });
+
+  function downloadCSV(name, header, rows) {
+    var cell = function (v) { v = v == null ? "" : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    var csv = [header.map(cell).join(",")].concat(rows.map(function (r) { return r.map(cell).join(","); })).join("\n");
     var blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
-    var a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "nalagola-" + state.tab + "-" + state.month + ".csv";
+    var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
-  });
+  }
 })();
 </script>
 </body>
