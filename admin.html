@@ -108,6 +108,13 @@
   .cap-head .s { margin-top: 4px; font-size: 0.78rem; color: var(--muted); }
   .cap-lines { margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
   @media (min-width: 1100px) { .cap-lines { grid-template-columns: repeat(7, 1fr); } }
+  button.cap-line { font: inherit; color: inherit; text-align: left; cursor: pointer; width: 100%; }
+  button.cap-line:hover, button.cap-line.on { border-color: var(--gold); }
+  button.cap-line:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); }
+  #stmt { margin-top: 14px; padding: 14px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--bg); }
+  #stmt .table-wrap { max-height: 460px; overflow-y: auto; }
+  #stmt tr.bf td { color: var(--muted); font-style: italic; }
+  #stmt tr.day-end td { border-bottom: 1px solid var(--line); }
   .cap-line { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; }
   .cap-line .l { font-size: 0.72rem; color: var(--muted); }
   .cap-line .a { margin-top: 3px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -388,6 +395,7 @@
         </div>
       </form>
 
+      <div id="stmt" hidden></div>
       <div id="tr-list"></div>
     </section>
 
@@ -643,7 +651,7 @@
     items: [], itemsFilter: "all",
     mismatches: [], missingDays: [], book: [], dues: [],
     custFilter: "all", custSel: null, duesEditing: null, bookOpen: null, expOpen: null,
-    allReports: [], allExp: [], allBook: [], cap: { stock: null, ledger: null, opening: null }, transfers: [],
+    allReports: [], allExp: [], allBook: [], cap: { stock: null, ledger: null, opening: null }, transfers: [], stmt: null,
     editing: null, pending: null, pendingCost: null, detailDate: null, detailRows: [], detailFilter: "sold"
   };
 
@@ -881,8 +889,19 @@
     return bal;
   }
 
+  // Last day with anything recorded (report, ledger, transfer or dues) on or before the month end
+  function lastRecordedDay() {
+    var end = monthRange(state.month)[1], last = START_DATE;
+    var take = function (d) { if (d && d <= end && d > last) last = d; };
+    state.allReports.forEach(function (r) { take(r.report_date); });
+    state.allBook.forEach(function (b) { take(b.ledger_date); });
+    state.transfers.forEach(function (t) { take(t.transfer_date); });
+    state.dues.forEach(function (d) { take(d.entry_date); });
+    return last;
+  }
+
   function capitalParts() {
-    var end = monthRange(state.month)[1], t = todayISO(); if (end > t) end = t;
+    var end = lastRecordedDay();
     var c = state.cap, bal = accountBalances(end);
     var per = {};
     state.dues.forEach(function (d) {
@@ -891,15 +910,15 @@
       per[k] = (per[k] || 0) + (d.entry_type === "credit" ? 1 : -1) * Number(d.amount);
     });
     var credit = Object.keys(per).reduce(function (a, k) { return a + Math.max(0, per[k]); }, 0);
-    var asOf = "to " + fmtDate(end);
+    var asOf = "as of " + fmtDate(end);
     var parts = [
-      { l: "Shop stock value", a: c.stock ? Number(c.stock.closing_value_cost) : 0, d: c.stock ? "at cost, " + fmtDate(c.stock.report_date) : "no report yet" },
-      { l: "Bevco wallet", a: bal.bevco, d: "after stock in " + asOf, warn: bal.bevco < -0.5 },
-      { l: "Bank balance", a: bal.bank, d: asOf },
-      { l: "Cash credit used", a: -bal.cc_used, minus: true, d: inr.format(Math.max(0, bal.cc_limit - bal.cc_used)) + " left of " + inr.format(bal.cc_limit) },
-      { l: "Credit given", a: credit, d: "still owed by customers" },
-      { l: "Cash not deposited", a: bal.cash_hand, d: asOf, warn: bal.cash_hand < -0.5 },
-      { l: "Remaining balance", a: c.ledger ? Number(c.ledger.shop_balance) : 0, d: c.ledger ? "shop, " + fmtDate(c.ledger.ledger_date) : "ledger not filled yet" }
+      { k: "stock", l: "Shop stock value", a: c.stock ? Number(c.stock.closing_value_cost) : 0, d: c.stock ? "at cost, " + fmtDate(c.stock.report_date) : "no report yet" },
+      { k: "bevco", l: "Bevco wallet", a: bal.bevco, d: asOf, warn: bal.bevco < -0.5 },
+      { k: "bank", l: "Bank balance", a: bal.bank, d: asOf },
+      { k: "cash_credit", l: "Cash credit used", a: -bal.cc_used, minus: true, d: inr.format(Math.max(0, bal.cc_limit - bal.cc_used)) + " left of " + inr.format(bal.cc_limit) },
+      { k: "dues", l: "Credit given", a: credit, d: "still owed by customers" },
+      { k: "cash_hand", l: "Cash not deposited", a: bal.cash_hand, d: asOf, warn: bal.cash_hand < -0.5 },
+      { k: "remaining", l: "Remaining balance", a: c.ledger ? Number(c.ledger.shop_balance) : 0, d: c.ledger ? "shop, " + fmtDate(c.ledger.ledger_date) : "ledger not filled yet" }
     ];
     return { parts: parts, bal: bal, end: end, total: parts.reduce(function (s2, p) { return s2 + p.a; }, 0) };
   }
@@ -909,8 +928,9 @@
     $("cap-total").textContent = inr.format(x.total);
     $("cap-lines").innerHTML = x.parts.map(function (p) {
       var neg = p.a < -0.5;
-      return '<div class="cap-line' + (p.minus ? " minus" : "") + '"><div class="l">' + p.l + '</div><div class="a' + (p.warn ? " neg" : "") + '">' +
-        (neg ? "− " + inr.format(-p.a) : inr.format(p.a)) + '</div><div class="d">' + esc(p.d) + "</div></div>";
+      return '<button type="button" class="cap-line' + (p.minus ? " minus" : "") + (state.stmt === p.k ? " on" : "") + '" data-stmt="' + p.k + '" title="See the day-wise statement">' +
+        '<div class="l">' + p.l + '</div><div class="a' + (p.warn ? " neg" : "") + '">' +
+        (neg ? "− " + inr.format(-p.a) : inr.format(p.a)) + '</div><div class="d">' + esc(p.d) + "</div></button>";
     }).join("");
     var warns = [];
     if (!o) warns.push("Enter the opening balances for 1 Oct to start the accounts.");
@@ -920,6 +940,7 @@
     if (x.bal.cc_used > x.bal.cc_limit + 0.5) warns.push("Cash credit used is above the limit.");
     $("cap-warn").innerHTML = warns.map(function (w) { return '<div class="msg warn" style="margin-top:10px">' + w + "</div>"; }).join("");
     $("ob-open").textContent = o && o.frozen ? "Opening balances" : "Set opening balances";
+    if (state.stmt) renderStatement();
     // This month's transfers
     var r = monthRange(state.month);
     var list = state.transfers.filter(function (t) { return t.transfer_date >= r[0] && t.transfer_date <= r[1]; }).slice().reverse();
@@ -929,6 +950,90 @@
           "</td><td>" + esc(t.note) + '</td><td class="actions"><button class="icon-btn del" data-deltr="' + t.id + '">Delete</button></td></tr>';
       }).join("") + "</tbody></table></div>";
   }
+
+  // ---------- Day-wise statements ----------
+  // Every movement for one account, oldest first. Amount is + when the balance goes up.
+  function movements(acct) {
+    var o = state.cap.opening || {}, m = [];
+    var opening = { bevco: o.bevco_wallet, bank: o.bank_balance, cash_credit: o.cc_used, cash_hand: o.cash_not_deposited }[acct];
+    m.push({ date: START_DATE, desc: "Opening balance (morning of " + fmtDate(START_DATE) + ")", amt: Number(opening || 0), opening: true });
+    if (acct === "bevco") state.allReports.forEach(function (r) {
+      var c = Number(r.stock_in_cost || 0);
+      if (r.report_date >= START_DATE && c) m.push({ date: r.report_date, desc: "Stock received (stock in at cost)", amt: -c });
+    });
+    state.allBook.forEach(function (b) {
+      if (b.ledger_date < START_DATE) return;
+      var cash = Number(b.cash_collection || 0), on = Number(b.online_received || 0);
+      if (acct === "cash_hand" && cash) m.push({ date: b.ledger_date, desc: "Cash collected", amt: cash });
+      if (acct === "bank" && on && b.online_to === "bank") m.push({ date: b.ledger_date, desc: "Online received", amt: on });
+      if (acct === "cash_credit" && on && b.online_to !== "bank") m.push({ date: b.ledger_date, desc: "Online received (repays cash credit)", amt: -on });
+    });
+    state.transfers.forEach(function (t) {
+      var a = Number(t.amount), note = t.note ? " · " + t.note : "";
+      if (t.from_account === acct) m.push({ date: t.transfer_date, desc: "Transfer to " + ACCT[t.to_account] + note, amt: acct === "cash_credit" ? a : -a });
+      if (t.to_account === acct) m.push({ date: t.transfer_date, desc: "Transfer from " + ACCT[t.from_account] + note, amt: acct === "cash_credit" ? -a : a });
+    });
+    m.sort(function (x, y) { return x.date < y.date ? -1 : x.date > y.date ? 1 : (y.opening ? 1 : 0) - (x.opening ? 1 : 0); });
+    return m;
+  }
+
+  var STMT_TITLE = { bevco: "Bevco wallet", bank: "Bank balance", cash_credit: "SBI cash credit (amount used)", cash_hand: "Cash not deposited",
+    stock: "Shop stock value (closing stock at cost)", remaining: "Remaining shop balance" };
+
+  function renderStatement() {
+    var k = state.stmt, el = $("stmt"), r = monthRange(state.month);
+    var monthName = new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    var head = '<div class="list-head"><h2>' + STMT_TITLE[k] + " · " + monthName + '</h2><button class="ghost" id="stmt-csv" type="button">Export CSV</button><button class="ghost" id="stmt-close" type="button">Close</button></div>';
+    var rows = [], csv = [];
+    if (k === "stock" || k === "remaining") {
+      var src = k === "stock"
+        ? state.allReports.filter(function (x) { return x.report_date >= r[0] && x.report_date <= r[1]; }).map(function (x) { return { date: x.report_date, v: Number(x.closing_value_cost), extra: Number(x.stock_in_cost || 0), sold: Number(x.cost_value || 0) }; })
+        : state.book.filter(function (x) { return x.ledger_date >= r[0] && x.ledger_date <= r[1]; }).map(function (x) { return { date: x.ledger_date, v: Number(x.shop_balance) }; });
+      src.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+      if (!src.length) { el.innerHTML = head + '<div class="empty">Nothing recorded this month.</div>'; }
+      else if (k === "stock") {
+        el.innerHTML = head + '<div class="table-wrap"><table><thead><tr><th>Date</th><th class="num">Stock received</th><th class="num">Stock sold (at cost)</th><th class="num">Closing stock value</th></tr></thead><tbody>' +
+          src.map(function (x) { csv.push([x.date, x.extra, x.sold, x.v]); return "<tr><td>" + fmtDate(x.date) + '</td><td class="num">' + (x.extra ? inr.format(x.extra) : "–") + '</td><td class="num">' + inr.format(x.sold) + '</td><td class="num"><b>' + inr.format(x.v) + "</b></td></tr>"; }).join("") + "</tbody></table></div>";
+        csv.unshift(["Date", "Stock received", "Stock sold at cost", "Closing stock value"]);
+      } else {
+        el.innerHTML = head + '<div class="table-wrap"><table><thead><tr><th>Date</th><th class="num">Remaining balance</th></tr></thead><tbody>' +
+          src.map(function (x) { csv.push([x.date, x.v]); return "<tr><td>" + fmtDate(x.date) + '</td><td class="num"><b>' + inr.format(x.v) + "</b></td></tr>"; }).join("") + "</tbody></table></div>";
+        csv.unshift(["Date", "Remaining balance"]);
+      }
+    } else {
+      var all = movements(k), bal = 0, bf = 0;
+      all.forEach(function (x) { if (x.date < r[0]) bf += x.amt; });
+      bal = bf;
+      var inMonth = all.filter(function (x) { return x.date >= r[0] && x.date <= r[1]; });
+      var isCC = k === "cash_credit";
+      var colIn = isCC ? "Drawn" : "In", colOut = isCC ? "Repaid" : "Out", colBal = isCC ? "Used" : "Balance";
+      csv.push(["Date", "Details", colIn, colOut, colBal]);
+      if (r[0] > START_DATE) { rows.push('<tr class="bf"><td>' + fmtDate(r[0]) + '</td><td>Brought forward</td><td></td><td></td><td class="num">' + inr2.format(bf) + "</td></tr>"); csv.push([r[0], "Brought forward", "", "", bf]); }
+      inMonth.forEach(function (x, i) {
+        bal += x.amt;
+        var last = i === inMonth.length - 1 || inMonth[i + 1].date !== x.date;
+        rows.push('<tr class="' + (last ? "day-end" : "") + '"><td>' + (i === 0 || inMonth[i - 1].date !== x.date ? fmtDate(x.date) : "") + "</td><td>" + esc(x.desc) +
+          '</td><td class="num">' + (x.amt > 0 ? inr2.format(x.amt) : "") + '</td><td class="num">' + (x.amt < 0 ? inr2.format(-x.amt) : "") +
+          '</td><td class="num">' + (last ? "<b>" + inr2.format(bal) + "</b>" : '<span style="color:var(--muted)">' + inr2.format(bal) + "</span>") + "</td></tr>");
+        csv.push([x.date, x.desc, x.amt > 0 ? x.amt : "", x.amt < 0 ? -x.amt : "", bal]);
+      });
+      el.innerHTML = head + (rows.length ? '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Details</th><th class="num">' + colIn + '</th><th class="num">' + colOut +
+        '</th><th class="num">' + colBal + "</th></tr></thead><tbody>" + rows.join("") + "</tbody></table></div>" : '<div class="empty">Nothing recorded this month.</div>');
+    }
+    el.hidden = false;
+    $("stmt-close").onclick = function () { state.stmt = null; el.hidden = true; renderCapital(); };
+    $("stmt-csv").onclick = function () { downloadCSV("nalagola-" + k + "-" + state.month + ".csv", csv[0], csv.slice(1)); };
+  }
+
+  $("cap-lines").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-stmt]"); if (!b) return;
+    var k = b.dataset.stmt;
+    if (k === "dues") { selectTab("dues"); document.querySelector(".tabs").scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+    state.stmt = state.stmt === k ? null : k;
+    if (!state.stmt) $("stmt").hidden = true;
+    renderCapital();
+    if (state.stmt) $("stmt").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
 
   // Transfers
   $("tr-open").addEventListener("click", function () {
