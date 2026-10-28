@@ -101,6 +101,20 @@
   .neg { color: var(--red); }
   .warn-t { color: var(--amber); }
   @media (max-width: 860px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+  .capital { margin-top: 12px; border-color: var(--line-strong); }
+  .cap-head { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
+  .cap-head .k { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .cap-head .v { margin-top: 6px; font-size: 1.9rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--gold); }
+  .cap-head .s { margin-top: 4px; font-size: 0.78rem; color: var(--muted); }
+  .cap-lines { margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+  @media (min-width: 1100px) { .cap-lines { grid-template-columns: repeat(7, 1fr); } }
+  .cap-line { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; }
+  .cap-line .l { font-size: 0.72rem; color: var(--muted); }
+  .cap-line .a { margin-top: 3px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .cap-line .d { margin-top: 2px; font-size: 0.7rem; color: var(--muted); }
+  .cap-line.minus .a { color: var(--red); }
+  #cap-form { margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; align-items: end; }
+  #cap-form .form-actions { margin: 0; }
 
   .tabs { margin-top: 24px; display: flex; gap: 6px; border-bottom: 1px solid var(--line); overflow-x: auto; }
   .tab {
@@ -316,6 +330,27 @@
       <div class="kpi"><div class="k">Gross profit</div><div class="v" id="k-gp">–</div><div class="s" id="k-gp-s"></div></div>
       <div class="kpi"><div class="k">Expenses</div><div class="v" id="k-exp">–</div><div class="s" id="k-exp-s"></div></div>
       <div class="kpi profit"><div class="k">Net profit</div><div class="v" id="k-net">–</div><div class="s">Gross profit − expenses</div></div>
+    </section>
+
+    <section class="card capital" aria-label="Business capital">
+      <div class="cap-head">
+        <div>
+          <div class="k">Business capital</div>
+          <div class="v" id="cap-total">–</div>
+          <div class="s">Stock value + Bevco wallet + bank balance − loans + credit given + cash not deposited + remaining balance</div>
+        </div>
+        <div class="spacer"></div>
+        <button class="ghost" id="cap-edit" type="button">Update balances</button>
+      </div>
+      <div class="cap-lines" id="cap-lines"></div>
+      <form id="cap-form" hidden>
+        <label>As of <input type="date" id="cap-date" required></label>
+        <label>Bevco wallet (₹) <input type="number" id="cap-bevco" step="0.01" inputmode="decimal"></label>
+        <label>Bank balance (₹) <input type="number" id="cap-bank" step="0.01" inputmode="decimal"></label>
+        <label>Loans outstanding (₹) <input type="number" id="cap-loans" step="0.01" min="0" inputmode="decimal"></label>
+        <label>Cash not deposited (₹) <input type="number" id="cap-cash" step="0.01" min="0" inputmode="decimal"></label>
+        <div class="form-actions"><button class="primary" type="submit">Save</button><button class="ghost" type="button" id="cap-cancel">Cancel</button></div>
+      </form>
     </section>
 
     <section class="breakdowns">
@@ -570,7 +605,7 @@
     items: [], itemsFilter: "all",
     mismatches: [], missingDays: [], book: [], dues: [],
     custFilter: "all", custSel: null, duesEditing: null, bookOpen: null, expOpen: null,
-    allReports: [], allExp: [], allBook: [],
+    allReports: [], allExp: [], allBook: [], cap: { stock: null, ledger: null, bal: null },
     editing: null, pending: null, pendingCost: null, detailDate: null, detailRows: [], detailFilter: "sold"
   };
 
@@ -734,7 +769,10 @@
       fetchAll(function () { return sb.from("customer_dues").select("*").order("entry_date", { ascending: false }).order("created_at", { ascending: false }); }),
       fetchAll(function () { return sb.from("daily_report_summary").select("report_date,units_sold,sales_value,cost_value,gross_profit,closing_value_cost,missing_costs").order("report_date"); }),
       fetchAll(function () { return sb.from("expenses").select("expense_date,amount").order("expense_date"); }),
-      fetchAll(function () { return sb.from("daily_ledger").select("ledger_date,bar_collection").order("ledger_date"); })
+      fetchAll(function () { return sb.from("daily_ledger").select("ledger_date,bar_collection").order("ledger_date"); }),
+      sb.from("daily_report_summary").select("report_date,closing_value_cost").lte("report_date", r[1]).order("report_date", { ascending: false }).limit(1),
+      sb.from("daily_ledger").select("ledger_date,shop_balance").lte("ledger_date", r[1]).order("ledger_date", { ascending: false }).limit(1),
+      sb.from("business_balances").select("*").lte("as_of", r[1]).order("as_of", { ascending: false }).limit(1)
     ]);
     if (q.some(function (x) { return x.error; })) toast("Some data couldn't load. Try reloading the page.");
     state.reports = q[0].data || [];
@@ -748,6 +786,8 @@
     state.allReports = q[8].data || [];
     state.allExp = q[9].data || [];
     state.allBook = q[10].data || [];
+    state.cap = { stock: (q[11].data || [])[0] || null, ledger: (q[12].data || [])[0] || null, bal: (q[13].data || [])[0] || null };
+    renderCapital();
     renderSummary(); renderReports(); renderChecks();
     if (state.tab === "sales") renderMonths();
     if (LEDGERS[state.tab]) renderLedger();
@@ -771,6 +811,60 @@
     var m = {}; state.ledger.expenses.forEach(function (e) { m[e.expense_date] = (m[e.expense_date] || 0) + Number(e.amount || 0); });
     return m;
   }
+
+  // ---------- Business capital ----------
+  function capitalParts() {
+    var end = monthRange(state.month)[1], c = state.cap, b = c.bal || {};
+    // Credit still owed by customers on that date
+    var per = {};
+    state.dues.forEach(function (d) {
+      if (d.entry_date > end) return;
+      var k = custKey(d.customer_name);
+      per[k] = (per[k] || 0) + (d.entry_type === "credit" ? 1 : -1) * Number(d.amount);
+    });
+    var credit = Object.keys(per).reduce(function (a, k) { return a + Math.max(0, per[k]); }, 0);
+    var parts = [
+      { l: "Shop stock value", a: c.stock ? Number(c.stock.closing_value_cost) : 0, d: c.stock ? "at cost, " + fmtDate(c.stock.report_date) : "no report yet" },
+      { l: "Bevco wallet", a: Number(b.bevco_wallet || 0), d: c.bal ? "as of " + fmtDate(c.bal.as_of) : "not entered" },
+      { l: "Bank balance", a: Number(b.bank_balance || 0), d: c.bal ? "as of " + fmtDate(c.bal.as_of) : "not entered" },
+      { l: "Loans", a: -Number(b.loans || 0), d: c.bal ? "as of " + fmtDate(c.bal.as_of) : "not entered", minus: true },
+      { l: "Credit given", a: credit, d: "still owed by customers" },
+      { l: "Cash not deposited", a: Number(b.cash_not_deposited || 0), d: c.bal ? "as of " + fmtDate(c.bal.as_of) : "not entered" },
+      { l: "Remaining balance", a: c.ledger ? Number(c.ledger.shop_balance) : 0, d: c.ledger ? "shop, " + fmtDate(c.ledger.ledger_date) : "ledger not filled yet" }
+    ];
+    return { parts: parts, total: parts.reduce(function (a, p) { return a + p.a; }, 0) };
+  }
+
+  function renderCapital() {
+    var x = capitalParts();
+    $("cap-total").textContent = inr.format(x.total);
+    $("cap-lines").innerHTML = x.parts.map(function (p) {
+      return '<div class="cap-line' + (p.minus ? " minus" : "") + '"><div class="l">' + p.l + '</div><div class="a">' +
+        (p.minus && p.a ? "− " + inr.format(-p.a) : inr.format(p.a)) + '</div><div class="d">' + esc(p.d) + "</div></div>";
+    }).join("");
+  }
+
+  $("cap-edit").addEventListener("click", function () {
+    var f = $("cap-form"), b = state.cap.bal || {};
+    f.hidden = !f.hidden; if (f.hidden) return;
+    var end = monthRange(state.month)[1], t = todayISO();
+    $("cap-date").value = end < t ? end : t;
+    $("cap-bevco").value = b.bevco_wallet != null ? b.bevco_wallet : "";
+    $("cap-bank").value = b.bank_balance != null ? b.bank_balance : "";
+    $("cap-loans").value = b.loans != null ? b.loans : "";
+    $("cap-cash").value = b.cash_not_deposited != null ? b.cash_not_deposited : "";
+    $("cap-bevco").focus();
+  });
+  $("cap-cancel").addEventListener("click", function () { $("cap-form").hidden = true; });
+  $("cap-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var payload = { as_of: $("cap-date").value, bevco_wallet: toNum($("cap-bevco").value), bank_balance: toNum($("cap-bank").value),
+      loans: toNum($("cap-loans").value), cash_not_deposited: toNum($("cap-cash").value), updated_at: new Date().toISOString() };
+    var r = await sb.from("business_balances").upsert(payload, { onConflict: "as_of" });
+    if (r.error) { toast("Couldn't save: " + r.error.message); return; }
+    $("cap-form").hidden = true; toast("Balances saved for " + fmtDate(payload.as_of));
+    loadMonth();
+  });
 
   function renderSummary() {
     var sales = sum(state.reports, "sales_value"), gp = sum(state.reports, "gross_profit"), cost = sum(state.reports, "cost_value");
