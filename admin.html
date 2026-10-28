@@ -620,6 +620,11 @@
   // Category from the item code, e.g. "RS W 750" -> Whisky, "BAZIGAR IML 300" -> Country Spirits
   var TYPE_CODES = { W: "Whisky", R: "Rum", V: "Vodka", B: "Beer", G: "Gin", IML: "Country Spirits", CL: "Country Spirits",
     WN: "Wines", WINE: "Wines", BR: "Brandy", T: "Tequila", TQ: "Tequila" };
+  function savedCategory(name, mrp) {
+    var same = state.items.find(function (i) { return i.item_name === name && Number(i.mrp) === Number(mrp); }) ||
+               state.items.find(function (i) { return i.item_name === name; });
+    return same && same.category ? same.category : null;
+  }
   function categoryOf(name) {
     var t = cleanName(name).split(" ");
     for (var i = t.length - 2; i >= 1; i--) { if (TYPE_CODES[t[i]]) return TYPE_CODES[t[i]]; }
@@ -1471,6 +1476,7 @@
   async function savePending() {
     var p = state.pending, btn = $("pv-save");
     btn.disabled = true; btn.textContent = "Saving…";
+    p.lines.forEach(function (l) { var c = savedCategory(l.item_name, l.mrp); if (c) l.category = c; });
     var r = await sb.rpc("save_stock_report", { p_date: p.date, p_file_name: p.fileName, p_lines: p.lines });
     btn.disabled = false; btn.textContent = "Save report";
     if (r.error) { toast("Couldn't save: " + r.error.message); return; }
@@ -1514,7 +1520,7 @@
     var have = {}; state.items.forEach(function (i) { have[i.item_name + "|" + Number(i.mrp)] = i; });
     var payload = rows.map(function (x) {
       var h = have[x.item_name + "|" + x.mrp];
-      return { item_name: x.item_name, mrp: x.mrp, cost_price: x.cost_price, category: h ? h.category : x.category,
+      return { item_name: x.item_name, mrp: x.mrp, cost_price: x.cost_price, category: h ? h.category : (savedCategory(x.item_name, x.mrp) || x.category),
         brand: h ? h.brand : "", size_ml: h ? h.size_ml : null, updated_at: new Date().toISOString() };
     });
     for (var i = 0; i < payload.length; i += 500) {
