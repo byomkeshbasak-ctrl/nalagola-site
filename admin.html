@@ -113,8 +113,12 @@
   .cap-line .a { margin-top: 3px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .cap-line .d { margin-top: 2px; font-size: 0.7rem; color: var(--muted); }
   .cap-line.minus .a { color: var(--red); }
-  #cap-form { margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; align-items: end; }
-  #cap-form .form-actions { margin: 0; }
+  .cap-form { margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; align-items: end; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+  .cap-form .form-actions { margin: 0; }
+  .cap-head .ghost { white-space: nowrap; }
+  #tr-list { margin-top: 14px; }
+  #tr-list h3 { font-size: 0.82rem; font-weight: 600; margin-bottom: 6px; color: var(--muted); }
+  .ob-locked input { opacity: 0.7; }
 
   .tabs { margin-top: 24px; display: flex; gap: 6px; border-bottom: 1px solid var(--line); overflow-x: auto; }
   .tab {
@@ -248,6 +252,7 @@
   #book-table .icon-btn { white-space: normal; text-align: right; }
   .cell-in { width: 88px; padding: 6px 6px; font-size: 0.86rem; text-align: right; border-radius: 8px; font-variant-numeric: tabular-nums; }
   .cell-in.saving { border-color: var(--gold); }
+  .cell-sel { display: block; margin-top: 4px; text-align: left; padding: 3px 4px; font-size: 0.72rem; color: var(--muted); }
   tr.book-detail > td { background: var(--panel-2); padding: 16px; }
   tr.book-detail:hover > td { background: var(--panel-2); }
   .bd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
@@ -337,20 +342,53 @@
         <div>
           <div class="k">Business capital</div>
           <div class="v" id="cap-total">–</div>
-          <div class="s">Stock value + Bevco wallet + bank balance − loans + credit given + cash not deposited + remaining balance</div>
+          <div class="s">Stock value + Bevco wallet + bank balance − cash credit used + credit given + cash not deposited + remaining balance</div>
         </div>
         <div class="spacer"></div>
-        <button class="ghost" id="cap-edit" type="button">Update balances</button>
+        <button class="ghost" id="tr-open" type="button">Transfer money</button>
+        <button class="ghost" id="ob-open" type="button">Opening balances</button>
       </div>
       <div class="cap-lines" id="cap-lines"></div>
-      <form id="cap-form" hidden>
-        <label>As of <input type="date" id="cap-date" required></label>
-        <label>Bevco wallet (₹) <input type="number" id="cap-bevco" step="0.01" inputmode="decimal"></label>
-        <label>Bank balance (₹) <input type="number" id="cap-bank" step="0.01" inputmode="decimal"></label>
-        <label>Loans outstanding (₹) <input type="number" id="cap-loans" step="0.01" min="0" inputmode="decimal"></label>
-        <label>Cash not deposited (₹) <input type="number" id="cap-cash" step="0.01" min="0" inputmode="decimal"></label>
-        <div class="form-actions"><button class="primary" type="submit">Save</button><button class="ghost" type="button" id="cap-cancel">Cancel</button></div>
+      <div id="cap-warn"></div>
+
+      <form id="tr-form" class="cap-form" hidden>
+        <label>Date <input type="date" id="tr-date" required></label>
+        <label>From
+          <select id="tr-from">
+            <option value="cash_credit">SBI cash credit</option>
+            <option value="bank">Bank account</option>
+            <option value="cash_hand">Cash not deposited</option>
+            <option value="bevco">Bevco wallet</option>
+          </select>
+        </label>
+        <label>To
+          <select id="tr-to">
+            <option value="bevco">Bevco wallet</option>
+            <option value="bank">Bank account</option>
+            <option value="cash_credit">SBI cash credit</option>
+            <option value="cash_hand">Cash not deposited</option>
+          </select>
+        </label>
+        <label>Amount (₹) <input type="number" id="tr-amount" step="0.01" min="0" inputmode="decimal" required></label>
+        <label>Note (optional) <input type="text" id="tr-note"></label>
+        <div class="form-actions"><button class="primary" type="submit">Save transfer</button><button class="ghost" type="button" id="tr-cancel">Cancel</button></div>
       </form>
+
+      <form id="ob-form" class="cap-form" hidden>
+        <p class="hint" id="ob-hint" style="grid-column:1/-1;margin:0"></p>
+        <label>Bevco wallet (₹) <input type="number" id="ob-bevco" step="0.01" inputmode="decimal"></label>
+        <label>Bank balance (₹) <input type="number" id="ob-bank" step="0.01" inputmode="decimal"></label>
+        <label>Cash credit limit (₹) <input type="number" id="ob-limit" step="0.01" min="0" inputmode="decimal"></label>
+        <label>Cash credit used (₹) <input type="number" id="ob-cc" step="0.01" min="0" inputmode="decimal"></label>
+        <label>Cash not deposited (₹) <input type="number" id="ob-cash" step="0.01" min="0" inputmode="decimal"></label>
+        <div class="form-actions" id="ob-actions">
+          <button class="primary" type="submit">Save</button>
+          <button class="ghost" type="button" id="ob-freeze">Save and freeze</button>
+          <button class="ghost" type="button" id="ob-cancel">Close</button>
+        </div>
+      </form>
+
+      <div id="tr-list"></div>
     </section>
 
     <section class="breakdowns">
@@ -605,7 +643,7 @@
     items: [], itemsFilter: "all",
     mismatches: [], missingDays: [], book: [], dues: [],
     custFilter: "all", custSel: null, duesEditing: null, bookOpen: null, expOpen: null,
-    allReports: [], allExp: [], allBook: [], cap: { stock: null, ledger: null, bal: null },
+    allReports: [], allExp: [], allBook: [], cap: { stock: null, ledger: null, opening: null }, transfers: [],
     editing: null, pending: null, pendingCost: null, detailDate: null, detailRows: [], detailFilter: "sold"
   };
 
@@ -767,12 +805,13 @@
       Promise.resolve({ data: [], error: null }),
       sb.from("daily_ledger").select("*").gte("ledger_date", addDays(r[0], -1)).lte("ledger_date", r[1]).order("ledger_date"),
       fetchAll(function () { return sb.from("customer_dues").select("*").order("entry_date", { ascending: false }).order("created_at", { ascending: false }); }),
-      fetchAll(function () { return sb.from("daily_report_summary").select("report_date,units_sold,sales_value,cost_value,gross_profit,closing_value_cost,missing_costs").order("report_date"); }),
+      fetchAll(function () { return sb.from("daily_report_summary").select("report_date,units_sold,sales_value,cost_value,gross_profit,closing_value_cost,missing_costs,stock_in_cost").order("report_date"); }),
       fetchAll(function () { return sb.from("expenses").select("expense_date,amount").order("expense_date"); }),
-      fetchAll(function () { return sb.from("daily_ledger").select("ledger_date,bar_collection").order("ledger_date"); }),
+      fetchAll(function () { return sb.from("daily_ledger").select("ledger_date,bar_collection,cash_collection,online_received,online_to").order("ledger_date"); }),
       sb.from("daily_report_summary").select("report_date,closing_value_cost").lte("report_date", r[1]).order("report_date", { ascending: false }).limit(1),
       sb.from("daily_ledger").select("ledger_date,shop_balance").lte("ledger_date", r[1]).order("ledger_date", { ascending: false }).limit(1),
-      sb.from("business_balances").select("*").lte("as_of", r[1]).order("as_of", { ascending: false }).limit(1)
+      sb.from("business_balances").select("*").eq("as_of", START_DATE).maybeSingle(),
+      fetchAll(function () { return sb.from("account_transfers").select("*").order("transfer_date").order("created_at"); })
     ]);
     if (q.some(function (x) { return x.error; })) toast("Some data couldn't load. Try reloading the page.");
     state.reports = q[0].data || [];
@@ -786,7 +825,8 @@
     state.allReports = q[8].data || [];
     state.allExp = q[9].data || [];
     state.allBook = q[10].data || [];
-    state.cap = { stock: (q[11].data || [])[0] || null, ledger: (q[12].data || [])[0] || null, bal: (q[13].data || [])[0] || null };
+    state.cap = { stock: (q[11].data || [])[0] || null, ledger: (q[12].data || [])[0] || null, opening: q[13].data || null };
+    state.transfers = q[14].data || [];
     renderCapital();
     renderSummary(); renderReports(); renderChecks();
     if (state.tab === "sales") renderMonths();
@@ -813,9 +853,37 @@
   }
 
   // ---------- Business capital ----------
+  var ACCT = { bank: "Bank account", cash_credit: "SBI cash credit", bevco: "Bevco wallet", cash_hand: "Cash not deposited" };
+
+  // Balances on a date, built from the frozen 1 Oct opening plus everything recorded since
+  function accountBalances(end) {
+    var o = state.cap.opening || {};
+    var bal = { bevco: Number(o.bevco_wallet || 0), bank: Number(o.bank_balance || 0), cc_used: Number(o.cc_used || 0),
+      cash_hand: Number(o.cash_not_deposited || 0), cc_limit: Number(o.cc_limit != null ? o.cc_limit : 2000000), stockIn: 0, online: 0, cash: 0 };
+    // Stock received is paid from the Bevco wallet
+    state.allReports.forEach(function (r) {
+      if (r.report_date >= START_DATE && r.report_date <= end) { var c = Number(r.stock_in_cost || 0); bal.bevco -= c; bal.stockIn += c; }
+    });
+    // Each day's cash goes to "not deposited"; online money goes to cash credit or bank
+    state.allBook.forEach(function (b) {
+      if (b.ledger_date < START_DATE || b.ledger_date > end) return;
+      var cash = Number(b.cash_collection || 0), on = Number(b.online_received || 0);
+      bal.cash_hand += cash; bal.cash += cash; bal.online += on;
+      if (b.online_to === "bank") bal.bank += on; else bal.cc_used -= on;
+    });
+    // Transfers between accounts. Money out of cash credit = more used; money into it = repaid.
+    state.transfers.forEach(function (t) {
+      if (t.transfer_date > end) return;
+      var a = Number(t.amount);
+      if (t.from_account === "cash_credit") bal.cc_used += a; else bal[t.from_account] -= a;
+      if (t.to_account === "cash_credit") bal.cc_used -= a; else bal[t.to_account] += a;
+    });
+    return bal;
+  }
+
   function capitalParts() {
-    var end = monthRange(state.month)[1], c = state.cap, b = c.bal || {};
-    // Credit still owed by customers on that date
+    var end = monthRange(state.month)[1], t = todayISO(); if (end > t) end = t;
+    var c = state.cap, bal = accountBalances(end);
     var per = {};
     state.dues.forEach(function (d) {
       if (d.entry_date > end) return;
@@ -823,48 +891,102 @@
       per[k] = (per[k] || 0) + (d.entry_type === "credit" ? 1 : -1) * Number(d.amount);
     });
     var credit = Object.keys(per).reduce(function (a, k) { return a + Math.max(0, per[k]); }, 0);
+    var asOf = "to " + fmtDate(end);
     var parts = [
       { l: "Shop stock value", a: c.stock ? Number(c.stock.closing_value_cost) : 0, d: c.stock ? "at cost, " + fmtDate(c.stock.report_date) : "no report yet" },
-      { l: "Bevco wallet", a: Number(b.bevco_wallet || 0), d: c.bal ? "as of " + fmtDate(c.bal.as_of) : "not entered" },
-      { l: "Bank balance", a: Number(b.bank_balance || 0), d: c.bal ? "as of " + fmtDate(c.bal.as_of) : "not entered" },
-      { l: "Loans", a: -Number(b.loans || 0), d: c.bal ? "as of " + fmtDate(c.bal.as_of) : "not entered", minus: true },
+      { l: "Bevco wallet", a: bal.bevco, d: "after stock in " + asOf, warn: bal.bevco < -0.5 },
+      { l: "Bank balance", a: bal.bank, d: asOf },
+      { l: "Cash credit used", a: -bal.cc_used, minus: true, d: inr.format(Math.max(0, bal.cc_limit - bal.cc_used)) + " left of " + inr.format(bal.cc_limit) },
       { l: "Credit given", a: credit, d: "still owed by customers" },
-      { l: "Cash not deposited", a: Number(b.cash_not_deposited || 0), d: c.bal ? "as of " + fmtDate(c.bal.as_of) : "not entered" },
+      { l: "Cash not deposited", a: bal.cash_hand, d: asOf, warn: bal.cash_hand < -0.5 },
       { l: "Remaining balance", a: c.ledger ? Number(c.ledger.shop_balance) : 0, d: c.ledger ? "shop, " + fmtDate(c.ledger.ledger_date) : "ledger not filled yet" }
     ];
-    return { parts: parts, total: parts.reduce(function (a, p) { return a + p.a; }, 0) };
+    return { parts: parts, bal: bal, end: end, total: parts.reduce(function (s2, p) { return s2 + p.a; }, 0) };
   }
 
   function renderCapital() {
-    var x = capitalParts();
+    var x = capitalParts(), o = state.cap.opening;
     $("cap-total").textContent = inr.format(x.total);
     $("cap-lines").innerHTML = x.parts.map(function (p) {
-      return '<div class="cap-line' + (p.minus ? " minus" : "") + '"><div class="l">' + p.l + '</div><div class="a">' +
-        (p.minus && p.a ? "− " + inr.format(-p.a) : inr.format(p.a)) + '</div><div class="d">' + esc(p.d) + "</div></div>";
+      var neg = p.a < -0.5;
+      return '<div class="cap-line' + (p.minus ? " minus" : "") + '"><div class="l">' + p.l + '</div><div class="a' + (p.warn ? " neg" : "") + '">' +
+        (neg ? "− " + inr.format(-p.a) : inr.format(p.a)) + '</div><div class="d">' + esc(p.d) + "</div></div>";
     }).join("");
+    var warns = [];
+    if (!o) warns.push("Enter the opening balances for 1 Oct to start the accounts.");
+    else if (!o.frozen) warns.push("Opening balances aren't frozen yet. Check them and click Save and freeze.");
+    if (x.bal.bevco < -0.5) warns.push("The Bevco wallet is below zero: stock received is more than the money moved into it. Record the transfers you made to the wallet.");
+    if (x.bal.cash_hand < -0.5) warns.push("Cash not deposited is below zero: more was deposited than was collected.");
+    if (x.bal.cc_used > x.bal.cc_limit + 0.5) warns.push("Cash credit used is above the limit.");
+    $("cap-warn").innerHTML = warns.map(function (w) { return '<div class="msg warn" style="margin-top:10px">' + w + "</div>"; }).join("");
+    $("ob-open").textContent = o && o.frozen ? "Opening balances" : "Set opening balances";
+    // This month's transfers
+    var r = monthRange(state.month);
+    var list = state.transfers.filter(function (t) { return t.transfer_date >= r[0] && t.transfer_date <= r[1]; }).slice().reverse();
+    $("tr-list").innerHTML = !list.length ? "" : "<h3>Transfers this month</h3><div class=\"table-wrap\"><table><thead><tr><th>Date</th><th>From</th><th>To</th><th class=\"num\">Amount</th><th>Note</th><th></th></tr></thead><tbody>" +
+      list.map(function (t) {
+        return "<tr><td>" + fmtDate(t.transfer_date) + "</td><td>" + ACCT[t.from_account] + "</td><td>" + ACCT[t.to_account] + '</td><td class="num">' + inr2.format(t.amount) +
+          "</td><td>" + esc(t.note) + '</td><td class="actions"><button class="icon-btn del" data-deltr="' + t.id + '">Delete</button></td></tr>';
+      }).join("") + "</tbody></table></div>";
   }
 
-  $("cap-edit").addEventListener("click", function () {
-    var f = $("cap-form"), b = state.cap.bal || {};
-    f.hidden = !f.hidden; if (f.hidden) return;
+  // Transfers
+  $("tr-open").addEventListener("click", function () {
+    var f = $("tr-form"); $("ob-form").hidden = true; f.hidden = !f.hidden; if (f.hidden) return;
     var end = monthRange(state.month)[1], t = todayISO();
-    $("cap-date").value = end < t ? end : t;
-    $("cap-bevco").value = b.bevco_wallet != null ? b.bevco_wallet : "";
-    $("cap-bank").value = b.bank_balance != null ? b.bank_balance : "";
-    $("cap-loans").value = b.loans != null ? b.loans : "";
-    $("cap-cash").value = b.cash_not_deposited != null ? b.cash_not_deposited : "";
-    $("cap-bevco").focus();
+    $("tr-date").value = end < t ? end : t; $("tr-amount").value = ""; $("tr-note").value = "";
+    $("tr-amount").focus();
   });
-  $("cap-cancel").addEventListener("click", function () { $("cap-form").hidden = true; });
-  $("cap-form").addEventListener("submit", async function (e) {
+  $("tr-cancel").addEventListener("click", function () { $("tr-form").hidden = true; });
+  $("tr-form").addEventListener("submit", async function (e) {
     e.preventDefault();
-    var payload = { as_of: $("cap-date").value, bevco_wallet: toNum($("cap-bevco").value), bank_balance: toNum($("cap-bank").value),
-      loans: toNum($("cap-loans").value), cash_not_deposited: toNum($("cap-cash").value), updated_at: new Date().toISOString() };
-    var r = await sb.from("business_balances").upsert(payload, { onConflict: "as_of" });
+    var p2 = { transfer_date: $("tr-date").value, from_account: $("tr-from").value, to_account: $("tr-to").value, amount: toNum($("tr-amount").value), note: $("tr-note").value.trim() };
+    if (p2.from_account === p2.to_account) { toast("Pick two different accounts."); return; }
+    if (!(p2.amount > 0)) { toast("Enter an amount above zero."); return; }
+    if (p2.transfer_date < START_DATE) { toast("Transfers start from " + fmtLong(START_DATE) + "."); return; }
+    var r = await sb.from("account_transfers").insert(p2);
     if (r.error) { toast("Couldn't save: " + r.error.message); return; }
-    $("cap-form").hidden = true; toast("Balances saved for " + fmtDate(payload.as_of));
+    $("tr-form").hidden = true;
+    toast(inr.format(p2.amount) + " moved from " + ACCT[p2.from_account] + " to " + ACCT[p2.to_account]);
     loadMonth();
   });
+  $("tr-list").addEventListener("click", async function (e) {
+    var id = e.target.getAttribute("data-deltr"); if (!id) return;
+    var t = state.transfers.find(function (x) { return x.id === id; });
+    if (!confirm("Delete the transfer of " + inr2.format(t.amount) + " from " + ACCT[t.from_account] + " to " + ACCT[t.to_account] + " on " + fmtDate(t.transfer_date) + "?")) return;
+    var r = await sb.from("account_transfers").delete().eq("id", id);
+    if (r.error) { toast("Couldn't delete: " + r.error.message); return; }
+    toast("Transfer deleted"); loadMonth();
+  });
+
+  // Opening balances: editable until frozen, read-only after
+  $("ob-open").addEventListener("click", function () {
+    var f = $("ob-form"), o = state.cap.opening || {}; $("tr-form").hidden = true; f.hidden = !f.hidden; if (f.hidden) return;
+    var locked = !!o.frozen;
+    $("ob-hint").textContent = locked
+      ? "Frozen. These are the balances on the morning of " + fmtLong(START_DATE) + ". Everything since then comes from transfers, stock in, the Daily ledger and Dues."
+      : "Balances on the morning of " + fmtLong(START_DATE) + ", before that day's stock in, sales and collections. Once frozen they can't be changed.";
+    $("ob-bevco").value = o.bevco_wallet != null ? o.bevco_wallet : "";
+    $("ob-bank").value = o.bank_balance != null ? o.bank_balance : "";
+    $("ob-limit").value = o.cc_limit != null ? o.cc_limit : 2000000;
+    $("ob-cc").value = o.cc_used != null ? o.cc_used : "";
+    $("ob-cash").value = o.cash_not_deposited != null ? o.cash_not_deposited : "";
+    ["ob-bevco", "ob-bank", "ob-limit", "ob-cc", "ob-cash"].forEach(function (id) { $(id).disabled = locked; });
+    f.classList.toggle("ob-locked", locked);
+    f.querySelector('button[type="submit"]').hidden = locked; $("ob-freeze").hidden = locked;
+  });
+  $("ob-cancel").addEventListener("click", function () { $("ob-form").hidden = true; });
+  async function saveOpening(freeze) {
+    var p2 = { as_of: START_DATE, bevco_wallet: toNum($("ob-bevco").value), bank_balance: toNum($("ob-bank").value), cc_limit: toNum($("ob-limit").value),
+      cc_used: toNum($("ob-cc").value), cash_not_deposited: toNum($("ob-cash").value), frozen: !!freeze, updated_at: new Date().toISOString() };
+    if (freeze && !confirm("Freeze the 1 Oct opening balances? After this they can't be edited.")) return;
+    var r = await sb.from("business_balances").upsert(p2, { onConflict: "as_of" });
+    if (r.error) { toast("Couldn't save: " + r.error.message); return; }
+    $("ob-form").hidden = true; toast(freeze ? "Opening balances frozen" : "Opening balances saved");
+    loadMonth();
+  }
+  $("ob-form").addEventListener("submit", function (e) { e.preventDefault(); saveOpening(false); });
+  $("ob-freeze").addEventListener("click", function () { saveOpening(true); });
 
   function renderSummary() {
     var sales = sum(state.reports, "sales_value"), gp = sum(state.reports, "gross_profit"), cost = sum(state.reports, "cost_value");
@@ -1201,7 +1323,7 @@
   function liveMismatch(date) {
     var b = bookRow(date), tr = document.querySelector('#book-table tr[data-row="' + date + '"]');
     if (!tr) return null;
-    var val = function (f) { var i = tr.querySelector('input[data-f="' + f + '"]'); return i ? i.value : ""; };
+    var val = function (f) { var i = tr.querySelector('[data-f="' + f + '"]'); return i ? i.value : ""; };
     var any = ["cash_collection", "online_received", "shop_balance", "bar_collection"].some(function (f) { return val(f) !== ""; });
     if (!any && !b.entry) return null;
     var prev = date === START_DATE ? toNum(val("opening_balance")) : (b.prev || 0);
@@ -1249,7 +1371,10 @@
         '<td class="num">' + money(b.duesIn) + "</td>" +
         '<td class="num">' + money(b.credit) + "</td>" +
         '<td class="num">' + inp(d, "cash_collection", e ? e.cash_collection : "") + "</td>" +
-        '<td class="num">' + inp(d, "online_received", e ? e.online_received : "") + "</td>" +
+        '<td class="num">' + inp(d, "online_received", e ? e.online_received : "") +
+          '<select class="cell-in cell-sel" data-d="' + d + '" data-f="online_to" title="Where the online money went">' +
+          '<option value="cash_credit"' + (!e || e.online_to !== "bank" ? " selected" : "") + '>to cash credit</option>' +
+          '<option value="bank"' + (e && e.online_to === "bank" ? " selected" : "") + ">to bank</option></select></td>" +
         '<td class="num">' + inp(d, "shop_balance", e ? e.shop_balance : "") + "</td>" +
         '<td class="num mm-cell">' + mismatchCell(e ? b.mismatch : null) + "</td>" +
         '<td class="actions"><button class="icon-btn" data-bopen="' + d + '">' + (open ? "Hide" : "Details") + "</button></td></tr>";
@@ -1307,12 +1432,13 @@
   $("book-table").addEventListener("change", async function (e) {
     var el = e.target; if (!el.classList.contains("cell-in")) return;
     var d = el.dataset.d, tr = el.closest("tr");
-    var val = function (f) { var i = tr.querySelector('input[data-f="' + f + '"]'); return i ? i.value : ""; };
+    var val = function (f) { var i = tr.querySelector('[data-f="' + f + '"]'); return i ? i.value : ""; };
     var entry = bookRow(d).entry;
     var allEmpty = ["cash_collection", "online_received", "shop_balance", "opening_balance", "bar_collection"].every(function (f) { return val(f) === ""; });
     if (allEmpty && !entry) return;
     var payload = { ledger_date: d, cash_collection: toNum(val("cash_collection")), online_received: toNum(val("online_received")),
-      shop_balance: toNum(val("shop_balance")), bar_collection: toNum(val("bar_collection")), updated_at: new Date().toISOString() };
+      shop_balance: toNum(val("shop_balance")), bar_collection: toNum(val("bar_collection")),
+      online_to: val("online_to") === "bank" ? "bank" : "cash_credit", updated_at: new Date().toISOString() };
     if (d === START_DATE) payload.opening_balance = toNum(val("opening_balance"));
     el.classList.add("saving");
     var r = await sb.from("daily_ledger").upsert(payload, { onConflict: "ledger_date" });
@@ -1321,8 +1447,11 @@
     var i = state.book.findIndex(function (b) { return b.ledger_date === d; });
     if (i >= 0) state.book[i] = Object.assign({}, state.book[i], payload); else state.book.push(payload);
     var j = state.allBook.findIndex(function (b) { return b.ledger_date === d; });
-    if (j >= 0) state.allBook[j].bar_collection = payload.bar_collection; else state.allBook.push({ ledger_date: d, bar_collection: payload.bar_collection });
+    var lite = { ledger_date: d, bar_collection: payload.bar_collection, cash_collection: payload.cash_collection, online_received: payload.online_received, online_to: payload.online_to };
+    if (j >= 0) state.allBook[j] = Object.assign(state.allBook[j], lite); else state.allBook.push(lite);
+    if (!state.cap.ledger || d >= state.cap.ledger.ledger_date) state.cap.ledger = { ledger_date: d, shop_balance: payload.shop_balance };
     renderBook(); // next day's previous balance and mismatch move with it
+    renderCapital();
   });
   $("book-table").addEventListener("keydown", function (e) {
     if (e.key === "Enter" && e.target.classList.contains("cell-in")) { e.preventDefault(); e.target.blur(); }
