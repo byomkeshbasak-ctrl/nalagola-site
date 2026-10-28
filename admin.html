@@ -262,6 +262,12 @@
   #book-table .icon-btn { white-space: normal; text-align: right; }
   .cell-in { width: 88px; padding: 6px 6px; font-size: 0.86rem; text-align: right; border-radius: 8px; font-variant-numeric: tabular-nums; }
   .cell-in.saving { border-color: var(--gold); }
+  .on-in { display: block; margin-left: auto; }
+  .on-in + .on-in { margin-top: 4px; }
+  .on-split { display: block; font-size: 0.68rem; color: var(--muted); margin-top: 2px; white-space: nowrap; }
+  .on-edit { font-size: 0.68rem; padding: 0; }
+  .fixed-v { font-variant-numeric: tabular-nums; }
+  tr.frozen td { color: #d9cfc7; }
   .cell-sel { display: block; margin-top: 4px; text-align: left; padding: 3px 4px; font-size: 0.72rem; color: var(--muted); }
   tr.book-detail > td { background: var(--panel-2); padding: 16px; }
   tr.book-detail:hover > td { background: var(--panel-2); }
@@ -377,6 +383,7 @@
             <option value="bank">Bank account</option>
             <option value="cash_credit">SBI cash credit</option>
             <option value="cash_hand">Cash not deposited</option>
+            <option value="bar_counter">Bar counter (expense)</option>
           </select>
         </label>
         <label>Amount (₹) <input type="number" id="tr-amount" step="0.01" min="0" inputmode="decimal" required></label>
@@ -416,6 +423,7 @@
       <button class="tab" role="tab" data-tab="purchases" aria-selected="false">Supplier payments</button>
       <button class="tab" role="tab" data-tab="items" aria-selected="false">Items &amp; costs</button>
       <button class="tab" role="tab" data-tab="indent" aria-selected="false">Indent</button>
+      <button class="tab" role="tab" data-tab="bar" aria-selected="false">Bar counter</button>
     </nav>
 
     <!-- ===== Monthly dashboard ===== -->
@@ -535,6 +543,25 @@
       </div>
     </section>
 
+    <!-- ===== Bar counter ===== -->
+    <section id="pane-bar" hidden>
+      <section class="kpis" style="margin-top:18px">
+        <div class="kpi"><div class="k">Collection</div><div class="v" id="bar-in">–</div><div class="s">From the Daily ledger</div></div>
+        <div class="kpi"><div class="k">Expenses</div><div class="v" id="bar-out">–</div><div class="s" id="bar-out-s">Money spent on bar goods</div></div>
+        <div class="kpi profit"><div class="k">Net</div><div class="v" id="bar-net">–</div><div class="s">Collection − expenses</div></div>
+        <div class="kpi"><div class="k">Days open</div><div class="v" id="bar-days">–</div><div class="s" id="bar-avg"></div></div>
+      </section>
+      <div class="card sub-card">
+        <div class="list-head">
+          <h2 id="bar-title">Bar counter</h2>
+          <button class="ghost" id="bar-add" type="button">Add bar expense</button>
+          <button class="ghost" id="bar-csv" type="button">Export CSV</button>
+        </div>
+        <p class="hint">Collections come from the Bar counter column in the Daily ledger. Expenses are entered with <b>Transfer money → To: Bar counter</b>, and come out of the account you pick.</p>
+        <div class="table-wrap"><table id="bar-table"></table></div>
+      </div>
+    </section>
+
     <!-- ===== Daily ledger ===== -->
     <section id="pane-book" hidden>
       <div class="card upload-card">
@@ -553,7 +580,7 @@
           <span class="list-total" id="stock-on-hand"></span>
           <button class="ghost" id="book-csv" type="button">Export CSV</button>
         </div>
-        <p class="hint">Mismatch = total sales + previous day's balance + bar counter collection + dues collected − credit given − expenses − cash collected − online received − remaining balance. It should be ₹0 every day; anything else shows in red. Type bar counter, cash, online and remaining balance straight into the row. Click a date to see that day's items. Use <b>Details</b> on a row to add that day's expenses, dues collected and credit given. Each day's previous balance is the remaining balance from the day before.</p>
+        <p class="hint">Mismatch = total sales + previous day's balance + bar counter collection + dues collected − credit given − expenses − cash collected − online received − remaining balance. It should be ₹0 every day; anything else shows in red. Type bar counter, cash, online (cash credit first, then bank) and remaining balance straight into the row. A day locks once a later day's Excel is uploaded and its mismatch is ₹0. Click a date to see that day's items. Use <b>Details</b> on a row to add that day's expenses, dues collected and credit given. Each day's previous balance is the remaining balance from the day before.</p>
         <div class="table-wrap"><table id="book-table"></table></div>
       </div>
       <div class="card detail" id="rep-detail" hidden></div>
@@ -679,7 +706,7 @@
     items: [], itemsFilter: "all",
     mismatches: [], missingDays: [], book: [], dues: [],
     custFilter: "all", custSel: null, duesEditing: null, bookOpen: null, expOpen: null,
-    allReports: [], allExp: [], allBook: [], cap: { stock: null, ledger: null, opening: null }, transfers: [], stmt: null, trEditing: null,
+    allReports: [], allExp: [], allBook: [], cap: { stock: null, ledger: null, opening: null }, transfers: [], stmt: null, trEditing: null, onlineEdit: null, barExp: [],
     editing: null, pending: null, pendingCost: null, detailDate: null, detailRows: [], detailFilter: "sold"
   };
 
@@ -820,6 +847,8 @@
     $("pane-dues").hidden = tab !== "dues";
     $("pane-book").hidden = tab !== "book";
     $("pane-indent").hidden = tab !== "indent";
+    $("pane-bar").hidden = tab !== "bar";
+    if (tab === "bar") renderBar();
     if (LEDGERS[tab]) { renderForm(); renderLedger(); }
     if (tab === "dues") { resetDuesForm(); renderDues(); }
     if (tab === "book") renderBook();
@@ -843,12 +872,13 @@
       fetchAll(function () { return sb.from("customer_dues").select("*").order("entry_date", { ascending: false }).order("created_at", { ascending: false }); }),
       fetchAll(function () { return sb.from("daily_report_summary").select("report_date,units_sold,sales_value,cost_value,gross_profit,closing_value_cost,missing_costs,stock_in_cost").order("report_date"); }),
       fetchAll(function () { return sb.from("expenses").select("expense_date,amount").order("expense_date"); }),
-      fetchAll(function () { return sb.from("daily_ledger").select("ledger_date,bar_collection,cash_collection,online_received,online_to").order("ledger_date"); }),
+      fetchAll(function () { return sb.from("daily_ledger").select("ledger_date,bar_collection,cash_collection,online_received,online_to,online_cc,online_bank").order("ledger_date"); }),
       sb.from("daily_report_summary").select("report_date,closing_value_cost").lte("report_date", r[1]).order("report_date", { ascending: false }).limit(1),
       sb.from("daily_ledger").select("ledger_date,shop_balance").lte("ledger_date", r[1]).order("ledger_date", { ascending: false }).limit(1),
       sb.from("business_balances").select("*").eq("as_of", START_DATE).maybeSingle(),
       fetchAll(function () { return sb.from("account_transfers").select("*").order("transfer_date").order("created_at"); }),
-      fetchAll(function () { return sb.from("other_income").select("*").order("income_date", { ascending: false }).order("created_at", { ascending: false }); })
+      fetchAll(function () { return sb.from("other_income").select("*").order("income_date", { ascending: false }).order("created_at", { ascending: false }); }),
+      fetchAll(function () { return sb.from("bar_expenses").select("*").order("expense_date").order("created_at"); })
     ]);
     if (q.some(function (x) { return x.error; })) toast("Some data couldn't load. Try reloading the page.");
     state.reports = q[0].data || [];
@@ -863,12 +893,14 @@
     state.allExp = q[9].data || [];
     state.allBook = q[10].data || [];
     state.allIncome = q[15].data || [];
+    state.barExp = q[16].data || [];
     state.ledger.income = state.allIncome.filter(function (x) { return x.income_date >= r[0] && x.income_date <= r[1]; });
     state.cap = { stock: (q[11].data || [])[0] || null, ledger: (q[12].data || [])[0] || null, opening: q[13].data || null };
     state.transfers = q[14].data || [];
     renderCapital();
     renderSummary(); renderReports(); renderChecks();
     if (state.tab === "sales") renderMonths();
+    if (state.tab === "bar") renderBar();
     if (LEDGERS[state.tab]) renderLedger();
     if (state.tab === "dues") renderDues();
     if (state.tab === "book") renderBook();
@@ -906,9 +938,15 @@
     // Each day's cash goes to "not deposited"; online money goes to cash credit or bank
     state.allBook.forEach(function (b) {
       if (b.ledger_date < START_DATE || b.ledger_date > end) return;
-      var cash = Number(b.cash_collection || 0), on = Number(b.online_received || 0);
-      bal.cash_hand += cash; bal.cash += cash; bal.online += on;
-      if (b.online_to === "bank") bal.bank += on; else bal.cc_used -= on;
+      var cash = Number(b.cash_collection || 0), sp = onlineSplit(b);
+      bal.cash_hand += cash; bal.cash += cash; bal.online += sp.cc + sp.bank;
+      bal.bank += sp.bank; bal.cc_used -= sp.cc;
+    });
+    // Bar counter purchases come out of the account they were paid from
+    state.barExp.forEach(function (x) {
+      if (x.expense_date < START_DATE || x.expense_date > end) return;
+      var a = Number(x.amount);
+      if (x.paid_from === "cash_credit") bal.cc_used += a; else bal[x.paid_from] -= a;
     });
     // Other income goes straight into the bank or pays down the cash credit
     state.allIncome.forEach(function (x) {
@@ -934,6 +972,7 @@
     state.allBook.forEach(function (b) { take(b.ledger_date); });
     state.transfers.forEach(function (t) { take(t.transfer_date); });
     state.allIncome.forEach(function (x) { take(x.income_date); });
+    state.barExp.forEach(function (x) { take(x.expense_date); });
     state.dues.forEach(function (d) { take(d.entry_date); });
     return last;
   }
@@ -1012,10 +1051,15 @@
     });
     state.allBook.forEach(function (b) {
       if (b.ledger_date < START_DATE) return;
-      var cash = Number(b.cash_collection || 0), on = Number(b.online_received || 0);
+      var cash = Number(b.cash_collection || 0), sp = onlineSplit(b);
       if (acct === "cash_hand" && cash) m.push({ date: b.ledger_date, desc: "Cash collected", amt: cash });
-      if (acct === "bank" && on && b.online_to === "bank") m.push({ date: b.ledger_date, desc: "Online received", amt: on });
-      if (acct === "cash_credit" && on && b.online_to !== "bank") m.push({ date: b.ledger_date, desc: "Online received (repays cash credit)", amt: -on });
+      if (acct === "bank" && sp.bank) m.push({ date: b.ledger_date, desc: "Online received", amt: sp.bank });
+      if (acct === "cash_credit" && sp.cc) m.push({ date: b.ledger_date, desc: "Online received (repays cash credit)", amt: -sp.cc });
+    });
+    state.barExp.forEach(function (x) {
+      if (x.expense_date < START_DATE || x.paid_from !== acct) return;
+      var a = Number(x.amount);
+      m.push({ date: x.expense_date, desc: "Bar counter purchase" + (x.description ? " · " + x.description : ""), amt: acct === "cash_credit" ? a : -a, bid: x.id });
     });
     state.allIncome.forEach(function (x) {
       if (x.income_date < START_DATE) return;
@@ -1070,7 +1114,8 @@
         rows.push('<tr class="' + (last ? "day-end" : "") + '"><td>' + fmtDate(x.date) + "</td><td>" + esc(x.desc) +
           '</td><td class="num">' + (x.amt > 0 ? inr2.format(x.amt) : "") + '</td><td class="num">' + (x.amt < 0 ? inr2.format(-x.amt) : "") +
           '</td><td class="num">' + (last ? "<b>" + inr2.format(bal) + "</b>" : '<span style="color:var(--muted)">' + inr2.format(bal) + "</span>") +
-          '</td><td class="actions">' + (x.tid ? '<button class="icon-btn" data-edittr="' + x.tid + '">Edit</button><button class="icon-btn del" data-deltr="' + x.tid + '">Delete</button>' : "") + "</td></tr>");
+          '</td><td class="actions">' + (x.tid ? '<button class="icon-btn" data-edittr="' + x.tid + '">Edit</button><button class="icon-btn del" data-deltr="' + x.tid + '">Delete</button>' :
+            x.bid ? '<button class="icon-btn" data-editbar="' + x.bid + '">Edit</button><button class="icon-btn del" data-delbar="' + x.bid + '">Delete</button>' : "") + "</td></tr>");
         csv.push([x.date, x.desc, x.amt > 0 ? x.amt : "", x.amt < 0 ? -x.amt : "", bal]);
       });
       el.innerHTML = head + (rows.length ? '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Details</th><th class="num">' + colIn + '</th><th class="num">' + colOut +
@@ -1079,7 +1124,9 @@
     el.hidden = false;
     el.onclick = function (e) {
       var id = e.target.getAttribute("data-edittr"); if (id) { editTransfer(id); return; }
-      var del = e.target.getAttribute("data-deltr"); if (del) deleteTransfer(del);
+      var del = e.target.getAttribute("data-deltr"); if (del) { deleteTransfer(del); return; }
+      var eb = e.target.getAttribute("data-editbar"); if (eb) { editBarExpense(eb); return; }
+      var db = e.target.getAttribute("data-delbar"); if (db) deleteBarExpense(db);
     };
     $("stmt-close").onclick = function () { state.stmt = null; el.hidden = true; renderCapital(); };
     $("stmt-csv").onclick = function () { downloadCSV("nalagola-" + k + "-" + state.month + ".csv", csv[0], csv.slice(1)); };
@@ -1093,6 +1140,78 @@
     renderCapital();
     if (state.stmt) $("stmt").scrollIntoView({ behavior: "smooth", block: "nearest" });
   });
+
+  // ---------- Bar counter ----------
+  var PAID = { bank: "Bank account", cash_credit: "SBI cash credit", cash_hand: "Cash not deposited" };
+  function renderBar() {
+    var r = monthRange(state.month), days = {};
+    var day = function (d) { return days[d] || (days[d] = { inn: 0, out: 0, items: [] }); };
+    state.allBook.forEach(function (b) { if (b.ledger_date >= r[0] && b.ledger_date <= r[1] && Number(b.bar_collection || 0)) day(b.ledger_date).inn += Number(b.bar_collection); });
+    state.barExp.forEach(function (x) { if (x.expense_date >= r[0] && x.expense_date <= r[1]) { var o = day(x.expense_date); o.out += Number(x.amount); o.items.push(x); } });
+    var keys = Object.keys(days).sort().reverse(), tin = 0, tout = 0, open = 0;
+    keys.forEach(function (k) { tin += days[k].inn; tout += days[k].out; if (days[k].inn) open++; });
+    $("bar-in").textContent = inr.format(tin); $("bar-out").textContent = inr.format(tout);
+    $("bar-net").textContent = inr.format(tin - tout); $("bar-net").className = "v " + (tin - tout >= 0 ? "pos" : "neg");
+    $("bar-days").textContent = open; $("bar-avg").textContent = open ? "avg " + inr.format(tin / open) + " a day" : "";
+    $("bar-title").textContent = "Bar counter, " + new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    var tbl = $("bar-table");
+    if (!keys.length) { tbl.innerHTML = '<tr><td class="empty">Nothing for the bar counter this month yet.</td></tr>'; return; }
+    var run = 0;
+    var rows = keys.slice().reverse().map(function (k) { run += days[k].inn - days[k].out; return { k: k, run: run }; }).reverse();
+    tbl.innerHTML = '<thead><tr><th>Date</th><th class="num">Collection</th><th class="num">Expenses</th><th>Expense details</th><th class="num">Net</th><th class="num">Month so far</th><th></th></tr></thead><tbody>' +
+      rows.map(function (row) {
+        var o = days[row.k], net = o.inn - o.out;
+        return "<tr><td>" + fmtDate(row.k) + '</td><td class="num">' + (o.inn ? inr.format(o.inn) : "–") + '</td><td class="num">' + (o.out ? inr.format(o.out) : "–") + "</td><td>" +
+          o.items.map(function (x) { return esc((x.description || "Bar goods") + " (" + PAID[x.paid_from] + ") " + inr.format(x.amount)); }).join("<br>") +
+          '</td><td class="num ' + (net < 0 ? "neg" : "pos") + '">' + inr.format(net) + '</td><td class="num">' + inr.format(row.run) + '</td><td class="actions">' +
+          o.items.map(function (x) { return '<button class="icon-btn" data-editbar="' + x.id + '">Edit</button><button class="icon-btn del" data-delbar="' + x.id + '">Delete</button>'; }).join("<br>") + "</td></tr>";
+      }).join("") + '</tbody><tfoot><tr><td>Total</td><td class="num">' + inr.format(tin) + '</td><td class="num">' + inr.format(tout) + '</td><td></td><td class="num ' + (tin - tout >= 0 ? "pos" : "neg") + '">' + inr.format(tin - tout) + "</td><td></td><td></td></tr></tfoot>";
+  }
+  $("bar-table").addEventListener("click", function (e) {
+    var eb = e.target.getAttribute("data-editbar"); if (eb) { editBarExpense(eb); return; }
+    var db = e.target.getAttribute("data-delbar"); if (db) deleteBarExpense(db);
+  });
+  $("bar-add").addEventListener("click", function () {
+    $("tr-open").click(); if ($("tr-form").hidden) $("tr-open").click();
+    $("tr-from").value = "bank"; $("tr-to").value = "bar_counter";
+    $("tr-form").scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+  $("bar-csv").addEventListener("click", function () {
+    var r = monthRange(state.month);
+    var rows = state.barExp.filter(function (x) { return x.expense_date >= r[0] && x.expense_date <= r[1]; }).map(function (x) { return [x.expense_date, "Expense", PAID[x.paid_from], x.description, -Number(x.amount)]; })
+      .concat(state.allBook.filter(function (b) { return b.ledger_date >= r[0] && b.ledger_date <= r[1] && Number(b.bar_collection || 0); }).map(function (b) { return [b.ledger_date, "Collection", "", "", Number(b.bar_collection)]; }))
+      .sort(function (a, b) { return a[0] < b[0] ? -1 : 1; });
+    if (!rows.length) { toast("Nothing to export."); return; }
+    downloadCSV("nalagola-bar-" + state.month + ".csv", ["Date", "Type", "Paid from", "Details", "Amount"], rows);
+  });
+  async function saveBarExpense(p2) {
+    if (["bank", "cash_credit", "cash_hand"].indexOf(p2.from_account) < 0) { toast("Pay bar expenses from the bank, cash credit or cash not deposited."); return; }
+    if (!(p2.amount > 0)) { toast("Enter an amount above zero."); return; }
+    if (p2.transfer_date < START_DATE) { toast("Entries start from " + fmtLong(START_DATE) + "."); return; }
+    var row = { expense_date: p2.transfer_date, paid_from: p2.from_account, amount: p2.amount, description: p2.note };
+    var editing = state.trEditing && String(state.trEditing).indexOf("bar:") === 0 ? state.trEditing.slice(4) : null;
+    if (state.trEditing && !editing) { toast("This transfer can't become a bar expense. Delete it and add a bar expense instead."); return; }
+    var r = editing ? await sb.from("bar_expenses").update(row).eq("id", editing) : await sb.from("bar_expenses").insert(row);
+    if (r.error) { toast("Couldn't save: " + r.error.message); return; }
+    $("tr-form").hidden = true; state.trEditing = null;
+    toast(editing ? "Bar expense updated" : inr.format(row.amount) + " bar expense from " + PAID[row.paid_from]);
+    loadMonth();
+  }
+  function editBarExpense(id) {
+    var x = state.barExp.find(function (y) { return y.id === id; }); if (!x) return;
+    var f = $("tr-form"); $("ob-form").hidden = true; f.hidden = false; state.trEditing = "bar:" + id;
+    $("tr-date").value = x.expense_date; $("tr-from").value = x.paid_from; $("tr-to").value = "bar_counter";
+    $("tr-amount").value = x.amount; $("tr-note").value = x.description || "";
+    f.querySelector(".primary").textContent = "Save changes";
+    f.scrollIntoView({ behavior: "smooth", block: "center" }); $("tr-amount").focus();
+  }
+  async function deleteBarExpense(id) {
+    var x = state.barExp.find(function (y) { return y.id === id; }); if (!x) return;
+    if (!confirm("Delete the bar expense of " + inr2.format(x.amount) + " on " + fmtDate(x.expense_date) + "?")) return;
+    var r = await sb.from("bar_expenses").delete().eq("id", id);
+    if (r.error) { toast("Couldn't delete: " + r.error.message); return; }
+    toast("Bar expense deleted"); loadMonth();
+  }
 
   // Transfers
   $("tr-open").addEventListener("click", function () {
@@ -1113,6 +1232,8 @@
   $("tr-form").addEventListener("submit", async function (e) {
     e.preventDefault();
     var p2 = { transfer_date: $("tr-date").value, from_account: $("tr-from").value, to_account: $("tr-to").value, amount: toNum($("tr-amount").value), note: $("tr-note").value.trim() };
+    if (p2.to_account === "bar_counter") { saveBarExpense(p2); return; }
+    if (state.trEditing && String(state.trEditing).indexOf("bar:") === 0) { toast("A bar expense can only go to the bar counter. Delete it and add a transfer instead."); return; }
     if (p2.from_account === p2.to_account) { toast("Pick two different accounts."); return; }
     if (!(p2.amount > 0)) { toast("Enter an amount above zero."); return; }
     if (p2.transfer_date < START_DATE) { toast("Transfers start from " + fmtLong(START_DATE) + "."); return; }
@@ -1211,6 +1332,7 @@
     state.allExp.forEach(function (e) { bucket(e.expense_date.slice(0, 7)).exp += Number(e.amount); });
     state.allBook.forEach(function (b) { bucket(b.ledger_date.slice(0, 7)).bar += Number(b.bar_collection || 0); });
     state.allIncome.forEach(function (x) { bucket(x.income_date.slice(0, 7)).inc += Number(x.amount); });
+    state.barExp.forEach(function (x) { bucket(x.expense_date.slice(0, 7)).bar -= Number(x.amount); });
     var months = [];
     for (var k = START_DATE.slice(0, 7); k <= t; ) {
       months.push(k);
@@ -1232,7 +1354,7 @@
     }).join("");
     var tn = T.gp + T.inc - T.exp;
     tbl.innerHTML = '<thead><tr><th>Month</th><th class="num">Days reported</th><th class="num">Bottles</th><th class="num">Sales</th><th class="num">Gross profit</th>' +
-      '<th class="num">Margin</th><th class="num">Other income</th><th class="num">Expenses</th><th class="num">Net profit</th><th class="num">Bar counter</th><th class="num">Stock at month end</th></tr></thead>' +
+      '<th class="num">Margin</th><th class="num">Other income</th><th class="num">Expenses</th><th class="num">Net profit</th><th class="num" title="Bar collection minus bar expenses">Bar counter (net)</th><th class="num">Stock at month end</th></tr></thead>' +
       "<tbody>" + body + '</tbody><tfoot><tr><td>Total</td><td class="num">' + T.days + '</td><td class="num">' + num.format(T.units) + '</td><td class="num">' + inr.format(T.sales) +
       '</td><td class="num">' + inr.format(T.gp) + '</td><td class="num">' + pct(T.gp, T.sales) + '</td><td class="num">' + inr.format(T.inc) + '</td><td class="num">' + inr.format(T.exp) + '</td><td class="num ' + (tn >= 0 ? "pos" : "neg") + '">' +
       inr.format(tn) + '</td><td class="num">' + inr.format(T.bar) + "</td><td></td></tr></tfoot>";
@@ -1501,15 +1623,36 @@
   var EXP_CATS = ["Salary", "Transport", "Tea", "Discount", "Rent", "Electricity", "Licence & Excise", "Repairs", "Misc"];
 
   // Live mismatch for a row, using whatever is typed in its inputs
+  // A day is locked once a later day's Excel is uploaded and this day balances (mismatch ₹0)
+  function isFrozen(d) {
+    var b = bookRow(d);
+    if (!b.entry || Math.abs(b.mismatch) >= 0.5) return false;
+    return state.allReports.some(function (r) { return r.report_date > d; });
+  }
+  function onlineSplit(e) {
+    if (!e) return { cc: 0, bank: 0 };
+    var cc = Number(e.online_cc || 0), bank = Number(e.online_bank || 0);
+    if (!cc && !bank && Number(e.online_received || 0)) { if (e.online_to === "bank") bank = Number(e.online_received); else cc = Number(e.online_received); }
+    return { cc: cc, bank: bank };
+  }
+  // Value typed in a row's box, or the saved value when the box isn't shown
+  function rowVal(tr, entry, f) {
+    var i = tr.querySelector('[data-f="' + f + '"]');
+    if (i) return i.value;
+    if (!entry) return "";
+    if (f === "online_cc") return String(onlineSplit(entry).cc);
+    if (f === "online_bank") return String(onlineSplit(entry).bank);
+    return entry[f] == null ? "" : String(entry[f]);
+  }
   function liveMismatch(date) {
     var b = bookRow(date), tr = document.querySelector('#book-table tr[data-row="' + date + '"]');
     if (!tr) return null;
-    var val = function (f) { var i = tr.querySelector('[data-f="' + f + '"]'); return i ? i.value : ""; };
-    var any = ["cash_collection", "online_received", "shop_balance", "bar_collection"].some(function (f) { return val(f) !== ""; });
+    var val = function (f) { return rowVal(tr, b.entry, f); };
+    var any = ["cash_collection", "online_cc", "online_bank", "shop_balance", "bar_collection"].some(function (f) { var i = tr.querySelector('[data-f="' + f + '"]'); return i && i.value !== ""; });
     if (!any && !b.entry) return null;
     var prev = date === START_DATE ? toNum(val("opening_balance")) : (b.prev || 0);
     return prev + b.sales + toNum(val("bar_collection")) + b.duesIn - b.credit - b.exp -
-      toNum(val("cash_collection")) - toNum(val("online_received")) - toNum(val("shop_balance"));
+      toNum(val("cash_collection")) - toNum(val("online_cc")) - toNum(val("online_bank")) - toNum(val("shop_balance"));
   }
   function mismatchCell(m) {
     if (m == null) return '<span class="tag">not entered</span>';
@@ -1548,29 +1691,35 @@
       var b = bookRow(d), e = b.entry, gp = b.rep ? Number(b.rep.gross_profit) : 0, inc = state.allIncome.reduce(function (a, x) { return a + (x.income_date === d ? Number(x.amount) : 0); }, 0), net = gp + inc - b.exp, mm = mismatchCount(d);
       t.s += b.sales; t.g += gp; t.e += b.exp; t.di += b.duesIn; t.cr += b.credit; t.inc = (t.inc || 0) + inc;
       if (e) { t.cash += Number(e.cash_collection); t.on += Number(e.online_received); t.bar += b.bar; t.m += b.mismatch; }
-      var bad = e && Math.abs(b.mismatch) >= 0.5, open = state.bookOpen === d;
-      var prevCell = d === START_DATE ? inp(d, "opening_balance", e ? e.opening_balance : "") :
+      var bad = e && Math.abs(b.mismatch) >= 0.5, open = state.bookOpen === d, frozen = isFrozen(d);
+      var fixed = function (v) { return '<span class="fixed-v">' + (v == null || v === "" ? "–" : inr.format(v)) + "</span>"; };
+      var box = function (f, v) { return frozen ? fixed(v) : inp(d, f, v); };
+      var sp = onlineSplit(e), onTotal = sp.cc + sp.bank;
+      var onlineCell = (frozen || (onTotal && state.onlineEdit !== d))
+        ? '<span class="fixed-v">' + inr.format(onTotal) + '</span><span class="on-split">CC ' + inr.format(sp.cc) + " · Bank " + inr.format(sp.bank) + "</span>" +
+          (frozen ? "" : '<button class="icon-btn on-edit" type="button" data-onedit="' + d + '">change</button>')
+        : '<input class="cell-in on-in" type="number" step="0.01" min="0" inputmode="decimal" data-d="' + d + '" data-f="online_cc" value="' + (e && sp.cc ? sp.cc : "") + '" placeholder="to cash credit">' +
+          '<input class="cell-in on-in" type="number" step="0.01" min="0" inputmode="decimal" data-d="' + d + '" data-f="online_bank" value="' + (e && sp.bank ? sp.bank : "") + '" placeholder="to bank">';
+      var prevCell = d === START_DATE ? box("opening_balance", e ? e.opening_balance : "") :
         (b.prev == null ? '<span title="Previous day not entered yet">–</span>' : '<span title="Remaining balance of ' + fmtDate(b.prevDate) + '">' + inr.format(b.prev) + "</span>");
       var dateCell = (b.hasReport ? '<span class="date-link" data-view="' + d + '" title="See this day\'s items">' + fmtDate(d) + "</span>" : fmtDate(d)) +
-        (mm ? ' <span class="tag bad" data-mismatch="' + d + '" title="Opening stock differs from the previous day\'s closing">' + mm + " stock</span>" : "");
-      var row = '<tr data-row="' + d + '" class="' + (bad ? "mm-row" : "") + '"><td>' + dateCell + "</td>" +
+        (mm ? ' <span class="tag bad" data-mismatch="' + d + '" title="Opening stock differs from the previous day\'s closing">' + mm + " stock</span>" : "") +
+        (frozen ? ' <span class="tag ok" title="Locked: a later day is uploaded and this day balances">locked</span>' : "");
+      var row = '<tr data-row="' + d + '" class="' + (bad ? "mm-row" : "") + (frozen ? " frozen" : "") + '"><td>' + dateCell + "</td>" +
         '<td class="num">' + money(b.sales) + "</td>" +
         '<td class="num">' + money(gp) + "</td>" +
         '<td class="num">' + money(b.exp) + "</td>" +
         '<td class="num ' + (net < 0 ? "neg" : "") + '">' + (b.hasReport || b.exp || inc ? inr.format(net) : "–") + "</td>" +
         '<td class="num">' + prevCell + "</td>" +
-        '<td class="num">' + inp(d, "bar_collection", e ? e.bar_collection : "") + "</td>" +
+        '<td class="num">' + box("bar_collection", e ? e.bar_collection : "") + "</td>" +
         '<td class="num">' + money(b.duesIn) + "</td>" +
         '<td class="num">' + money(b.credit) + "</td>" +
-        '<td class="num">' + inp(d, "cash_collection", e ? e.cash_collection : "") + "</td>" +
-        '<td class="num">' + inp(d, "online_received", e ? e.online_received : "") +
-          '<select class="cell-in cell-sel" data-d="' + d + '" data-f="online_to" title="Where the online money went">' +
-          '<option value="cash_credit"' + (!e || e.online_to !== "bank" ? " selected" : "") + '>to cash credit</option>' +
-          '<option value="bank"' + (e && e.online_to === "bank" ? " selected" : "") + ">to bank</option></select></td>" +
-        '<td class="num">' + inp(d, "shop_balance", e ? e.shop_balance : "") + "</td>" +
+        '<td class="num">' + box("cash_collection", e ? e.cash_collection : "") + "</td>" +
+        '<td class="num on-cell">' + onlineCell + "</td>" +
+        '<td class="num">' + box("shop_balance", e ? e.shop_balance : "") + "</td>" +
         '<td class="num mm-cell">' + mismatchCell(e ? b.mismatch : null) + "</td>" +
         '<td class="actions"><button class="icon-btn" data-bopen="' + d + '">' + (open ? "Hide" : "Details") + "</button></td></tr>";
-      if (open) row += detailRow(d);
+      if (open) row += detailRow(d, frozen);
       return row;
     }).join("");
     var tn = t.g + (t.inc || 0) - t.e;
@@ -1590,30 +1739,30 @@
     }
   }
 
-  function detailRow(d) {
+  function detailRow(d, frozen) {
     var exps = state.ledger.expenses.filter(function (x) { return x.expense_date === d; });
     var dues = state.dues.filter(function (x) { return x.entry_date === d; });
     var expList = exps.length ? exps.map(function (x) {
       return '<div class="it"><span>' + esc(x.category) + (x.description ? ' <span style="color:var(--muted)">· ' + esc(x.description) + "</span>" : "") +
-        "</span><span>" + inr2.format(x.amount) + '</span><button class="x-btn" data-delexp="' + x.id + '">Delete</button></div>';
+        "</span><span>" + inr2.format(x.amount) + "</span>" + (frozen ? "<span></span>" : '<button class="x-btn" data-delexp="' + x.id + '">Delete</button>') + "</div>";
     }).join("") : '<div class="none">No expenses for this day.</div>';
     var duesList = dues.length ? dues.map(function (x) {
       return '<div class="it"><span>' + esc(x.customer_name) + " · " + (x.entry_type === "payment" ? '<span class="pos">collected</span>' : '<span class="warn-t">credit given</span>') +
-        "</span><span>" + inr2.format(x.amount) + '</span><button class="x-btn" data-deldue="' + x.id + '">Delete</button></div>';
+        "</span><span>" + inr2.format(x.amount) + "</span>" + (frozen ? "<span></span>" : '<button class="x-btn" data-deldue="' + x.id + '">Delete</button>') + "</div>";
     }).join("") : '<div class="none">No dues collected or credit given this day.</div>';
     return '<tr class="book-detail"><td colspan="14"><div class="bd-grid">' +
       '<div class="bd-box"><h3>Expenses on ' + fmtDate(d) + "</h3><div class=\"bd-list\">" + expList + "</div>" +
-        '<form class="bd-add" data-addexp="' + d + '">' +
+        (frozen ? '<div class="none">Locked.</div></div>' : '<form class="bd-add" data-addexp="' + d + '">' +
           "<select name=\"category\">" + EXP_CATS.map(function (c) { return "<option>" + esc(c) + "</option>"; }).join("") + "</select>" +
           '<input name="amount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount ₹" required>' +
           '<input name="note" type="text" placeholder="Note (optional)">' +
-          '<button class="primary" type="submit">Add</button></form></div>' +
+          '<button class="primary" type="submit">Add</button></form></div>') +
       '<div class="bd-box"><h3>Dues on ' + fmtDate(d) + "</h3><div class=\"bd-list\">" + duesList + "</div>" +
-        '<form class="bd-add" data-adddue="' + d + '">' +
+        (frozen ? '<div class="none">Locked.</div></div>' : '<form class="bd-add" data-adddue="' + d + '">' +
           '<select name="type"><option value="payment">Dues collected</option><option value="credit">Credit given</option></select>' +
           '<input name="amount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount ₹" required>' +
           '<input name="name" type="text" list="dl-customers" placeholder="Customer name" required autocomplete="off">' +
-          '<button class="primary" type="submit">Add</button></form></div>' +
+          '<button class="primary" type="submit">Add</button></form></div>') +
       "</div></td></tr>";
   }
 
@@ -1624,13 +1773,18 @@
   $("book-table").addEventListener("change", async function (e) {
     var el = e.target; if (!el.classList.contains("cell-in")) return;
     var d = el.dataset.d, tr = el.closest("tr");
-    var val = function (f) { var i = tr.querySelector('[data-f="' + f + '"]'); return i ? i.value : ""; };
     var entry = bookRow(d).entry;
-    var allEmpty = ["cash_collection", "online_received", "shop_balance", "opening_balance", "bar_collection"].every(function (f) { return val(f) === ""; });
+    if (isFrozen(d)) { toast(fmtDate(d) + " is locked."); renderBook(); return; }
+    var val = function (f) { return rowVal(tr, entry, f); };
+    var allEmpty = ["cash_collection", "online_cc", "online_bank", "shop_balance", "opening_balance", "bar_collection"].every(function (f) { var i = tr.querySelector('[data-f="' + f + '"]'); return !i || i.value === ""; });
     if (allEmpty && !entry) return;
-    var payload = { ledger_date: d, cash_collection: toNum(val("cash_collection")), online_received: toNum(val("online_received")),
+    var cc = toNum(val("online_cc")), bk = toNum(val("online_bank"));
+    var payload = { ledger_date: d, cash_collection: toNum(val("cash_collection")), online_cc: cc, online_bank: bk, online_received: cc + bk,
       shop_balance: toNum(val("shop_balance")), bar_collection: toNum(val("bar_collection")),
-      online_to: val("online_to") === "bank" ? "bank" : "cash_credit", updated_at: new Date().toISOString() };
+      online_to: bk > cc ? "bank" : "cash_credit", updated_at: new Date().toISOString() };
+    // Online: after the cash credit box, ask for bank; after the bank box, show the total
+    if (el.dataset.f === "online_cc") state.onlineEdit = d;
+    if (el.dataset.f === "online_bank") state.onlineEdit = null;
     if (d === START_DATE) payload.opening_balance = toNum(val("opening_balance"));
     el.classList.add("saving");
     var r = await sb.from("daily_ledger").upsert(payload, { onConflict: "ledger_date" });
@@ -1639,7 +1793,7 @@
     var i = state.book.findIndex(function (b) { return b.ledger_date === d; });
     if (i >= 0) state.book[i] = Object.assign({}, state.book[i], payload); else state.book.push(payload);
     var j = state.allBook.findIndex(function (b) { return b.ledger_date === d; });
-    var lite = { ledger_date: d, bar_collection: payload.bar_collection, cash_collection: payload.cash_collection, online_received: payload.online_received, online_to: payload.online_to };
+    var lite = { ledger_date: d, bar_collection: payload.bar_collection, cash_collection: payload.cash_collection, online_received: payload.online_received, online_to: payload.online_to, online_cc: cc, online_bank: bk };
     if (j >= 0) state.allBook[j] = Object.assign(state.allBook[j], lite); else state.allBook.push(lite);
     if (!state.cap.ledger || d >= state.cap.ledger.ledger_date) state.cap.ledger = { ledger_date: d, shop_balance: payload.shop_balance };
     renderBook(); // next day's previous balance and mismatch move with it
@@ -1655,6 +1809,8 @@
     if (v) { state.detailFilter = "sold"; await openDetail(v); $("rep-detail").scrollIntoView({ behavior: "smooth", block: "start" }); return; }
     if (mm) { showMismatches(mm); return; }
     if (o) { state.bookOpen = state.bookOpen === o ? null : o; renderBook(); }
+    var oe = e.target.getAttribute("data-onedit");
+    if (oe) { state.onlineEdit = oe; renderBook(); var f = document.querySelector('.cell-in[data-d="' + oe + '"][data-f="online_cc"]'); if (f) f.focus(); }
     if (de) {
       var x = state.ledger.expenses.find(function (y) { return y.id === de; });
       if (!confirm("Delete the " + x.category + " expense of " + inr2.format(x.amount) + "?")) return;
@@ -1864,6 +2020,7 @@
     }
     var exists = await sb.from("stock_reports").select("report_date").eq("report_date", p.date).maybeSingle();
     var replacing = !exists.error && exists.data;
+    var locked = replacing && isFrozen(p.date);
 
     pv.innerHTML =
       '<label>Report date <input type="date" id="pv-date" value="' + p.date + '"></label>' +
@@ -1882,7 +2039,8 @@
       (badBal.length ? '<div class="msg warn">' + badBal.length + " row" + (badBal.length > 1 ? "s don't" : " doesn't") + " add up (opening + in − out ≠ closing):" +
         '<div class="warn-list">' + badBal.slice(0, 30).map(esc).join("<br>") + "</div></div>" : "") +
       carry +
-      '<div class="form-actions"><button class="primary" id="pv-save" type="button">' + (replacing ? "Replace report" : "Save report") + '</button><button class="ghost" id="pv-cancel" type="button">Cancel</button></div>';
+      (locked ? '<div class="msg err">' + fmtLong(p.date) + " is locked: a later day is uploaded and this day balances. It can't be replaced.</div>" : "") +
+      '<div class="form-actions"><button class="primary" id="pv-save" type="button"' + (locked ? " disabled" : "") + ">" + (replacing ? "Replace report" : "Save report") + '</button><button class="ghost" id="pv-cancel" type="button">Cancel</button></div>';
 
     $("pv-date").onchange = function () { if (this.value) { p.date = this.value; renderPending(); } };
     $("pv-cancel").onclick = function () { state.pending = null; pv.hidden = true; pv.innerHTML = ""; };
