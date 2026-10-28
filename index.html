@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nalagola Liquor</title>
-<meta name="description" content="Nalagola Liquor. Wine, beer and spirits.">
-<meta property="og:title" content="Nalagola Liquor">
-<meta property="og:description" content="Wine, beer and spirits.">
+<title>Nalagola CS Shop</title>
+<meta name="description" content="Nalagola CS Shop. Fine spirits, beer and wine under one roof, since 1975.">
+<meta property="og:title" content="Nalagola CS Shop">
+<meta property="og:description" content="Fine spirits, beer and wine under one roof, since 1975.">
 <meta name="theme-color" content="#1b0d12">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="apple-touch-icon" href="logo-180.png">
@@ -88,6 +88,24 @@
     letter-spacing: 0.04em;
   }
 
+  .since {
+    margin-top: 14px;
+    font-size: 0.74rem;
+    font-weight: 500;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  .since::before, .since::after {
+    content: "";
+    display: inline-block;
+    width: 28px;
+    height: 1px;
+    background: var(--gold);
+    opacity: 0.6;
+    vertical-align: middle;
+    margin: 0 12px;
+  }
   .btn {
     display: inline-flex;
     align-items: center;
@@ -213,7 +231,7 @@
   <div class="gate" role="dialog" aria-modal="true" aria-labelledby="gate-q">
     <div class="gate-box">
       <img src="logo.webp" alt="" width="88" height="88" style="display:block;margin:0 auto 14px;border-radius:50%">
-      <div class="name">Nalagola Liquor</div>
+      <div class="name">Nalagola CS Shop</div>
       <p class="q" id="gate-q">Are you 21 or older?</p>
       <p class="sub">You must be of legal drinking age to enter this site.</p>
       <div class="gate-actions">
@@ -226,8 +244,9 @@
 
   <main>
     <img class="logo" src="logo.webp" alt="Nalagola CS Shop logo" width="168" height="168">
-    <h1>Nalagola Liquor</h1>
-    <p class="tagline">Wine, beer and spirits</p>
+    <h1>Nalagola CS Shop</h1>
+    <p class="tagline">Fine spirits, beer and wine under one roof</p>
+    <p class="since">Since 1975</p>
 
     <!-- EDIT: replace # with the second site's address once it is live -->
     <a class="btn enter" href="#">Enter</a>
@@ -250,7 +269,7 @@
         <h2>Visit us</h2>
         <!-- EDIT: shop address, and the shop's name or address after query= in the map link (use + for spaces) -->
         <p>Shop No. XX, Market Name<br>Sector XX, City 1XXXXX</p>
-        <p style="margin-top:8px"><a href="https://www.google.com/maps/search/?api=1&amp;query=Nalagola+Liquor" target="_blank" rel="noopener">Open in Google Maps</a></p>
+        <p style="margin-top:8px"><a href="https://www.google.com/maps/search/?api=1&amp;query=Nalagola+CS+Shop" target="_blank" rel="noopener">Open in Google Maps</a></p>
       </div>
       <div>
         <h2>Opening hours</h2>
@@ -268,7 +287,7 @@
 
   <footer>
     Sale only to customers aged 21 and above. Please drink responsibly.<br>
-    &copy; <span id="yr">2026</span> Nalagola Liquor
+    &copy; <span id="yr">2026</span> Nalagola CS Shop
   </footer>
 
   <script>
