@@ -12,28 +12,48 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<script>
+  // Hide the page behind the age check until the visitor confirms (remembered for 30 days)
+  (function () {
+    var ok = false;
+    try {
+      var t = Number(localStorage.getItem("nl_age_ok"));
+      ok = t && Date.now() - t < 30 * 24 * 60 * 60 * 1000;
+    } catch (e) {}
+    if (!ok) document.documentElement.classList.add("gate-on");
+  })();
+</script>
 <style>
   :root {
     --bg: #1b0d12;
-    --bg-2: #2c121b;
     --gold: #d9b26f;
     --gold-soft: rgba(217, 178, 111, 0.35);
     --text: #f4ece4;
-    --muted: #b9a9a0;
+    --muted: #c9b8ae;
+    --card: rgba(20, 8, 12, 0.62);
+    --line: rgba(217, 178, 111, 0.28);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; }
+  html, body { min-height: 100%; }
   body {
     min-height: 100vh;
     min-height: 100dvh;
     display: flex;
     flex-direction: column;
-    background:
-      radial-gradient(ellipse at 50% 35%, var(--bg-2) 0%, var(--bg) 70%);
     color: var(--text);
     font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
     -webkit-font-smoothing: antialiased;
+    background-color: var(--bg);
+    /* To use your own shop photo, upload it to the repo as bg.jpg */
+    background-image:
+      linear-gradient(180deg, rgba(27, 13, 18, 0.55) 0%, rgba(27, 13, 18, 0.35) 45%, rgba(12, 5, 8, 0.85) 100%),
+      url("bg.jpg");
+    background-size: cover;
+    background-position: center bottom;
+    background-attachment: fixed;
   }
+  @media (max-width: 800px) { body { background-attachment: scroll; } }
+
   main {
     flex: 1;
     display: flex;
@@ -41,21 +61,16 @@
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: 48px 20px;
+    padding: 64px 16px 32px;
   }
-  .mark {
-    width: 56px;
-    height: 1px;
-    background: var(--gold);
-    margin-bottom: 28px;
-    opacity: 0.8;
-  }
+  .mark { width: 56px; height: 1px; background: var(--gold); margin-bottom: 28px; opacity: 0.85; }
   h1 {
     font-family: "Cormorant Garamond", Georgia, serif;
     font-weight: 600;
     font-size: clamp(2.6rem, 9vw, 5rem);
     letter-spacing: 0.02em;
     line-height: 1.05;
+    text-shadow: 0 2px 24px rgba(0, 0, 0, 0.5);
   }
   .tagline {
     margin-top: 16px;
@@ -63,50 +78,206 @@
     color: var(--muted);
     letter-spacing: 0.04em;
   }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 999px;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+  .btn:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--gold-soft); }
+  .btn svg { width: 18px; height: 18px; flex: none; }
+
   .enter {
     margin-top: 40px;
-    display: inline-block;
-    padding: 14px 48px;
+    padding: 14px 52px;
     border: 1px solid var(--gold);
-    border-radius: 999px;
     color: var(--gold);
-    text-decoration: none;
-    font-size: 0.95rem;
-    font-weight: 500;
+    background: rgba(27, 13, 18, 0.35);
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    transition: background 0.2s ease, color 0.2s ease;
+    font-size: 0.95rem;
   }
-  .enter:hover, .enter:focus-visible {
-    background: var(--gold);
-    color: var(--bg);
-    outline: none;
+  .enter:hover, .enter:focus-visible { background: var(--gold); color: var(--bg); }
+
+  .contact-btns { margin-top: 18px; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .ghost {
+    padding: 11px 22px;
+    border: 1px solid var(--line);
+    color: var(--text);
+    background: rgba(20, 8, 12, 0.45);
   }
-  .enter:focus-visible { box-shadow: 0 0 0 4px var(--gold-soft); }
+  .ghost:hover, .ghost:focus-visible { border-color: var(--gold); color: var(--gold); }
+
+  .info {
+    margin-top: 48px;
+    width: 100%;
+    max-width: 720px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    text-align: left;
+  }
+  .info > div { padding: 20px 22px; }
+  .info > div + div { border-left: 1px solid var(--line); }
+  .info h2 {
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 8px;
+  }
+  .info p { font-size: 0.92rem; line-height: 1.55; color: var(--text); }
+  .info a { color: var(--text); text-decoration: none; border-bottom: 1px solid var(--line); }
+  .info a:hover { color: var(--gold); border-color: var(--gold); }
+  @media (max-width: 640px) {
+    .info { grid-template-columns: 1fr; }
+    .info > div + div { border-left: 0; border-top: 1px solid var(--line); }
+  }
+
   footer {
-    padding: 20px;
+    padding: 20px 16px 24px;
     text-align: center;
     font-size: 0.78rem;
     color: var(--muted);
-    opacity: 0.75;
+    opacity: 0.8;
     line-height: 1.6;
   }
+
+  /* Age check */
+  .gate {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(12, 5, 8, 0.92);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+  .gate-on .gate { display: flex; }
+  .gate-on body { overflow: hidden; }
+  .gate-box {
+    width: 100%;
+    max-width: 380px;
+    text-align: center;
+    padding: 36px 28px;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: rgba(27, 13, 18, 0.95);
+  }
+  .gate-box .name { font-family: "Cormorant Garamond", Georgia, serif; font-size: 1.8rem; font-weight: 600; }
+  .gate-box .q { margin-top: 14px; font-size: 1.05rem; }
+  .gate-box .sub { margin-top: 6px; font-size: 0.82rem; color: var(--muted); }
+  .gate-actions { margin-top: 26px; display: flex; gap: 12px; justify-content: center; }
+  .gate-actions button {
+    font: inherit;
+    font-size: 0.95rem;
+    font-weight: 500;
+    padding: 12px 0;
+    width: 120px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .yes { background: var(--gold); color: var(--bg); border: 1px solid var(--gold); }
+  .yes:hover { background: #e6c48a; }
+  .no { background: transparent; color: var(--text); border: 1px solid var(--line); }
+  .no:hover { border-color: var(--gold); color: var(--gold); }
+  .gate-actions button:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--gold-soft); }
+  .denied { display: none; margin-top: 18px; font-size: 0.9rem; color: #e8a0a0; }
 </style>
 </head>
 <body>
+  <div class="gate" role="dialog" aria-modal="true" aria-labelledby="gate-q">
+    <div class="gate-box">
+      <div class="name">Nalagola Liquor</div>
+      <p class="q" id="gate-q">Are you 21 or older?</p>
+      <p class="sub">You must be of legal drinking age to enter this site.</p>
+      <div class="gate-actions">
+        <button class="yes" type="button" id="age-yes">Yes</button>
+        <button class="no" type="button" id="age-no">No</button>
+      </div>
+      <p class="denied" id="age-denied">Sorry, this site is only for visitors aged 21 and above.</p>
+    </div>
+  </div>
+
   <main>
     <div class="mark" aria-hidden="true"></div>
     <h1>Nalagola Liquor</h1>
     <p class="tagline">Wine, beer and spirits</p>
-    <!-- Replace # with the second site's address once it is live -->
-    <a class="enter" href="#">Enter</a>
+
+    <!-- EDIT: replace # with the second site's address once it is live -->
+    <a class="btn enter" href="#">Enter</a>
+
+    <div class="contact-btns">
+      <!-- EDIT: put the shop number after +91, digits only, no spaces -->
+      <a class="btn ghost" href="tel:+919999999999">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>
+        Call us
+      </a>
+      <!-- EDIT: WhatsApp number with country code 91, digits only, no + or spaces -->
+      <a class="btn ghost" href="https://wa.me/919999999999" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.8-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3z"/></svg>
+        WhatsApp
+      </a>
+    </div>
+
+    <section class="info" aria-label="Shop details">
+      <div>
+        <h2>Visit us</h2>
+        <!-- EDIT: shop address, and the shop's name or address after query= in the map link (use + for spaces) -->
+        <p>Shop No. XX, Market Name<br>Sector XX, City 1XXXXX</p>
+        <p style="margin-top:8px"><a href="https://www.google.com/maps/search/?api=1&amp;query=Nalagola+Liquor" target="_blank" rel="noopener">Open in Google Maps</a></p>
+      </div>
+      <div>
+        <h2>Opening hours</h2>
+        <!-- EDIT: opening hours -->
+        <p>Mon to Sun<br>10:00 am to 10:00 pm</p>
+      </div>
+      <div>
+        <h2>Contact</h2>
+        <!-- EDIT: phone number shown on the page -->
+        <p><a href="tel:+919999999999">+91 99999 99999</a></p>
+        <p style="margin-top:8px; color: var(--muted); font-size: 0.85rem;">Call or WhatsApp us to check stock</p>
+      </div>
+    </section>
   </main>
+
   <footer>
-    Sale only to customers of legal drinking age. Please drink responsibly.<br>
+    Sale only to customers aged 21 and above. Please drink responsibly.<br>
     &copy; <span id="yr">2026</span> Nalagola Liquor
   </footer>
+
   <script>
     document.getElementById("yr").textContent = new Date().getFullYear();
+    (function () {
+      var root = document.documentElement;
+      var yes = document.getElementById("age-yes");
+      var no = document.getElementById("age-no");
+      if (root.classList.contains("gate-on")) yes.focus();
+      yes.addEventListener("click", function () {
+        try { localStorage.setItem("nl_age_ok", String(Date.now())); } catch (e) {}
+        root.classList.remove("gate-on");
+      });
+      no.addEventListener("click", function () {
+        document.getElementById("age-denied").style.display = "block";
+        yes.disabled = true; no.disabled = true;
+        yes.style.opacity = no.style.opacity = "0.4";
+      });
+    })();
   </script>
 </body>
 </html>
