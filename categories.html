@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Our Range | Nalagola CS Shop</title>
+<meta name="description" content="Whisky, beer, rum, vodka, wines, overseas spirits and country spirits at Nalagola CS Shop. Since 1975.">
+<meta property="og:title" content="Our Range | Nalagola CS Shop">
+<meta property="og:description" content="Whisky, beer, rum, vodka, wines, overseas spirits and country spirits. Since 1975.">
+<meta property="og:image" content="https://nalagolacsshop.com/logo-180.png">
+<meta name="theme-color" content="#1b0d12">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="logo-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<script>
+  // Same age check as the home page (remembered for 30 days)
+  (function () {
+    var ok = false;
+    try {
+      var t = Number(localStorage.getItem("nl_age_ok"));
+      ok = t && Date.now() - t < 30 * 24 * 60 * 60 * 1000;
+    } catch (e) {}
+    if (!ok) document.documentElement.classList.add("gate-on");
+  })();
+</script>
+<style>
+  :root {
+    --bg: #1b0d12;
+    --gold: #d9b26f;
+    --gold-soft: rgba(217, 178, 111, 0.35);
+    --text: #f4ece4;
+    --muted: #c9b8ae;
+    --card: rgba(20, 8, 12, 0.66);
+    --card-hover: rgba(36, 14, 22, 0.8);
+    --line: rgba(217, 178, 111, 0.26);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    color: var(--text);
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(180deg, rgba(27, 13, 18, 0.78) 0%, rgba(27, 13, 18, 0.7) 50%, rgba(12, 5, 8, 0.92) 100%),
+      url("bg.jpg");
+    background-size: cover;
+    background-position: center bottom;
+    background-attachment: fixed;
+  }
+  @media (max-width: 800px) { body { background-attachment: scroll; } }
+  a { color: inherit; }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    max-width: 1080px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 18px 16px;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+  .brand img { width: 44px; height: 44px; border-radius: 50%; }
+  .brand span { font-family: "Cormorant Garamond", Georgia, serif; font-size: 1.35rem; font-weight: 600; }
+  .home-link {
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+  }
+  .home-link:hover { color: var(--gold); border-color: var(--gold); }
+
+  main { flex: 1; max-width: 1080px; width: 100%; margin: 0 auto; padding: 24px 16px 48px; }
+  .intro { text-align: center; margin-bottom: 40px; }
+  .eyebrow {
+    font-size: 0.74rem;
+    font-weight: 500;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  h1 {
+    margin-top: 12px;
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-weight: 600;
+    font-size: clamp(2.2rem, 7vw, 3.6rem);
+    line-height: 1.1;
+  }
+  .intro p.lead { margin-top: 12px; color: var(--muted); font-size: 1rem; line-height: 1.6; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    display: flex;
+    flex-direction: column;
+    padding: 24px 22px 20px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  }
+  .card:hover { transform: translateY(-3px); border-color: var(--gold); background: var(--card-hover); }
+  .icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line);
+    color: var(--gold);
+    margin-bottom: 18px;
+  }
+  .icon svg { width: 28px; height: 28px; }
+  .card h2 {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: 1.65rem;
+    font-weight: 600;
+    line-height: 1.1;
+  }
+  .card p { margin-top: 8px; font-size: 0.9rem; line-height: 1.55; color: var(--muted); flex: 1; }
+  .ask {
+    margin-top: 18px;
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--gold);
+    text-decoration: none;
+    border-bottom: 1px solid var(--gold-soft);
+    padding-bottom: 2px;
+  }
+  .ask:hover, .ask:focus-visible { border-color: var(--gold); outline: none; }
+  .ask svg { width: 14px; height: 14px; }
+
+  .help {
+    margin-top: 40px;
+    text-align: center;
+    padding: 28px 20px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--card);
+  }
+  .help p { color: var(--muted); font-size: 0.95rem; }
+  .help-btns { margin-top: 16px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 22px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(20, 8, 12, 0.45);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: border-color 0.2s ease, color 0.2s ease;
+  }
+  .btn:hover, .btn:focus-visible { border-color: var(--gold); color: var(--gold); outline: none; }
+  .btn svg { width: 18px; height: 18px; }
+
+  footer {
+    padding: 20px 16px 24px;
+    text-align: center;
+    font-size: 0.78rem;
+    color: var(--muted);
+    opacity: 0.8;
+    line-height: 1.6;
+  }
+
+  /* Age check */
+  .gate {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(12, 5, 8, 0.92);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+  .gate-on .gate { display: flex; }
+  .gate-on body { overflow: hidden; }
+  .gate-box {
+    width: 100%;
+    max-width: 380px;
+    text-align: center;
+    padding: 36px 28px;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: rgba(27, 13, 18, 0.95);
+  }
+  .gate-box img { display: block; margin: 0 auto 14px; border-radius: 50%; }
+  .gate-box .name { font-family: "Cormorant Garamond", Georgia, serif; font-size: 1.8rem; font-weight: 600; }
+  .gate-box .q { margin-top: 14px; font-size: 1.05rem; }
+  .gate-box .sub { margin-top: 6px; font-size: 0.82rem; color: var(--muted); }
+  .gate-actions { margin-top: 26px; display: flex; gap: 12px; justify-content: center; }
+  .gate-actions button {
+    font: inherit;
+    font-size: 0.95rem;
+    font-weight: 500;
+    padding: 12px 0;
+    width: 120px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .yes { background: var(--gold); color: var(--bg); border: 1px solid var(--gold); }
+  .no { background: transparent; color: var(--text); border: 1px solid var(--line); }
+  .gate-actions button:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--gold-soft); }
+  .denied { display: none; margin-top: 18px; font-size: 0.9rem; color: #e8a0a0; }
+</style>
+</head>
+<body>
+  <div class="gate" role="dialog" aria-modal="true" aria-labelledby="gate-q">
+    <div class="gate-box">
+      <img src="logo.webp" alt="" width="88" height="88">
+      <div class="name">Nalagola CS Shop</div>
+      <p class="q" id="gate-q">Are you 21 or older?</p>
+      <p class="sub">You must be of legal drinking age to enter this site.</p>
+      <div class="gate-actions">
+        <button class="yes" type="button" id="age-yes">Yes</button>
+        <button class="no" type="button" id="age-no">No</button>
+      </div>
+      <p class="denied" id="age-denied">Sorry, this site is only for visitors aged 21 and above.</p>
+    </div>
+  </div>
+
+  <header>
+    <a class="brand" href="index.html">
+      <img src="logo.webp" alt="" width="44" height="44">
+      <span>Nalagola CS Shop</span>
+    </a>
+    <a class="home-link" href="index.html">&larr; Home</a>
+  </header>
+
+  <main>
+    <section class="intro">
+      <p class="eyebrow">Since 1975</p>
+      <h1>Our range</h1>
+      <p class="lead">Pick a category and message us on WhatsApp to check what's in stock today.</p>
+    </section>
+
+    <section class="grid" aria-label="Categories">
+      <!-- EDIT: change any line of text below. data-cat is what goes in the WhatsApp message -->
+      <article class="card" data-cat="whisky">
+        <div class="icon"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 12h28l-3 28a3 3 0 0 1-3 2.6H16a3 3 0 0 1-3-2.6z"/><path d="M11.5 24h25"/><rect x="18" y="27" width="8" height="8" rx="1.5"/><rect x="25" y="30" width="7" height="7" rx="1.5"/></svg></div>
+        <h2>Whisky</h2>
+        <p>Indian whiskies, blends and single malts for every budget.</p>
+        <a class="ask" href="#">Ask on WhatsApp <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>
+      </article>
+
+      <article class="card" data-cat="beer">
+        <div class="icon"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 16h22v24a3 3 0 0 1-3 3H13a3 3 0 0 1-3-3z"/><path d="M32 21h4a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4h-4"/><path d="M10 16a5 5 0 0 1 5-6 6 6 0 0 1 11 0 5 5 0 0 1 6 6"/><path d="M16 22v14M21 22v14M26 22v14"/></svg></div>
+        <h2>Beer</h2>
+        <p>Lagers and strong beers in bottles and cans.</p>
+        <a class="ask" href="#">Ask on WhatsApp <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>
+      </article>
+
+      <article class="card" data-cat="rum">
+        <div class="icon"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 5h8v8l6 6v21a3 3 0 0 1-3 3H17a3 3 0 0 1-3-3V19l6-6z"/><rect x="17" y="24" width="14" height="10" rx="1.5"/></svg></div>
+        <h2>Rum</h2>
+        <p>Dark, white and spiced rums, from old favourites to new labels.</p>
+        <a class="ask" href="#">Ask on WhatsApp <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>
+      </article>
+
+      <article class="card" data-cat="vodka">
+        <div class="icon"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4h6v10c3 2 5 4 5 7v19a3 3 0 0 1-3 3H19a3 3 0 0 1-3-3V21c0-3 2-5 5-7z"/><path d="M16 27h16"/></svg></div>
+        <h2>Vodka</h2>
+        <p>Plain and flavoured vodkas, Indian and imported.</p>
+        <a class="ask" href="#">Ask on WhatsApp <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>
+      </article>
+
+      <article class="card" data-cat="wine">
+        <div class="icon"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 5h20c1 9-2 17-10 18-8-1-11-9-10-18z"/><path d="M15 13h18"/><path d="M24 23v16M16 43h16"/></svg></div>
+        <h2>Wines</h2>
+        <p>Red, white, rosé and sparkling, for dinner or a gift.</p>
+        <a class="ask" href="#">Ask on WhatsApp <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>
+      </article>
+
+      <article class="card" data-cat="overseas spirits">
+        <div class="icon"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="24" cy="24" r="18"/><path d="M6 24h36"/><path d="M24 6c5 5 7 11 7 18s-2 13-7 18c-5-5-7-11-7-18s2-13 7-18z"/></svg></div>
+        <h2>Overseas Spirits</h2>
+        <p>Imported whisky, gin, tequila, cognac and liqueurs.</p>
+        <a class="ask" href="#">Ask on WhatsApp <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>
+      </article>
+
+      <article class="card" data-cat="country spirits">
+        <div class="icon"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 6h10M20 6v6c-7 2-12 8-12 15a16 16 0 0 0 32 0c0-7-5-13-12-15V6"/><path d="M10 28h28"/></svg></div>
+        <h2>Country Spirits</h2>
+        <p>Local favourites at everyday prices.</p>
+        <a class="ask" href="#">Ask on WhatsApp <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>
+      </article>
+    </section>
+
+    <section class="help">
+      <p>Looking for a particular brand? Call or message us and we'll keep it ready for you.</p>
+      <div class="help-btns">
+        <a class="btn" id="call-btn" href="#">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>
+          Call us
+        </a>
+        <a class="btn" id="wa-btn" href="#" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.8-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3z"/></svg>
+          WhatsApp
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Sale only to customers aged 21 and above. Please drink responsibly.<br>
+    &copy; <span id="yr">2026</span> Nalagola CS Shop
+  </footer>
+
+  <script>
+    // EDIT: shop phone / WhatsApp number with country code 91, digits only. Used by every button on this page.
+    var SHOP_NUMBER = "919999999999";
+
+    document.getElementById("yr").textContent = new Date().getFullYear();
+
+    document.getElementById("call-btn").href = "tel:+" + SHOP_NUMBER;
+    document.getElementById("wa-btn").href = "https://wa.me/" + SHOP_NUMBER;
+    document.querySelectorAll(".card").forEach(function (card) {
+      var msg = "Hi, which " + card.dataset.cat + " brands do you have in stock today?";
+      var link = card.querySelector(".ask");
+      link.href = "https://wa.me/" + SHOP_NUMBER + "?text=" + encodeURIComponent(msg);
+      link.target = "_blank";
+      link.rel = "noopener";
+    });
+
+    (function () {
+      var root = document.documentElement;
+      var yes = document.getElementById("age-yes");
+      var no = document.getElementById("age-no");
+      if (root.classList.contains("gate-on")) yes.focus();
+      yes.addEventListener("click", function () {
+        try { localStorage.setItem("nl_age_ok", String(Date.now())); } catch (e) {}
+        root.classList.remove("gate-on");
+      });
+      no.addEventListener("click", function () {
+        document.getElementById("age-denied").style.display = "block";
+        yes.disabled = true; no.disabled = true;
+        yes.style.opacity = no.style.opacity = "0.4";
+      });
+    })();
+  </script>
+</body>
+</html>
