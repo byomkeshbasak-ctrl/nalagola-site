@@ -686,7 +686,7 @@
       sb.from("expenses").select("*").gte("expense_date", r[0]).lte("expense_date", r[1]).order("expense_date", { ascending: false }).order("created_at", { ascending: false }),
       sb.from("purchases").select("*").gte("purchase_date", r[0]).lte("purchase_date", r[1]).order("purchase_date", { ascending: false }).order("created_at", { ascending: false }),
       fetchAll(function () { return sb.from("stock_mismatches").select("*").gte("report_date", r[0]).lte("report_date", r[1]).order("report_date").order("item_name"); }),
-      sb.from("missing_report_days").select("*").gte("report_date", r[0]).lte("report_date", r[1]).order("report_date"),
+      Promise.resolve({ data: [], error: null }),
       sb.from("daily_ledger").select("*").gte("ledger_date", addDays(r[0], -1)).lte("ledger_date", r[1]).order("ledger_date"),
       fetchAll(function () { return sb.from("customer_dues").select("*").order("entry_date", { ascending: false }).order("created_at", { ascending: false }); })
     ]);
@@ -759,18 +759,11 @@
     $("rep-title").textContent = "Reports in " + new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
     var latest = state.reports[0];
     $("stock-on-hand").innerHTML = latest ? "Stock on hand (" + fmtDate(latest.report_date) + "): <b>" + inr.format(latest.closing_value_cost) + "</b> at cost" : "";
-    if (!state.reports.length && !state.missingDays.length) { tbl.innerHTML = '<tr><td class="empty">No reports for this month yet. Upload the first one on the left.</td></tr>'; return; }
+    if (!state.reports.length) { tbl.innerHTML = '<tr><td class="empty">No reports for this month yet. Upload the first one on the left.</td></tr>'; return; }
     var expByDate = expensesByDate();
     var tot = { u: 0, s: 0, c: 0, g: 0, e: 0 };
-    // Uploaded days plus the days that are missing, newest first
-    var rows = state.reports.map(function (r) { return { date: r.report_date, r: r }; })
-      .concat(state.missingDays.map(function (d) { return { date: d, r: null }; }))
-      .sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+    var rows = state.reports.map(function (r) { return { date: r.report_date, r: r }; });
     var body = rows.map(function (row) {
-      if (!row.r) {
-        return '<tr class="missing"><td>' + fmtDate(row.date) + ' <span class="tag bad" data-gotoupload="1" title="Upload this day\'s stock report">no report</span></td>' +
-          '<td colspan="6">Stock report not uploaded. The next day\'s opening stock can\'t be checked until it is.</td><td></td></tr>';
-      }
       var r = row.r, e = expByDate[r.report_date] || 0, net = Number(r.gross_profit) - e, mm = mismatchCount(r.report_date);
       tot.u += Number(r.units_sold); tot.s += Number(r.sales_value); tot.c += Number(r.cost_value); tot.g += Number(r.gross_profit); tot.e += e;
       return '<tr class="' + (state.detailDate === r.report_date ? "sel" : "") + '"><td>' + fmtDate(r.report_date) +
@@ -800,7 +793,6 @@
     var v = e.target.getAttribute("data-view"), m = e.target.getAttribute("data-mismatch");
     if (v) { state.detailFilter = "sold"; await openDetail(v); $("rep-detail").scrollIntoView({ behavior: "smooth", block: "start" }); }
     if (m) showMismatches(m);
-    if (e.target.getAttribute("data-gotoupload")) $("rep-drop").scrollIntoView({ behavior: "smooth", block: "center" });
   });
 
   async function openDetail(date) {
@@ -886,35 +878,13 @@
     var el = $("checks"), items = [];
     var byDate = {}; state.mismatches.forEach(function (m) { byDate[m.report_date] = (byDate[m.report_date] || 0) + 1; });
     Object.keys(byDate).sort().forEach(function (d) {
-      items.push("<li><span><b>Stock mismatch on " + fmtDate(d) + ":</b> " + byDate[d] + " item" + (byDate[d] > 1 ? "s" : "") +
-        " opened differently from " + fmtDate(addDays(d, -1)) + "'s closing.</span><button class=\"go\" data-check-mm=\"" + d + "\">Show items</button></li>");
+      items.push("<li><span><b>" + fmtDate(d) + ":</b> " + byDate[d] + " item" + (byDate[d] > 1 ? "s" : "") +
+        " opened differently from " + fmtDate(addDays(d, -1)) + "'s closing stock.</span><button class=\"go\" data-check-mm=\"" + d + "\">Show items</button></li>");
     });
-    if (state.missingDays.length) {
-      items.push("<li><span><b>No stock report for " + dateRanges(state.missingDays) + "</b> (" + state.missingDays.length + " day" +
-        (state.missingDays.length > 1 ? "s" : "") + "). Stock can't be matched across these days.</span><button class=\"go\" data-check-up=\"1\">Upload</button></li>");
-    }
-    var open = [], off = [];
-    monthDays().forEach(function (d) {
-      var b = bookRow(d);
-      if (!b.entry && b.hasReport) open.push(d);
-      if (b.entry && Math.abs(b.diff) >= 0.5) off.push(b);
-    });
-    off.forEach(function (b) {
-      items.push("<li><span><b>Ledger " + (b.diff < 0 ? "short" : "excess") + " on " + fmtDate(b.date) + ":</b> " + inr2.format(Math.abs(b.diff)) +
-        ".</span><button class=\"go\" data-check-book=\"" + b.date + "\">Open day</button></li>");
-    });
-    if (open.length) {
-      items.push("<li><span><b>Daily ledger not closed</b> for " + dateRanges(open) + ".</span><button class=\"go\" data-check-book=\"" + open[0] + "\">Close day</button></li>");
-    }
-    if (items.length) {
-      el.className = "checks bad";
-      el.innerHTML = "<h3>" + items.length + " thing" + (items.length > 1 ? "s" : "") + " to check this month</h3><ul>" + items.join("") + "</ul>";
-      el.hidden = false;
-    } else if (state.reports.length) {
-      el.className = "checks good";
-      el.innerHTML = "<h3>All checks pass</h3><ul><li>Every day's opening stock matches the day before, and every closed day balances.</li></ul>";
-      el.hidden = false;
-    } else { el.hidden = true; }
+    if (!items.length) { el.hidden = true; el.innerHTML = ""; return; }
+    el.className = "checks bad";
+    el.innerHTML = "<h3>Stock mismatch on " + items.length + " day" + (items.length > 1 ? "s" : "") + " this month</h3><ul>" + items.join("") + "</ul>";
+    el.hidden = false;
   }
 
   $("checks").addEventListener("click", function (e) {
@@ -1073,7 +1043,7 @@
     var prevNote = (!isStart && b.prev == null) ? '<div class="r"><span class="warn-t">' + fmtDate(addDays(date, -1)) + " isn't closed yet, so its shop balance is taken as ₹0</span><span></span></div>" : "";
     $("b-calc").innerHTML = '<div class="calc"><div class="lbl">Should be in hand</div>' +
       line(prevLabel, b.prev || 0) + prevNote +
-      line("Sales" + (b.hasReport ? "" : ' <span class="tag bad">no stock report</span>'), b.sales, "+ ") +
+      line("Sales", b.sales, "+ ") +
       line("Dues received", b.duesIn, "+ ") +
       line("Credit given", b.credit, "− ") +
       line("Expenses", b.exp, "− ") +
@@ -1143,9 +1113,9 @@
         var b = bookRow(d), e = b.entry;
         t.s += b.sales; t.d += b.duesIn; t.c += b.credit; t.e += b.exp;
         if (e) { t.cash += Number(e.cash_collection); t.on += Number(e.online_received); }
-        var diffCell = !e ? '<span class="tag warn">not closed</span>' : Math.abs(b.diff) < 0.5 ? '<span class="tag ok">matched</span>' :
+        var diffCell = !e ? '<span class="tag">not closed</span>' : Math.abs(b.diff) < 0.5 ? '<span class="tag ok">matched</span>' :
           '<span class="neg">' + (b.diff < 0 ? "Short " : "Excess ") + inr2.format(Math.abs(b.diff)) + "</span>";
-        return '<tr class="' + ($("b-date").value === d ? "sel" : "") + '"><td>' + fmtDate(d) + (b.hasReport || d === todayISO() ? "" : ' <span class="tag bad">no report</span>') + '</td><td class="num">' +
+        return '<tr class="' + ($("b-date").value === d ? "sel" : "") + '"><td>' + fmtDate(d) + "</td><td class=\"num\">" +
           (b.prev == null ? "–" : inr.format(b.prev)) + '</td><td class="num">' + inr.format(b.sales) + '</td><td class="num">' + (b.duesIn ? inr.format(b.duesIn) : "–") +
           '</td><td class="num">' + (b.credit ? inr.format(b.credit) : "–") + '</td><td class="num">' + (b.exp ? inr.format(b.exp) : "–") + '</td><td class="num">' + inr.format(b.expected) +
           '</td><td class="num">' + (e ? inr.format(e.cash_collection) : "–") + '</td><td class="num">' + (e ? inr.format(e.online_received) : "–") + '</td><td class="num">' +
@@ -1332,9 +1302,7 @@
     } else if (p.date > START_DATE) {
       var pd = addDays(p.date, -1);
       var pl = await fetchAll(function () { return sb.from("stock_report_lines").select("item_name,mrp,closing_stock").eq("report_date", pd); });
-      if (!pl.error && !pl.data.length) {
-        carry = '<div class="msg err">No stock report for ' + fmtLong(pd) + " yet, so this day's opening stock can't be matched. Upload that day too.</div>";
-      } else if (!pl.error) {
+      if (!pl.error && pl.data.length) {
         var pm = {}; pl.data.forEach(function (x) { var k = x.item_name + "|" + Number(x.mrp); pm[k] = (pm[k] || 0) + Number(x.closing_stock); });
         var om = {}; p.lines.forEach(function (l) { om[l.item_name + "|" + l.mrp] = l.opening_stock; });
         var off = [];
