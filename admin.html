@@ -223,6 +223,29 @@
   .checks .go { background: none; border: 0; color: var(--gold); text-decoration: underline; cursor: pointer; font-size: 0.82rem; padding: 0; }
   .tag.bad { color: var(--red); border-color: rgba(239, 143, 143, 0.45); cursor: pointer; }
   .tag.ok { color: var(--green); border-color: rgba(127, 207, 154, 0.4); }
+  /* Indent */
+  .ind-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .ind-sum div { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .ind-sum .l { font-size: 0.72rem; color: var(--muted); }
+  .ind-sum .a { margin-top: 3px; font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ind-sum .a.gold { color: var(--gold); }
+  @media (max-width: 700px) { .ind-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .ind-controls { display: grid; grid-template-columns: 150px 190px 190px minmax(0, 1fr); gap: 10px; margin-bottom: 12px; align-items: end; }
+  @media (max-width: 760px) { .ind-controls { grid-template-columns: 1fr 1fr; } }
+  .ind-controls input, .ind-controls select { padding: 8px 10px; font-size: 0.88rem; }
+  .ind-cases { margin-bottom: 14px; padding: 14px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--bg); }
+  .ind-cases h3 { font-size: 0.85rem; font-weight: 600; margin: 4px 0 8px; }
+  .ind-cases .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-bottom: 10px; }
+  .ind-cases input { padding: 7px 9px; font-size: 0.88rem; }
+  .ind-cases .hint { font-size: 0.78rem; color: var(--muted); line-height: 1.5; margin: 6px 0 10px; }
+  #ind-table th { cursor: pointer; user-select: none; }
+  #ind-table th.sorted { color: var(--gold); }
+  #ind-table td.item { min-width: 210px; }
+  #ind-table td.item small { display: block; color: var(--muted); font-size: 0.72rem; }
+  #ind-table th { white-space: normal; line-height: 1.3; }
+  #ind-table th, #ind-table td { padding-left: 7px; padding-right: 7px; }
+  #ind-table tr.cat-row td { background: var(--panel-2); font-weight: 600; font-size: 0.8rem; color: var(--gold); letter-spacing: 0.04em; }
+  #ind-table td.order { font-weight: 600; color: var(--gold); }
   tr.missing td { color: var(--muted); font-style: italic; }
   tr.missing td:first-child { font-style: normal; }
 
@@ -554,8 +577,27 @@
     <!-- ===== Indent (to be built) ===== -->
     <section id="pane-indent" hidden>
       <div class="card" style="margin-top:18px">
-        <h2>Indent</h2>
-        <p class="hint" style="margin:0">This section is next on the list.</p>
+        <div class="list-head">
+          <h2 id="ind-title">Indent</h2>
+          <button class="ghost" type="button" id="ind-cases-btn">Case sizes</button>
+          <button class="ghost" type="button" id="ind-csv">Export CSV</button>
+        </div>
+        <p class="hint" id="ind-basis">Loading…</p>
+        <div class="ind-sum" id="ind-sum"></div>
+        <div class="ind-controls">
+          <label>Keep stock for (days) <input type="number" id="ind-days" min="1" step="1" value="15" inputmode="numeric"></label>
+          <label>Show
+            <select id="ind-show">
+              <option value="order">Items to order</option>
+              <option value="low">Below the minimum</option>
+              <option value="all">All items</option>
+            </select>
+          </label>
+          <label>Category <select id="ind-cat"><option value="">All categories</option></select></label>
+          <label>Search <input type="search" id="ind-q" placeholder="Item name" autocomplete="off"></label>
+        </div>
+        <form id="ind-cases" class="ind-cases" hidden></form>
+        <div class="table-wrap"><table id="ind-table"></table></div>
       </div>
     </section>
 
@@ -867,6 +909,7 @@
     $("pane-indent").hidden = tab !== "indent";
     $("pane-bar").hidden = tab !== "bar";
     if (tab === "bar") renderBar();
+    if (tab === "indent") loadIndent();
     if (LEDGERS[tab]) { renderForm(); renderLedger(); }
     if (tab === "dues") { resetDuesForm(); renderDues(); }
     if (tab === "book") renderBook();
@@ -921,6 +964,7 @@
     renderSummary(); renderReports(); renderChecks();
     if (state.tab === "sales") renderMonths();
     if (state.tab === "bar") renderBar();
+    if (state.tab === "indent") loadIndent();
     if (LEDGERS[state.tab]) renderLedger();
     if (state.tab === "dues") renderDues();
     if (state.tab === "book") renderBook();
@@ -2121,6 +2165,181 @@
       days.map(function (d) { var b = bookRow(d), e = b.entry, gp = b.rep ? Number(b.rep.gross_profit) : 0, sp = onlineSplit(e);
         var inc = state.allIncome.reduce(function (a, x) { return a + (x.income_date === d ? Number(x.amount) : 0); }, 0);
         return [d, b.sales, b.prev, b.duesIn, b.credit, b.duesIn - b.credit, b.exp, b.incShop, e && e.bar_collection, e && e.cash_collection, e ? sp.cc : "", e ? sp.bank : "", e && e.shop_balance, gp, inc, gp + inc - b.exp, b.mismatch]; }));
+  });
+
+  // ---------- Indent ----------
+  // Average sold per day over the last 30 days of reports (or fewer, if that's all there is),
+  // compared with the latest closing stock. Order enough to hold the minimum days, in full cases.
+  var IND_DEFAULT_CASES = { "spirits:750": 12, "spirits:600": 20, "spirits:500": 18, "spirits:375": 24, "spirits:330": 24, "spirits:300": 30, "spirits:180": 48,
+    "beer:650": 12, "beer:500": 24, "beer:330": 24 };
+  var IND_CAT_ORDER = ["Whisky", "Rum", "Vodka", "Gin", "Brandy", "Overseas Spirits", "Country Spirits", "Beer", "Wines", "Other"];
+  state.ind = { rows: [], cases: {}, sort: "cat", dir: 1, latest: null, days: 0, from: null };
+  try { var sd = Number(localStorage.getItem("ind-days")); if (sd > 0) $("ind-days").value = sd; } catch (x) {}
+  var indKind = function (cat) { return cat === "Beer" || cat === "Wines" ? "beer" : "spirits"; };
+  var sizeOf = function (l) { var n = Number(l.size_ml); if (n > 0) return n; var m = String(l.item_name).match(/(\d+)\s*$/); return m ? Number(m[1]) : 0; };
+  function caseSizeFor(cat, size) {
+    if (cat === "Overseas Spirits") return { n: 1, perBottle: true };
+    var k = indKind(cat), c = state.ind.cases;
+    var n = c[k + ":" + size] || c[(k === "beer" ? "spirits" : "beer") + ":" + size];
+    return n ? { n: n } : { n: 1, missing: true };
+  }
+
+  async function loadIndent() {
+    var latest = state.allReports.reduce(function (m, r) { return r.report_date > m ? r.report_date : m; }, "");
+    $("ind-title").textContent = "Indent";
+    if (!latest) { $("ind-basis").textContent = "Upload a day's stock report first. The indent is worked out from the daily sales."; $("ind-sum").innerHTML = ""; $("ind-table").innerHTML = ""; return; }
+    var from = addDays(latest, -29);
+    var q = await Promise.all([
+      fetchAll(function () { return sb.from("stock_report_lines").select("report_date,item_name,mrp,stock_out,closing_stock,cost_price,size_ml,category").gte("report_date", from).lte("report_date", latest).order("report_date").order("item_name"); }),
+      sb.from("case_sizes").select("*")
+    ]);
+    if (q[0].error) { toast("Couldn't load the stock for the indent: " + q[0].error.message); return; }
+    var cases = Object.assign({}, IND_DEFAULT_CASES);
+    (q[1].data || []).forEach(function (c) { cases[c.kind + ":" + c.size_ml] = Number(c.bottles); });
+    state.ind.cases = cases; state.ind.latest = latest; state.ind.from = from;
+    var lines = q[0].data || [], dates = {};
+    lines.forEach(function (l) { dates[l.report_date] = 1; });
+    state.ind.days = Object.keys(dates).length;
+    var by = {};
+    lines.forEach(function (l) {
+      var k = cleanName(l.item_name), x = by[k] || (by[k] = { name: l.item_name, sold: 0, stock: 0, last: null, lastDate: "" });
+      x.sold += Number(l.stock_out || 0);
+      if (l.report_date === latest) x.stock += Number(l.closing_stock || 0);
+      // Price shown: the newest line, and on the latest day the highest MRP (a new MRP replaces the old one)
+      if (l.report_date > x.lastDate || (l.report_date === x.lastDate && Number(l.mrp) > Number(x.last.mrp))) { x.last = l; x.lastDate = l.report_date; }
+    });
+    state.ind.rows = Object.keys(by).map(function (k) {
+      var x = by[k], l = x.last, mrp = Number(l.mrp);
+      var item = state.items.find(function (i) { return i.item_name === l.item_name && Number(i.mrp) === mrp; });
+      var cost = l.cost_price != null ? Number(l.cost_price) : item && item.cost_price != null ? Number(item.cost_price) : null;
+      var cat = savedCategory(l.item_name, mrp) || l.category || categoryOf(l.item_name);
+      return { name: x.name, cat: cat, size: sizeOf(l), mrp: mrp, cost: cost, sold: x.sold, stock: x.stock };
+    }).filter(function (r) { return r.sold > 0 || r.stock > 0; });
+    var cs = {}; state.ind.rows.forEach(function (r) { cs[r.cat] = 1; });
+    var sel = $("ind-cat"), cur = sel.value;
+    sel.innerHTML = '<option value="">All categories</option>' + Object.keys(cs).sort(function (a, b) { return catRank(a) - catRank(b) || a.localeCompare(b); })
+      .map(function (c) { return '<option' + (c === cur ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("");
+    renderIndent();
+  }
+  var catRank = function (c) { var i = IND_CAT_ORDER.indexOf(c); return i < 0 ? 99 : i; };
+
+  function indentCalc() {
+    var minDays = Math.max(1, Math.round(toNum($("ind-days").value)) || 15), n = state.ind.days || 1;
+    return state.ind.rows.map(function (r) {
+      var avg = r.sold / n, target = avg * minDays, short = Math.max(0, target - r.stock), cz = caseSizeFor(r.cat, r.size);
+      var units = cz.perBottle ? Math.round(short) : Math.round(short / cz.n); // nearest case (or bottle for overseas spirits)
+      var bottles = cz.perBottle ? units : units * cz.n;
+      return Object.assign({}, r, { avg: avg, daysLeft: avg > 0 ? r.stock / avg : Infinity, short: short, cz: cz, units: units, bottles: bottles,
+        value: r.cost != null ? bottles * r.cost : null, low: avg > 0 && r.stock < target, minDays: minDays });
+    });
+  }
+
+  function renderIndent() {
+    var all = indentCalc(), show = $("ind-show").value, cat = $("ind-cat").value, q = $("ind-q").value.trim().toLowerCase();
+    var minDays = all.length ? all[0].minDays : 15, n = state.ind.days;
+    $("ind-title").textContent = "Indent for the next order";
+    $("ind-basis").innerHTML = "Average sold per day over the last " + n + " day" + (n === 1 ? "" : "s") + " of reports (" + fmtDate(state.ind.from > START_DATE ? state.ind.from : START_DATE) + " to " + fmtDate(state.ind.latest) + ")" +
+      (n < 30 ? ", since 30 days of data aren't in yet" : "") + ". Current stock is the closing stock of " + fmtDate(state.ind.latest) + ". Each item is ordered up to " + minDays +
+      " days of stock, rounded to the nearest full case. Overseas spirits are ordered by the bottle. Days with no report (dry days) aren't counted.";
+    var order = all.filter(function (r) { return r.units > 0; });
+    var tot = order.reduce(function (a, r) { a.b += r.bottles; a.v += r.value || 0; if (!r.cz.perBottle) a.c += r.units; else a.ob += r.units; if (r.value == null) a.nc++; return a; }, { b: 0, v: 0, c: 0, ob: 0, nc: 0 });
+    $("ind-sum").innerHTML =
+      '<div><div class="l">Items to order</div><div class="a">' + order.length + "</div></div>" +
+      '<div><div class="l">Cases</div><div class="a">' + num.format(tot.c) + (tot.ob ? ' <span style="font-size:.8rem;color:var(--muted)">+ ' + tot.ob + " overseas bottles</span>" : "") + "</div></div>" +
+      '<div><div class="l">Bottles</div><div class="a">' + num.format(tot.b) + "</div></div>" +
+      '<div><div class="l">Order value (at cost)</div><div class="a gold">' + inr.format(tot.v) + "</div>" + (tot.nc ? '<div class="l warn-t">' + tot.nc + " item" + (tot.nc > 1 ? "s" : "") + " without a cost price</div>" : "") + "</div>";
+    var rows = all.filter(function (r) {
+      if (show === "order" && !(r.units > 0)) return false;
+      if (show === "low" && !r.low) return false;
+      if (cat && r.cat !== cat) return false;
+      if (q && r.name.toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    });
+    var key = state.ind.sort, dir = state.ind.dir;
+    rows.sort(function (a, b) {
+      if (key === "cat") return catRank(a.cat) - catRank(b.cat) || a.cat.localeCompare(b.cat) || a.name.localeCompare(b.name);
+      var va = a[key], vb = b[key];
+      if (typeof va === "string") return dir * va.localeCompare(vb);
+      return dir * ((va == null ? -1 : va) - (vb == null ? -1 : vb)) || a.name.localeCompare(b.name);
+    });
+    var cols = [["name", "Item"], ["mrp", "MRP"], ["cost", "Cost price"], ["avg", "Avg / day"], ["stock", "Current stock"], ["daysLeft", "Days it lasts"],
+      ["short", "Short of " + minDays + " days"], ["units", "Order"], ["bottles", "Bottles"], ["value", "Order value"]];
+    var tbl = $("ind-table");
+    if (!rows.length) {
+      tbl.innerHTML = '<tbody><tr><td class="empty">' + (show === "order" ? "Nothing to order: every item has at least " + minDays + " days of stock." : "No items match.") + "</td></tr></tbody>";
+      return;
+    }
+    var head = "<thead><tr>" + cols.map(function (c, i) {
+      return '<th data-isort="' + c[0] + '" class="' + (i ? "num" : "") + (key === c[0] ? " sorted" : "") + '">' + c[1] + (key === c[0] ? (dir > 0 ? " ↑" : " ↓") : "") + "</th>";
+    }).join("") + "</tr></thead>";
+    var lastCat = null, ft = { b: 0, v: 0, c: 0 };
+    var body = rows.map(function (r) {
+      var pre = "";
+      if (key === "cat" && r.cat !== lastCat) { lastCat = r.cat; pre = '<tr class="cat-row"><td colspan="10">' + esc(r.cat) + "</td></tr>"; }
+      ft.b += r.bottles; ft.v += r.value || 0; if (!r.cz.perBottle) ft.c += r.units;
+      var unit = r.cz.perBottle ? "bottle" : "case";
+      var orderCell = r.units > 0 ? r.units + " " + unit + (r.units > 1 ? "s" : "") : "–";
+      return pre + "<tr><td class=\"item\">" + esc(r.name) + "<small>" + esc(r.cat) + (r.cz.perBottle ? " · by the bottle" : " · " + (r.cz.missing ? '<span class="warn-t">case size not set</span>' : r.cz.n + " per case")) + (r.stock <= 0 && r.avg > 0 ? ' · <span class="neg">out of stock</span>' : "") + "</small></td>" +
+        '<td class="num">' + inr2.format(r.mrp) + '</td><td class="num">' + (r.cost == null ? '<span class="warn-t">not set</span>' : inr2.format(r.cost)) +
+        '</td><td class="num">' + r.avg.toFixed(1) + '</td><td class="num">' + num.format(r.stock) +
+        '</td><td class="num ' + (r.low ? "neg" : "") + '">' + (r.daysLeft === Infinity ? "–" : r.daysLeft.toFixed(1)) +
+        '</td><td class="num">' + (r.short >= 0.5 ? Math.round(r.short) : "–") + '</td><td class="num order">' + orderCell +
+        '</td><td class="num">' + (r.bottles ? num.format(r.bottles) : "–") + '</td><td class="num">' + (r.bottles ? (r.value == null ? "–" : inr.format(r.value)) : "–") + "</td></tr>";
+    }).join("");
+    tbl.innerHTML = head + "<tbody>" + body + '</tbody><tfoot><tr><td>Total</td><td></td><td></td><td></td><td></td><td></td><td></td><td class="num">' + num.format(ft.c) + " cases</td>" +
+      '<td class="num">' + num.format(ft.b) + '</td><td class="num">' + inr.format(ft.v) + "</td></tr></tfoot>";
+  }
+  $("ind-table").addEventListener("click", function (e) {
+    var th = e.target.closest("[data-isort]"); if (!th) return;
+    var k = th.dataset.isort;
+    if (k === "name" && state.ind.sort === "name" && state.ind.dir === -1) { state.ind.sort = "cat"; state.ind.dir = 1; }
+    else if (state.ind.sort === k) state.ind.dir = -state.ind.dir;
+    else { state.ind.sort = k; state.ind.dir = k === "name" ? 1 : k === "daysLeft" ? 1 : -1; }
+    renderIndent();
+  });
+  ["ind-show", "ind-cat"].forEach(function (id) { $(id).addEventListener("change", renderIndent); });
+  $("ind-q").addEventListener("input", renderIndent);
+  $("ind-days").addEventListener("input", function () {
+    try { if (toNum(this.value) > 0) localStorage.setItem("ind-days", String(Math.round(toNum(this.value)))); } catch (x) {}
+    renderIndent();
+  });
+  $("ind-csv").addEventListener("click", function () {
+    var all = indentCalc().filter(function (r) { return r.units > 0; });
+    if (!all.length) { toast("Nothing to order."); return; }
+    all.sort(function (a, b) { return catRank(a.cat) - catRank(b.cat) || a.name.localeCompare(b.name); });
+    downloadCSV("nalagola-indent-" + state.ind.latest + ".csv",
+      ["Item", "Category", "MRP", "Cost price", "Avg sold per day", "Current stock", "Days stock will last", "Bottles short", "Order", "Unit", "Bottles per case", "Bottles ordered", "Order value"],
+      all.map(function (r) { return [r.name, r.cat, r.mrp, r.cost, r.avg.toFixed(2), r.stock, r.daysLeft === Infinity ? "" : r.daysLeft.toFixed(1), Math.round(r.short), r.units,
+        r.cz.perBottle ? "bottles" : "cases", r.cz.perBottle ? 1 : r.cz.n, r.bottles, r.value]; }));
+  });
+
+  // Case sizes: bottles per case for each bottle size, saved for next time
+  $("ind-cases-btn").addEventListener("click", function () {
+    var f = $("ind-cases"); f.hidden = !f.hidden; if (f.hidden) return;
+    var used = {}; state.ind.rows.forEach(function (r) { if (r.cat !== "Overseas Spirits" && r.size) used[indKind(r.cat) + ":" + r.size] = 1; });
+    Object.keys(state.ind.cases).forEach(function (k) { used[k] = 1; });
+    var keys = Object.keys(used).sort(function (a, b) { var pa = a.split(":"), pb = b.split(":"); return pa[0].localeCompare(pb[0]) * -1 || Number(pb[1]) - Number(pa[1]); });
+    var grp = function (kind, title) {
+      return "<h3>" + title + '</h3><div class="grid">' + keys.filter(function (k) { return k.indexOf(kind + ":") === 0; }).map(function (k) {
+        return "<label>" + k.split(":")[1] + ' ML<input type="number" min="1" step="1" inputmode="numeric" data-case="' + k + '" value="' + (state.ind.cases[k] || "") + '" placeholder="bottles"></label>';
+      }).join("") + "</div>";
+    };
+    f.innerHTML = grp("spirits", "Spirits (whisky, rum, vodka, gin, country spirits)") + grp("beer", "Beer and wine") +
+      '<p class="hint">Bottles in one case for each size. Overseas spirits are always ordered by the bottle.</p>' +
+      '<div class="form-actions"><button class="primary" type="submit">Save case sizes</button><button class="ghost" type="button" id="ind-cases-cancel">Cancel</button></div>';
+    $("ind-cases-cancel").onclick = function () { f.hidden = true; };
+  });
+  $("ind-cases").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var rows = [].map.call(this.querySelectorAll("[data-case]"), function (i) {
+      var p = i.dataset.case.split(":"); return { kind: p[0], size_ml: Number(p[1]), bottles: Math.round(toNum(i.value)), updated_at: new Date().toISOString() };
+    }).filter(function (r) { return r.bottles > 0; });
+    var btn = this.querySelector(".primary"); btn.disabled = true;
+    var r = await sb.from("case_sizes").upsert(rows, { onConflict: "kind,size_ml" });
+    btn.disabled = false;
+    if (r.error) { toast("Couldn't save: " + r.error.message); return; }
+    rows.forEach(function (x) { state.ind.cases[x.kind + ":" + x.size_ml] = x.bottles; });
+    this.hidden = true; toast("Case sizes saved"); renderIndent();
   });
 
   // ---------- Excel reading ----------
