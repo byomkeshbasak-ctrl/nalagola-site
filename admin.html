@@ -293,6 +293,9 @@
   .bd-add:has(.cust-pick input:not([hidden])) { grid-template-columns: 1.1fr 0.9fr 1.2fr 1.2fr auto; }
   .x-btn { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 0.8rem; text-decoration: underline; }
   .x-btn:hover { color: var(--red); }
+  .x-btn.ed-btn:hover { color: var(--gold); }
+  .bd-edit { padding: 8px 0 10px; border-bottom: 1px solid rgba(217,178,111,0.08); }
+  .bd-edit-act { grid-column: 1 / -1; display: flex; gap: 14px; justify-content: flex-end; }
   tr.mm-row td { background: rgba(239, 143, 143, 0.06); }
   tr.mm-row td.mm-cell { color: #fff; background: rgba(214, 69, 69, 0.55); font-weight: 600; }
   .clickable { cursor: pointer; text-decoration: underline; text-decoration-color: var(--line-strong); }
@@ -684,7 +687,7 @@
         { name: "income_date", label: "Date", type: "date", required: true },
         { name: "amount", label: "Amount (₹)", type: "number", required: true },
         // EDIT: income types shown in the dropdown
-        { name: "category", label: "Type", type: "select", def: "Distributor incentive", options: ["Distributor incentive", "Scrap sale", "Other"] },
+        { name: "category", label: "Type", type: "select", def: "Distributor incentive", options: ["Distributor incentive", "Scrap sale", "Rent received", "Other"] },
         { name: "source", label: "From (distributor or buyer)", type: "text", list: "dl-sources", required: true },
         { name: "received_into", label: "Paid into", type: "select", def: "bank",
           options: [{ v: "bank", l: "Bank account (adds to bank balance)" }, { v: "cash_credit", l: "SBI cash credit (reduces amount used)" }, { v: "shop", l: "Shop (cash at the counter, counted in the daily ledger)" }] },
@@ -1801,22 +1804,40 @@
     }
   });
 
-  var INC_CATS = ["Distributor incentive", "Scrap sale", "Other"];
+  var INC_CATS = ["Distributor incentive", "Scrap sale", "Rent received", "Other"];
+  // One entry in a Details box: a line with an Edit button, or (while editing) a small form
+  function opts(list, cur) {
+    return list.concat(cur && list.indexOf(cur) < 0 ? [cur] : []).map(function (c) { return "<option" + (c === cur ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("");
+  }
+  var AMT_IN = function (v) { return '<input name="amount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount ₹" required value="' + esc(v) + '">'; };
+  function bdItem(kind, x, label, frozen) {
+    var ed = state.bdEdit && state.bdEdit.kind === kind && state.bdEdit.id === x.id;
+    if (!ed) return '<div class="it"><span>' + label + "</span><span>" + inr2.format(x.amount) + "</span>" +
+      (frozen ? "<span></span>" : '<button class="x-btn ed-btn" type="button" data-edit="' + kind + ":" + x.id + '">Edit</button>') + "</div>";
+    var fields =
+      kind === "exp" ? '<select name="category">' + opts(EXP_CATS, x.category) + "</select>" + AMT_IN(x.amount) +
+        '<input name="note" type="text" placeholder="Note (optional)" value="' + esc(x.description || "") + '">' :
+      kind === "due" ? '<select name="type"><option value="payment"' + (x.entry_type === "payment" ? " selected" : "") + '>Dues collected</option><option value="credit"' + (x.entry_type === "credit" ? " selected" : "") + ">Credit given</option></select>" +
+        AMT_IN(x.amount) + customerPicker(x.customer_name) :
+      '<select name="category">' + opts(INC_CATS, x.category) + "</select>" + AMT_IN(x.amount) +
+        '<input name="source" type="text" list="dl-sources" placeholder="From (optional)" value="' + esc(x.source || "") + '">';
+    return '<form class="bd-add bd-edit" data-editkind="' + kind + '" data-id="' + x.id + '">' + fields +
+      '<button class="primary" type="submit">Save</button>' +
+      '<div class="bd-edit-act"><button class="x-btn" type="button" data-editcancel="1">Cancel</button>' +
+      '<button class="x-btn del-btn" type="button" data-del' + kind + '="' + x.id + '">Delete</button></div></form>';
+  }
   function detailRow(d, frozen) {
     var incs = state.allIncome.filter(function (x) { return x.income_date === d && x.received_into === "shop"; });
     var incList = incs.length ? incs.map(function (x) {
-      return '<div class="it"><span>' + esc(x.category) + (x.source ? ' <span style="color:var(--muted)">· ' + esc(x.source) + "</span>" : "") +
-        "</span><span>" + inr2.format(x.amount) + "</span>" + (frozen ? "<span></span>" : '<button class="x-btn" data-delinc="' + x.id + '">Delete</button>') + "</div>";
+      return bdItem("inc", x, esc(x.category) + (x.source ? ' <span style="color:var(--muted)">· ' + esc(x.source) + "</span>" : ""), frozen);
     }).join("") : '<div class="none">No other income taken at the shop this day.</div>';
     var exps = state.ledger.expenses.filter(function (x) { return x.expense_date === d; });
     var dues = state.dues.filter(function (x) { return x.entry_date === d; });
     var expList = exps.length ? exps.map(function (x) {
-      return '<div class="it"><span>' + esc(x.category) + (x.description ? ' <span style="color:var(--muted)">· ' + esc(x.description) + "</span>" : "") +
-        "</span><span>" + inr2.format(x.amount) + "</span>" + (frozen ? "<span></span>" : '<button class="x-btn" data-delexp="' + x.id + '">Delete</button>') + "</div>";
+      return bdItem("exp", x, esc(x.category) + (x.description ? ' <span style="color:var(--muted)">· ' + esc(x.description) + "</span>" : ""), frozen);
     }).join("") : '<div class="none">No expenses for this day.</div>';
     var duesList = dues.length ? dues.map(function (x) {
-      return '<div class="it"><span>' + esc(x.customer_name) + " · " + (x.entry_type === "payment" ? '<span class="pos">collected</span>' : '<span class="warn-t">credit given</span>') +
-        "</span><span>" + inr2.format(x.amount) + "</span>" + (frozen ? "<span></span>" : '<button class="x-btn" data-deldue="' + x.id + '">Delete</button>') + "</div>";
+      return bdItem("due", x, esc(x.customer_name) + " · " + (x.entry_type === "payment" ? '<span class="pos">collected</span>' : '<span class="warn-t">credit given</span>'), frozen);
     }).join("") : '<div class="none">No dues collected or credit given this day.</div>';
     return '<tr class="book-detail"><td colspan="13"><div class="bd-grid">' +
       '<div class="bd-box"><h3>Expenses on ' + fmtDate(d) + "</h3><div class=\"bd-list\">" + expList + "</div>" +
@@ -1838,6 +1859,29 @@
           '<input name="source" type="text" list="dl-sources" placeholder="From (distributor or buyer)" required>' +
           '<button class="primary" type="submit">Add</button></form></div>') +
       "</div></td></tr>";
+  }
+
+  async function saveBdEdit(f) {
+    var kind = f.dataset.editkind, id = f.dataset.id, amt = toNum(f.amount.value), r;
+    if (!(amt > 0)) { toast("Enter an amount above zero. To remove the entry, use Delete."); return; }
+    var btn = f.querySelector(".primary"); btn.disabled = true;
+    if (kind === "exp") r = await sb.from("expenses").update({ amount: amt, category: f.category.value, description: f.note.value.trim() }).eq("id", id);
+    else if (kind === "due") {
+      var pick = pickedName(f);
+      if (pick.error) { btn.disabled = false; toast(pick.error); return; }
+      if (pick.note) toast(pick.note);
+      r = await sb.from("customer_dues").update({ amount: amt, entry_type: f.type.value, customer_name: pick.name }).eq("id", id);
+    } else {
+      var src = f.source.value.trim().replace(/\s+/g, " ");
+      var known = src && state.allIncome.find(function (x) { return x.source && x.source.trim().toLowerCase() === src.toLowerCase(); });
+      if (known) src = known.source.trim();
+      r = await sb.from("other_income").update({ amount: amt, category: f.category.value, source: src }).eq("id", id);
+    }
+    btn.disabled = false;
+    if (r.error) { toast("Couldn't save: " + r.error.message); return; }
+    state.bdEdit = null;
+    toast("Saved");
+    await loadMonth();
   }
 
   // Typing: update the mismatch live. Leaving the box: save the day.
@@ -1881,6 +1925,11 @@
 
   $("book-table").addEventListener("click", async function (e) {
     var o = e.target.getAttribute("data-bopen"), de = e.target.getAttribute("data-delexp"), dd = e.target.getAttribute("data-deldue"), di = e.target.getAttribute("data-delinc");
+    var ed = e.target.getAttribute("data-edit");
+    if (ed) { var pr = ed.split(":"); state.bdEdit = { kind: pr[0], id: pr[1] }; renderBook();
+      var ff = document.querySelector('#book-table form.bd-edit input[name="amount"]'); if (ff) { ff.focus(); ff.select(); } return; }
+    if (e.target.getAttribute("data-editcancel")) { state.bdEdit = null; renderBook(); return; }
+    if (de || dd || di) state.bdEdit = null;
     if (di) {
       var w = state.allIncome.find(function (y) { return y.id === di; });
       if (!confirm("Delete the " + w.category + " income of " + inr2.format(w.amount) + "?")) return;
@@ -1912,6 +1961,7 @@
 
   $("book-table").addEventListener("submit", async function (e) {
     e.preventDefault();
+    if (e.target.classList.contains("bd-edit")) { await saveBdEdit(e.target); return; }
     var f = e.target, d = f.getAttribute("data-addexp") || f.getAttribute("data-adddue") || f.getAttribute("data-addinc");
     var amt = toNum(f.amount.value);
     if (!(amt > 0)) { toast("Enter an amount above zero."); return; }
