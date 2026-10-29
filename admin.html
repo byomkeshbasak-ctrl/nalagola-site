@@ -404,9 +404,11 @@
             <option value="cash_credit">SBI cash credit</option>
             <option value="cash_hand">Cash not deposited</option>
             <option value="bar_counter">Bar counter (expense)</option>
+            <option value="shop_expense">Shop expense</option>
             </optgroup>
           </select>
         </label>
+        <label id="tr-cat-wrap" hidden>Expense category <select id="tr-cat"></select></label>
         <label>Amount (₹) <input type="number" id="tr-amount" step="0.01" min="0" inputmode="decimal" required></label>
         <label>Note (optional) <input type="text" id="tr-note"></label>
         <div class="form-actions"><button class="primary" type="submit">Save transfer</button><button class="ghost" type="button" id="tr-cancel">Cancel</button></div>
@@ -467,7 +469,7 @@
         <div class="card" id="ledger-cat-card" hidden>
           <h2>Expenses by category</h2>
           <div id="bd-exp"></div>
-          <p class="hint" style="margin:14px 0 0">Expenses are added day by day in the Daily ledger.</p>
+          <p class="hint" style="margin:14px 0 0">Expenses paid from the shop cash are added day by day in the Daily ledger. Expenses paid straight from the bank or cash credit are added with Transfer money → To: Shop expense. Use Edit on any expense to change its category, amount or where it was paid from.</p>
         </div>
         <div class="card">
           <div class="list-head">
@@ -662,6 +664,8 @@
         { name: "category", label: "Category", type: "select", def: "Salary",
           // EDIT: expense categories shown in the dropdown
           options: ["Salary", "Transport", "Tea", "Discount", "Rent", "Electricity", "Licence & Excise", "Repairs", "Breakage", "Misc"] },
+        { name: "paid_from", label: "Paid from", type: "select", def: "shop",
+          options: [{ v: "shop", l: "Shop cash (counted in the daily ledger)" }, { v: "bank", l: "Bank account" }, { v: "cash_credit", l: "SBI cash credit" }, { v: "cash_hand", l: "Cash not deposited" }] },
         { name: "description", label: "Note (optional)", type: "text" }
       ],
       cols: [
@@ -885,7 +889,7 @@
       sb.from("daily_ledger").select("*").gte("ledger_date", START_DATE).lte("ledger_date", r[1]).order("ledger_date"),
       fetchAll(function () { return sb.from("customer_dues").select("*").order("entry_date", { ascending: false }).order("created_at", { ascending: false }); }),
       fetchAll(function () { return sb.from("daily_report_summary").select("report_date,units_sold,sales_value,cost_value,gross_profit,closing_value_cost,missing_costs,stock_in_cost").order("report_date"); }),
-      fetchAll(function () { return sb.from("expenses").select("expense_date,amount").order("expense_date"); }),
+      fetchAll(function () { return sb.from("expenses").select("id,expense_date,amount,category,description,paid_from").order("expense_date"); }),
       fetchAll(function () { return sb.from("daily_ledger").select("ledger_date,bar_collection,cash_collection,online_received,online_to,online_cc,online_bank").order("ledger_date"); }),
       sb.from("daily_report_summary").select("report_date,closing_value_cost").lte("report_date", r[1]).order("report_date", { ascending: false }).limit(1),
       sb.from("daily_ledger").select("ledger_date,shop_balance").lte("ledger_date", r[1]).order("ledger_date", { ascending: false }).limit(1),
@@ -934,8 +938,11 @@
     state.items = all; renderItems();
   }
 
-  function expensesByDate() {
-    var m = {}; state.ledger.expenses.forEach(function (e) { m[e.expense_date] = (m[e.expense_date] || 0) + Number(e.amount || 0); });
+  // Expenses paid from the counter cash; these go into the daily ledger mismatch.
+  // Expenses paid from the bank, cash credit or cash not deposited come out of that account instead.
+  var paidFromShop = function (e) { return !e.paid_from || e.paid_from === "shop"; };
+  function expensesByDate(all) {
+    var m = {}; state.ledger.expenses.forEach(function (e) { if (all || paidFromShop(e)) m[e.expense_date] = (m[e.expense_date] || 0) + Number(e.amount || 0); });
     return m;
   }
 
@@ -970,6 +977,12 @@
       var cash = Number(b.cash_collection || 0), sp = onlineSplit(b);
       bal.cash_hand += cash; bal.cash += cash; bal.online += sp.cc + sp.bank;
       bal.bank += sp.bank; bal.cc_used -= sp.cc;
+    });
+    // Shop expenses paid straight from an account
+    state.allExp.forEach(function (x) {
+      if (paidFromShop(x) || x.expense_date < START_DATE || x.expense_date > end) return;
+      var a = Number(x.amount);
+      if (x.paid_from === "cash_credit") bal.cc_used += a; else bal[x.paid_from] -= a;
     });
     // Bar counter purchases come out of the account they were paid from
     state.barExp.forEach(function (x) {
@@ -1087,6 +1100,11 @@
       if (acct === "bank" && sp.bank) m.push({ date: b.ledger_date, desc: "Online received", amt: sp.bank });
       if (acct === "cash_credit" && sp.cc) m.push({ date: b.ledger_date, desc: "Online received (repays cash credit)", amt: -sp.cc });
     });
+    state.allExp.forEach(function (x) {
+      if (x.expense_date < START_DATE || x.paid_from !== acct) return;
+      var a = Number(x.amount);
+      m.push({ date: x.expense_date, desc: "Shop expense · " + x.category + (x.description ? " · " + x.description : ""), amt: acct === "cash_credit" ? a : -a, eid: x.id });
+    });
     state.barExp.forEach(function (x) {
       if (x.expense_date < START_DATE || x.paid_from !== acct) return;
       var a = Number(x.amount);
@@ -1146,7 +1164,8 @@
           '</td><td class="num">' + (x.amt > 0 ? inr2.format(x.amt) : "") + '</td><td class="num">' + (x.amt < 0 ? inr2.format(-x.amt) : "") +
           '</td><td class="num">' + (last ? "<b>" + inr2.format(bal) + "</b>" : '<span style="color:var(--muted)">' + inr2.format(bal) + "</span>") +
           '</td><td class="actions">' + (x.tid ? '<button class="icon-btn" data-edittr="' + x.tid + '">Edit</button><button class="icon-btn del" data-deltr="' + x.tid + '">Delete</button>' :
-            x.bid ? '<button class="icon-btn" data-editbar="' + x.bid + '">Edit</button><button class="icon-btn del" data-delbar="' + x.bid + '">Delete</button>' : "") + "</td></tr>");
+            x.bid ? '<button class="icon-btn" data-editbar="' + x.bid + '">Edit</button><button class="icon-btn del" data-delbar="' + x.bid + '">Delete</button>' :
+            x.eid ? '<button class="icon-btn" data-editsexp="' + x.eid + '">Edit</button><button class="icon-btn del" data-delsexp="' + x.eid + '">Delete</button>' : "") + "</td></tr>");
         csv.push([x.date, x.desc, x.amt > 0 ? x.amt : "", x.amt < 0 ? -x.amt : "", bal]);
       });
       el.innerHTML = head + (rows.length ? '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Details</th><th class="num">' + colIn + '</th><th class="num">' + colOut +
@@ -1157,7 +1176,9 @@
       var id = e.target.getAttribute("data-edittr"); if (id) { editTransfer(id); return; }
       var del = e.target.getAttribute("data-deltr"); if (del) { deleteTransfer(del); return; }
       var eb = e.target.getAttribute("data-editbar"); if (eb) { editBarExpense(eb); return; }
-      var db = e.target.getAttribute("data-delbar"); if (db) deleteBarExpense(db);
+      var db = e.target.getAttribute("data-delbar"); if (db) { deleteBarExpense(db); return; }
+      var es = e.target.getAttribute("data-editsexp"); if (es) { editShopExpense(es); return; }
+      var ds = e.target.getAttribute("data-delsexp"); if (ds) deleteShopExpense(ds);
     };
     $("stmt-close").onclick = function () { state.stmt = null; el.hidden = true; renderCapital(); };
     $("stmt-csv").onclick = function () { downloadCSV("nalagola-" + k + "-" + state.month + ".csv", csv[0], csv.slice(1)); };
@@ -1204,7 +1225,7 @@
   });
   $("bar-add").addEventListener("click", function () {
     $("tr-open").click(); if ($("tr-form").hidden) $("tr-open").click();
-    $("tr-from").value = "bank"; $("tr-to").value = "bar_counter";
+    $("tr-from").value = "bank"; $("tr-to").value = "bar_counter"; syncTrCat();
     $("tr-form").scrollIntoView({ behavior: "smooth", block: "center" });
   });
   $("bar-csv").addEventListener("click", function () {
@@ -1231,7 +1252,7 @@
   function editBarExpense(id) {
     var x = state.barExp.find(function (y) { return y.id === id; }); if (!x) return;
     var f = $("tr-form"); $("ob-form").hidden = true; f.hidden = false; state.trEditing = "bar:" + id;
-    $("tr-date").value = x.expense_date; $("tr-from").value = x.paid_from; $("tr-to").value = "bar_counter";
+    $("tr-date").value = x.expense_date; $("tr-from").value = x.paid_from; $("tr-to").value = "bar_counter"; syncTrCat();
     $("tr-amount").value = x.amount; $("tr-note").value = x.description || "";
     f.querySelector(".primary").textContent = "Save changes";
     f.scrollIntoView({ behavior: "smooth", block: "center" }); $("tr-amount").focus();
@@ -1244,17 +1265,55 @@
     toast("Bar expense deleted"); loadMonth();
   }
 
+  // Shop expenses paid straight from the bank, cash credit or cash not deposited
+  function syncTrCat() {
+    var on = $("tr-to").value === "shop_expense", sel = $("tr-cat");
+    if (!sel.options.length) sel.innerHTML = EXP_CATS.map(function (c) { return "<option>" + esc(c) + "</option>"; }).join("");
+    $("tr-cat-wrap").hidden = !on;
+  }
+  $("tr-to").addEventListener("change", syncTrCat);
+  async function saveShopExpense(p2) {
+    if (["bank", "cash_credit", "cash_hand"].indexOf(p2.from_account) < 0) { toast("Pay shop expenses from the bank, cash credit or cash not deposited."); return; }
+    if (!(p2.amount > 0)) { toast("Enter an amount above zero."); return; }
+    if (p2.transfer_date < START_DATE) { toast("Entries start from " + fmtLong(START_DATE) + "."); return; }
+    var row = { expense_date: p2.transfer_date, paid_from: p2.from_account, amount: p2.amount, category: $("tr-cat").value, description: p2.note };
+    var editing = state.trEditing && String(state.trEditing).indexOf("exp:") === 0 ? state.trEditing.slice(4) : null;
+    if (state.trEditing && !editing) { toast("This entry can't become a shop expense. Delete it and add the expense instead."); return; }
+    var r = editing ? await sb.from("expenses").update(row).eq("id", editing) : await sb.from("expenses").insert(row);
+    if (r.error) { toast("Couldn't save: " + r.error.message); return; }
+    $("tr-form").hidden = true; state.trEditing = null;
+    toast(editing ? "Shop expense updated" : inr.format(row.amount) + " " + row.category + " expense paid from " + PAID[row.paid_from]);
+    loadMonth();
+  }
+  function editShopExpense(id) {
+    var x = state.allExp.find(function (y) { return y.id === id; }); if (!x) return;
+    var f = $("tr-form"); $("ob-form").hidden = true; f.hidden = false; state.trEditing = "exp:" + id;
+    $("tr-date").value = x.expense_date; $("tr-from").value = x.paid_from; $("tr-to").value = "shop_expense"; syncTrCat();
+    var cs = $("tr-cat"); if (![].some.call(cs.options, function (o) { return o.value === x.category; })) cs.insertAdjacentHTML("beforeend", "<option>" + esc(x.category) + "</option>");
+    cs.value = x.category;
+    $("tr-amount").value = x.amount; $("tr-note").value = x.description || "";
+    f.querySelector(".primary").textContent = "Save changes";
+    f.scrollIntoView({ behavior: "smooth", block: "center" }); $("tr-amount").focus();
+  }
+  async function deleteShopExpense(id) {
+    var x = state.allExp.find(function (y) { return y.id === id; }); if (!x) return;
+    if (!confirm("Delete the " + x.category + " expense of " + inr2.format(x.amount) + " on " + fmtDate(x.expense_date) + "?")) return;
+    var r = await sb.from("expenses").delete().eq("id", id);
+    if (r.error) { toast("Couldn't delete: " + r.error.message); return; }
+    toast("Expense deleted"); loadMonth();
+  }
+
   // Transfers
   $("tr-open").addEventListener("click", function () {
     var f = $("tr-form"); $("ob-form").hidden = true; f.hidden = !f.hidden; if (f.hidden) return;
     state.trEditing = null; f.querySelector(".primary").textContent = "Save transfer";
-    $("tr-date").value = addDays(lastRecordedDay(), 0); $("tr-amount").value = ""; $("tr-note").value = "";
+    $("tr-date").value = addDays(lastRecordedDay(), 0); $("tr-amount").value = ""; $("tr-note").value = ""; syncTrCat();
     $("tr-amount").focus();
   });
   function editTransfer(id) {
     var t = state.transfers.find(function (x) { return x.id === id; }); if (!t) return;
     var f = $("tr-form"); $("ob-form").hidden = true; f.hidden = false; state.trEditing = id;
-    $("tr-date").value = t.transfer_date; $("tr-from").value = t.from_account; $("tr-to").value = t.to_account;
+    $("tr-date").value = t.transfer_date; $("tr-from").value = t.from_account; $("tr-to").value = t.to_account; syncTrCat();
     $("tr-amount").value = t.amount; $("tr-note").value = t.note || "";
     f.querySelector(".primary").textContent = "Save changes";
     f.scrollIntoView({ behavior: "smooth", block: "center" }); $("tr-date").focus();
@@ -1263,8 +1322,9 @@
   $("tr-form").addEventListener("submit", async function (e) {
     e.preventDefault();
     var p2 = { transfer_date: $("tr-date").value, from_account: $("tr-from").value, to_account: $("tr-to").value, amount: toNum($("tr-amount").value), note: $("tr-note").value.trim() };
+    if (p2.to_account === "shop_expense") { saveShopExpense(p2); return; }
     if (p2.to_account === "bar_counter") { saveBarExpense(p2); return; }
-    if (state.trEditing && String(state.trEditing).indexOf("bar:") === 0) { toast("A bar expense can only go to the bar counter. Delete it and add a transfer instead."); return; }
+    if (state.trEditing && /^(bar|exp):/.test(String(state.trEditing))) { toast("An expense can't become a transfer. Delete it and add a transfer instead."); return; }
     if (p2.from_account === p2.to_account) { toast("Pick two different accounts."); return; }
     if (isPersonal(p2.from_account) && isPersonal(p2.to_account)) { toast("Move money between your personal accounts from the Personal Networth Tracker page."); return; }
     if (!(p2.amount > 0)) { toast("Enter an amount above zero."); return; }
@@ -1759,8 +1819,10 @@
     var inp = function (d, f, v) {
       return '<input class="cell-in" type="number" step="0.01" min="0" inputmode="decimal" data-d="' + d + '" data-f="' + f + '" value="' + (v == null ? "" : esc(v)) + '" placeholder="0">';
     };
+    var expAllDay = expensesByDate(true);
     var body = days.map(function (d) {
-      var b = bookRow(d), e = b.entry, gp = b.rep ? Number(b.rep.gross_profit) : 0, inc = state.allIncome.reduce(function (a, x) { return a + (x.income_date === d ? Number(x.amount) : 0); }, 0), net = gp + inc - b.exp, mm = mismatchCount(d);
+      var b = bookRow(d), e = b.entry, gp = b.rep ? Number(b.rep.gross_profit) : 0, inc = state.allIncome.reduce(function (a, x) { return a + (x.income_date === d ? Number(x.amount) : 0); }, 0), expAll = expAllDay[d] || 0, net = gp + inc - expAll, mm = mismatchCount(d);
+      t.ea = (t.ea || 0) + expAll;
       t.s += b.sales; t.g += gp; t.e += b.exp; t.di += b.duesIn; t.cr += b.credit; t.inc = (t.inc || 0) + inc; t.is = (t.is || 0) + b.incShop;
       if (e) { t.cash += Number(e.cash_collection); t.on += Number(e.online_received); t.bar += b.bar; t.m += b.mismatch; }
       var bad = e && Math.abs(b.mismatch) >= 0.5, open = state.bookOpen === d, frozen = isFrozen(d);
@@ -1781,19 +1843,19 @@
         '<td class="num">' + money(b.sales) + "</td>" +
         '<td class="num">' + prevCell + "</td>" +
         '<td class="num" title="Collected ' + inr.format(b.duesIn) + ' − credit given ' + inr.format(b.credit) + '">' + signed(b.duesIn - b.credit) + "</td>" +
-        '<td class="num">' + money(b.exp) + "</td>" +
+        '<td class="num"' + (expAll - b.exp >= 0.5 ? ' title="' + inr.format(expAll - b.exp) + ' more was paid straight from the bank, cash credit or cash not deposited, so it isn\'t in the mismatch"' : "") + ">" + money(b.exp) + (expAll - b.exp >= 0.5 ? '<span class="on-split">+' + inr.format(expAll - b.exp) + " paid from accounts</span>" : "") + "</td>" +
         '<td class="num">' + incCell(d, frozen, b) + "</td>" +
         '<td class="num">' + box("bar_collection", e ? e.bar_collection : "") + "</td>" +
         '<td class="num">' + box("cash_collection", e ? e.cash_collection : "") + "</td>" +
         '<td class="num on-cell">' + onlineCell + "</td>" +
         '<td class="num">' + box("shop_balance", e ? e.shop_balance : "") + "</td>" +
-        '<td class="num ' + (net < 0 ? "neg" : "") + '" title="Gross profit ' + inr.format(gp) + (inc ? " + other income " + inr.format(inc) : "") + ' − expenses">' + (b.hasReport || b.exp || inc ? inr.format(net) : "–") + "</td>" +
+        '<td class="num ' + (net < 0 ? "neg" : "") + '" title="Gross profit ' + inr.format(gp) + (inc ? " + other income " + inr.format(inc) : "") + ' − all expenses ' + inr.format(expAll) + '">' + (b.hasReport || expAll || inc ? inr.format(net) : "–") + "</td>" +
         '<td class="num mm-cell">' + mismatchCell(e ? b.mismatch : null) + "</td>" +
         '<td class="actions"><button class="icon-btn" data-bopen="' + d + '">' + (open ? "Hide" : "Details") + "</button></td></tr>";
       if (open) row += detailRow(d, frozen);
       return row;
     }).join("");
-    var tn = t.g + (t.inc || 0) - t.e;
+    var tn = t.g + (t.inc || 0) - (t.ea || 0);
     tbl.innerHTML = '<thead><tr><th>Date</th><th class="num">Total sales</th><th class="num" title="Remaining balance of the previous day">Previous day\'s balance</th><th class="num" title="Dues collected − credit given">Net dues</th><th class="num">Expenses</th>' +
       '<th class="num" title="Other income taken at the shop">Other income</th><th class="num">Bar counter</th><th class="num">Cash collected</th><th class="num">Online payment</th><th class="num">Remaining balance</th><th class="num">Net profit</th><th class="num">Mismatch</th><th></th></tr></thead><tbody>' + body + "</tbody>" +
       '<tfoot><tr><td>Total</td><td class="num">' + inr.format(t.s) + '</td><td></td><td class="num">' + signed(t.di - t.cr) + '</td><td class="num">' + inr.format(t.e) +
@@ -1902,7 +1964,8 @@
     var exps = state.ledger.expenses.filter(function (x) { return x.expense_date === d; });
     var dues = state.dues.filter(function (x) { return x.entry_date === d; });
     var expList = exps.length ? exps.map(function (x) {
-      return bdItem("exp", x, esc(x.category) + (x.description ? ' <span style="color:var(--muted)">· ' + esc(x.description) + "</span>" : ""), frozen);
+      return bdItem("exp", x, esc(x.category) + (x.description ? ' <span style="color:var(--muted)">· ' + esc(x.description) + "</span>" : "") +
+        (paidFromShop(x) ? "" : ' <span class="warn-t" title="Paid from ' + esc(PAID[x.paid_from]) + ', so it isn\'t in this day\'s mismatch">· from ' + esc(PAID[x.paid_from]) + "</span>"), frozen);
     }).join("") : '<div class="none">No expenses for this day.</div>';
     var duesList = dues.length ? dues.map(function (x) {
       return bdItem("due", x, esc(x.customer_name) + " · " + (x.entry_type === "payment" ? '<span class="pos">collected</span>' : '<span class="warn-t">credit given</span>'), frozen);
@@ -2362,6 +2425,7 @@
     html += '<div class="form-actions"><button class="primary" type="submit">' + (row ? "Save changes" : "Add " + T.label) + "</button>" +
       (row ? '<button class="ghost" type="button" id="cancel-edit">Cancel</button>' : "") + "</div>";
     f.innerHTML = html;
+    if (state.tab === "expenses") $("ledger-form-card").hidden = !row;
     if (row) $("cancel-edit").addEventListener("click", function () { state.editing = null; renderForm(); });
   }
   function fieldHTML(fd, row) {
@@ -2415,10 +2479,10 @@
         var row = '<tr class="' + (open ? "sel" : "") + '"><td><span class="date-link" data-expday="' + d + '">' + fmtDate(d) + '</span></td><td class="num">' + list.length +
           "</td><td>" + esc(cats) + '</td><td class="num">' + inr2.format(sum(list)) + '</td><td class="actions"><button class="icon-btn" data-expday="' + d + '">' + (open ? "Hide" : "Details") + "</button></td></tr>";
         if (open) {
-          row += '<tr class="sub-row"><td colspan="5"><table class="sub-table"><thead><tr><th>Category</th><th>Note</th><th class="num">Amount</th><th></th></tr></thead><tbody>' +
+          row += '<tr class="sub-row"><td colspan="5"><table class="sub-table"><thead><tr><th>Category</th><th>Note</th><th>Paid from</th><th class="num">Amount</th><th></th></tr></thead><tbody>' +
             list.map(function (x) {
-              return "<tr><td>" + esc(x.category) + "</td><td>" + esc(x.description) + '</td><td class="num">' + inr2.format(x.amount) +
-                '</td><td class="actions"><button class="icon-btn del" data-del="' + x.id + '">Delete</button></td></tr>';
+              return "<tr><td>" + esc(x.category) + "</td><td>" + esc(x.description) + "</td><td>" + (paidFromShop(x) ? "Shop cash" : esc(PAID[x.paid_from])) + '</td><td class="num">' + inr2.format(x.amount) +
+                '</td><td class="actions"><button class="icon-btn" data-edit="' + x.id + '">Edit</button><button class="icon-btn del" data-del="' + x.id + '">Delete</button></td></tr>';
             }).join("") + "</tbody></table></td></tr>";
         }
         return row;
