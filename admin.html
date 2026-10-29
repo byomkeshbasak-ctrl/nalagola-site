@@ -270,6 +270,8 @@
   .bd-prev { margin-bottom: 12px; font-size: 0.85rem; color: var(--muted); display: flex; align-items: center; gap: 8px; }
   .bd-prev span, .bd-prev .fixed-v { color: var(--text); font-weight: 600; }
   #book-table td:first-child .tag { display: block; width: max-content; margin-top: 3px; }
+  .bd-toggle { display: block; margin-top: 5px; background: none; border: 1px solid var(--line); border-radius: 8px; padding: 2px 8px; font-size: 0.72rem; color: var(--gold); cursor: pointer; }
+  .bd-toggle:hover, .bd-toggle.on { border-color: var(--gold); }
   #book-table th:first-child, #book-table tbody tr:not(.book-detail) td:first-child, #book-table tfoot td:first-child { position: sticky; left: 0; z-index: 1; background: var(--panel); }
   #book-table tbody tr:not(.book-detail):hover td:first-child { background: var(--panel-2); }
   #book-table tr.mm-row td:first-child { background: #2a1519; }
@@ -1882,12 +1884,13 @@
         (b.prev == null ? '<span title="Previous day not entered yet">–</span>' : '<span title="Remaining balance of ' + fmtDate(b.prevDate) + '">' + inr.format(b.prev) + "</span>");
       var dateCell = (b.hasReport ? '<span class="date-link" data-view="' + d + '" title="See this day\'s items">' + fmtDate(d) + "</span>" : fmtDate(d)) +
         (mm ? ' <span class="tag bad" data-mismatch="' + d + '" title="Opening stock differs from the previous day\'s closing">' + mm + " stock</span>" : "") +
-        (frozen ? ' <span class="tag ok" title="Locked: a later day is uploaded and this day balances">locked</span>' : "");
+        (frozen ? ' <span class="tag ok" title="Locked: a later day is uploaded and this day balances">locked</span>' : "") +
+        '<button class="bd-toggle' + (open ? " on" : "") + '" type="button" data-bopen="' + d + '" title="Expenses, dues and other income for this day">' + (open ? "Hide details" : "Details") + "</button>";
       var row = '<tr data-row="' + d + '" class="' + (bad ? "mm-row" : "") + (frozen ? " frozen" : "") + '"><td>' + dateCell + "</td>" +
         '<td class="num">' + money(b.sales) + "</td>" +
         '<td class="num">' + prevCell + "</td>" +
         '<td class="num" title="Collected ' + inr.format(b.duesIn) + ' − credit given ' + inr.format(b.credit) + '">' + signed(b.duesIn - b.credit) + "</td>" +
-        '<td class="num"' + (expAll - b.exp >= 0.5 ? ' title="' + inr.format(expAll - b.exp) + ' more was paid straight from the bank, cash credit or cash not deposited, so it isn\'t in the mismatch"' : "") + ">" + money(b.exp) + (expAll - b.exp >= 0.5 ? '<span class="on-split">+' + inr.format(expAll - b.exp) + " paid from accounts</span>" : "") + "</td>" +
+        '<td class="num"' + (expAll - b.exp >= 0.5 ? ' title="' + inr.format(expAll - b.exp) + ' more was paid straight from the bank, cash credit or cash not deposited, so it isn\'t in the mismatch"' : "") + ">" + money(b.exp) + (expAll - b.exp >= 0.5 ? '<span class="on-split">+' + inr.format(expAll - b.exp) + " from bank / CC</span>" : "") + "</td>" +
         '<td class="num">' + incCell(d, frozen, b) + "</td>" +
         '<td class="num">' + box("bar_collection", e ? e.bar_collection : "") + "</td>" +
         '<td class="num">' + box("cash_collection", e ? e.cash_collection : "") + "</td>" +
@@ -1895,16 +1898,16 @@
         '<td class="num">' + box("shop_balance", e ? e.shop_balance : "") + "</td>" +
         '<td class="num ' + (net < 0 ? "neg" : "") + '" title="Gross profit ' + inr.format(gp) + (inc ? " + other income " + inr.format(inc) : "") + ' − all expenses ' + inr.format(expAll) + '">' + (b.hasReport || expAll || inc ? inr.format(net) : "–") + "</td>" +
         '<td class="num mm-cell">' + mismatchCell(e ? b.mismatch : null) + "</td>" +
-        '<td class="actions"><button class="icon-btn" data-bopen="' + d + '">' + (open ? "Hide" : "Details") + "</button></td></tr>";
+        "</tr>";
       if (open) row += detailRow(d, frozen);
       return row;
     }).join("");
     var tn = t.g + (t.inc || 0) - (t.ea || 0);
     tbl.innerHTML = '<thead><tr><th>Date</th><th class="num">Total sales</th><th class="num" title="Remaining balance of the previous day">Previous day\'s balance</th><th class="num" title="Dues collected − credit given">Net dues</th><th class="num">Expenses</th>' +
-      '<th class="num" title="Other income taken at the shop">Other income</th><th class="num">Bar counter</th><th class="num">Cash collected</th><th class="num">Online payment</th><th class="num">Remaining balance</th><th class="num">Net profit</th><th class="num">Mismatch</th><th></th></tr></thead><tbody>' + body + "</tbody>" +
+      '<th class="num" title="Other income taken at the shop">Other income</th><th class="num">Bar counter</th><th class="num">Cash collected</th><th class="num">Online payment</th><th class="num">Remaining balance</th><th class="num">Net profit</th><th class="num">Mismatch</th></tr></thead><tbody>' + body + "</tbody>" +
       '<tfoot><tr><td>Total</td><td class="num">' + inr.format(t.s) + '</td><td></td><td class="num">' + signed(t.di - t.cr) + '</td><td class="num">' + inr.format(t.e) +
       '</td><td class="num">' + inr.format(t.is || 0) + '</td><td class="num">' + inr.format(t.bar) + '</td><td class="num">' + inr.format(t.cash) +
-      '</td><td class="num">' + inr.format(t.on) + '</td><td></td><td class="num ' + (tn < 0 ? "neg" : "pos") + '">' + inr.format(tn) + '</td><td class="num ' + (Math.abs(t.m) >= 0.5 ? "neg" : "pos") + '">' + inr2.format(Math.abs(t.m) >= 0.5 ? t.m : 0) + "</td><td></td></tr></tfoot>";
+      '</td><td class="num">' + inr.format(t.on) + '</td><td></td><td class="num ' + (tn < 0 ? "neg" : "pos") + '">' + inr.format(tn) + '</td><td class="num ' + (Math.abs(t.m) >= 0.5 ? "neg" : "pos") + '">' + inr2.format(Math.abs(t.m) >= 0.5 ? t.m : 0) + "</td></tr></tfoot>";
     // Keep the expenses & dues panel in view when the table scrolls sideways
     var wrap = tbl.closest(".table-wrap");
     document.querySelectorAll("#book-table .bd-grid").forEach(function (g) { g.style.width = Math.max(260, wrap.clientWidth - 34) + "px"; });
@@ -2014,7 +2017,7 @@
     var duesList = dues.length ? dues.map(function (x) {
       return bdItem("due", x, esc(x.customer_name) + " · " + (x.entry_type === "payment" ? '<span class="pos">collected</span>' : '<span class="warn-t">credit given</span>'), frozen);
     }).join("") : '<div class="none">No dues collected or credit given this day.</div>';
-    return '<tr class="book-detail"><td colspan="13"><div class="bd-grid">' +
+    return '<tr class="book-detail"><td colspan="12"><div class="bd-grid">' +
       '<div class="bd-box"><h3>Expenses on ' + fmtDate(d) + "</h3><div class=\"bd-list\">" + expList + "</div>" +
         (frozen ? '<div class="none">Locked.</div></div>' : '<form class="bd-add" data-addexp="' + d + '">' +
           "<select name=\"category\">" + EXP_CATS.map(function (c) { return "<option>" + esc(c) + "</option>"; }).join("") + "</select>" +
