@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Personal Networth Tracker</title>
+<meta name="theme-color" content="#140a0e">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script>
+<style>
+  :root {
+    --bg: #140a0e; --panel: #1e1015; --panel-2: #26141b;
+    --line: rgba(217, 178, 111, 0.2); --line-strong: rgba(217, 178, 111, 0.45);
+    --gold: #d9b26f; --text: #f4ece4; --muted: #b7a69d;
+    --green: #7fcf9a; --red: #ef8f8f; --amber: #e8c27a; --focus: rgba(217, 178, 111, 0.35);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { min-height: 100vh; background: var(--bg); color: var(--text); font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 15px; -webkit-font-smoothing: antialiased; }
+  [hidden] { display: none !important; }
+  button, input, select { font: inherit; color: inherit; }
+  .serif { font-family: "Cormorant Garamond", Georgia, serif; font-weight: 600; }
+  label { display: grid; gap: 6px; font-size: 0.8rem; color: var(--muted); }
+  input, select { width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 0.95rem; color-scheme: dark; }
+  input:focus, select:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--focus); }
+  .primary { background: var(--gold); color: #1b0d12; border: 0; border-radius: 10px; padding: 11px 16px; font-weight: 600; cursor: pointer; }
+  .primary:hover { background: #e6c48a; }
+  .primary:disabled { opacity: 0.6; cursor: wait; }
+  .ghost { background: transparent; border: 1px solid var(--line); border-radius: 10px; padding: 9px 14px; cursor: pointer; font-size: 0.88rem; color: var(--text); text-decoration: none; white-space: nowrap; }
+  .ghost:hover { border-color: var(--gold); color: var(--gold); }
+  .icon-btn { background: none; border: 0; color: var(--muted); cursor: pointer; padding: 2px 6px; font-size: 0.8rem; text-decoration: underline; }
+  .icon-btn:hover { color: var(--gold); }
+  .icon-btn.del:hover { color: var(--red); }
+
+  .topbar { position: sticky; top: 0; z-index: 5; background: rgba(20, 10, 14, 0.94); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+  .topbar-inner { max-width: 1100px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .topbar img { width: 36px; height: 36px; border-radius: 50%; }
+  .topbar .title { font-size: 1.3rem; }
+  .spacer { flex: 1; }
+  .who { font-size: 0.8rem; color: var(--muted); }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
+
+  .card { background: var(--panel); border: 1px solid var(--line-strong); border-radius: 14px; padding: 18px; }
+  .head { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+  .head .k { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .head .v { margin-top: 6px; font-size: 1.9rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--gold); }
+  .head .s { margin-top: 4px; font-size: 0.78rem; color: var(--muted); }
+  .tiles { margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .tile { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; text-align: left; cursor: pointer; width: 100%; }
+  .tile:hover, .tile.on { border-color: var(--gold); }
+  .tile:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); }
+  .tile .l { font-size: 0.78rem; color: var(--muted); }
+  .tile .a { margin-top: 4px; font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tile .d { margin-top: 3px; font-size: 0.72rem; color: var(--muted); }
+  .tile .a.neg { color: var(--red); }
+
+  .form { margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; align-items: end; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+  .form h3 { grid-column: 1 / -1; font-size: 0.88rem; font-weight: 600; }
+  .form .hint { grid-column: 1 / -1; font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+  .actions { display: flex; gap: 8px; }
+  .actions .primary { flex: 1; }
+
+  .stmt { margin-top: 14px; padding: 14px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--bg); }
+  .stmt-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .stmt-head h3 { font-size: 0.92rem; font-weight: 600; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  th { text-align: left; font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 9px 10px; border-bottom: 1px solid rgba(217, 178, 111, 0.08); vertical-align: top; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.actions-c { white-space: nowrap; text-align: right; }
+  tr.bf td { color: var(--muted); font-style: italic; }
+  tfoot td { font-weight: 600; border-top: 1px solid var(--line); border-bottom: 0; }
+  .pos { color: var(--green); }
+  .neg { color: var(--red); }
+  .empty { text-align: center; color: var(--muted); padding: 22px 10px; font-size: 0.9rem; }
+  .sec { margin-top: 22px; }
+  .sec h2 { font-size: 0.95rem; font-weight: 600; margin-bottom: 10px; }
+
+  .center { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+  .center .card { max-width: 380px; text-align: center; }
+  .center img { width: 72px; height: 72px; border-radius: 50%; }
+  .center h1 { margin-top: 12px; font-size: 1.6rem; }
+  .center p { margin-top: 8px; color: var(--muted); font-size: 0.9rem; line-height: 1.5; }
+  .center .primary { display: inline-block; margin-top: 18px; text-decoration: none; }
+
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: 10px; padding: 10px 16px; font-size: 0.88rem; z-index: 20; max-width: calc(100% - 32px); }
+  td:first-child { white-space: nowrap; }
+  @media (max-width: 560px) { .head .v { font-size: 1.6rem; } .topbar .title { font-size: 1.15rem; } .who { display: none; } }
+</style>
+</head>
+<body>
+
+<div class="center" id="view-login" hidden>
+  <div class="card">
+    <img src="logo.webp" alt="">
+    <h1 class="serif">Please sign in</h1>
+    <p>Sign in on the shop accounts page first, then come back here.</p>
+    <a class="primary" href="admin.html">Go to sign in</a>
+  </div>
+</div>
+
+<div class="center" id="view-denied" hidden>
+  <div class="card">
+    <img src="logo.webp" alt="">
+    <h1 class="serif">No access</h1>
+    <p>This account isn't set up as the admin.</p>
+  </div>
+</div>
+
+<div id="view-app" hidden>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <img src="logo.webp" alt="">
+      <div class="title serif">Personal Networth Tracker</div>
+      <div class="spacer"></div>
+      <span class="who" id="who"></span>
+      <a class="ghost" href="admin.html">&larr; Shop accounts</a>
+      <button class="ghost" id="signout" type="button">Sign out</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card" aria-label="Bank accounts">
+      <div class="head">
+        <div>
+          <div class="k">Personal bank balance</div>
+          <div class="v" id="total">–</div>
+          <div class="s" id="total-s">HDFC + ICICI + SBI</div>
+        </div>
+        <div class="spacer"></div>
+        <button class="ghost" id="tr-open" type="button">Transfer money</button>
+        <button class="ghost" id="ob-open" type="button">Opening balances</button>
+      </div>
+      <div class="tiles" id="tiles"></div>
+
+      <form class="form" id="tr-form" hidden>
+        <h3 id="tr-title">Transfer money</h3>
+        <label>Date <input type="date" id="tr-date" required></label>
+        <label>From <select id="tr-from"></select></label>
+        <label>To <select id="tr-to"></select></label>
+        <label>Amount (₹) <input type="number" id="tr-amount" step="0.01" min="0" inputmode="decimal" required></label>
+        <label>Note (optional) <input type="text" id="tr-note" autocomplete="off"></label>
+        <div class="actions"><button class="primary" type="submit" id="tr-save">Save transfer</button><button class="ghost" type="button" id="tr-cancel">Cancel</button></div>
+        <p class="hint">Money sent from a personal account to the shop bank or cash credit lowers that personal balance and raises the shop's. Sending it the other way does the opposite. Shop transfers also show in the shop's Business capital.</p>
+      </form>
+
+      <form class="form" id="ob-form" hidden>
+        <h3>Opening balances</h3>
+        <div id="ob-fields" style="display:contents"></div>
+        <div class="actions"><button class="primary" type="submit">Save balances</button><button class="ghost" type="button" id="ob-cancel">Cancel</button></div>
+        <p class="hint">The balance in each account at the start of the date shown. Transfers on or after that date are added to it. You can change these any time.</p>
+      </form>
+
+      <div class="stmt" id="stmt" hidden></div>
+    </section>
+
+    <section class="sec card" aria-label="Transfers">
+      <h2>Transfers with the shop</h2>
+      <div class="table-wrap"><table id="tr-table"></table></div>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(function () {
+  var SUPABASE_URL = "https://kikavlhdhdjeqqygfvbv.supabase.co";
+  var SUPABASE_KEY = "sb_publishable_Xe16oJpxjHO31iWW_u9fNw_qtj2Vmc0";
+  var START_DATE = "2026-10-01";
+
+  var $ = function (id) { return document.getElementById(id); };
+  var inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
+  var inr2 = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  var fmtDate = function (d) { var p = d.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }); };
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+  var toNum = function (v) { if (v == null || v === "") return 0; var n = Number(String(v).replace(/[,₹\s]/g, "")); return isNaN(n) ? 0 : n; };
+  var todayISO = function () { var d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+  var toastTimer;
+  function toast(t) { var el = $("toast"); el.textContent = t; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.hidden = true; }, 3200); }
+  function show(v) { ["view-login", "view-denied", "view-app"].forEach(function (x) { $(x).hidden = x !== v; }); }
+
+  if (!window.supabase) { document.body.innerHTML = '<p style="padding:24px">Could not load the login library. Check your internet connection and reload.</p>'; return; }
+  var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // Shop accounts a personal account can send money to (or take it back from)
+  var SHOP = { bank: "Shop bank account", cash_credit: "Shop SBI cash credit", cash_hand: "Shop cash (not deposited)" };
+  var state = { accounts: [], transfers: [], stmt: null, editing: null };
+  var isPersonal = function (k) { return /^p_/.test(k || ""); };
+  function acctName(k) {
+    if (SHOP[k]) return SHOP[k];
+    var a = state.accounts.find(function (x) { return x.code === k; });
+    return a ? a.name : k === "bevco" ? "Bevco wallet" : k;
+  }
+
+  // ---------- Load ----------
+  async function route(session) {
+    if (!session) { show("view-login"); return; }
+    var res = await sb.from("user_roles").select("role").eq("user_id", session.user.id).eq("role", "admin").maybeSingle();
+    if (res.error || !res.data) { show("view-denied"); return; }
+    $("who").textContent = session.user.email;
+    show("view-app");
+    await load();
+  }
+  async function load() {
+    var q = await Promise.all([
+      sb.from("personal_accounts").select("*").order("sort"),
+      sb.from("account_transfers").select("*").order("transfer_date").order("created_at")
+    ]);
+    if (q[0].error || q[1].error) toast("Some data couldn't load. Try reloading the page.");
+    state.accounts = q[0].data || [];
+    state.transfers = (q[1].data || []).filter(function (t) { return isPersonal(t.from_account) || isPersonal(t.to_account); });
+    fillSelects();
+    render();
+  }
+
+  // Balance = opening balance + transfers in − transfers out, from the opening date
+  function movements(code) {
+    var a = state.accounts.find(function (x) { return x.code === code; }); if (!a) return [];
+    var m = [{ date: a.opening_date, desc: "Opening balance", amt: Number(a.opening_balance), opening: true }];
+    state.transfers.forEach(function (t) {
+      if (t.transfer_date < a.opening_date) return;
+      var amt = Number(t.amount), note = t.note ? " · " + t.note : "";
+      if (t.from_account === code) m.push({ date: t.transfer_date, desc: "To " + acctName(t.to_account) + note, amt: -amt, id: t.id });
+      if (t.to_account === code) m.push({ date: t.transfer_date, desc: "From " + acctName(t.from_account) + note, amt: amt, id: t.id });
+    });
+    return m;
+  }
+  function balance(code) { return movements(code).reduce(function (s, x) { return s + x.amt; }, 0); }
+
+  function render() {
+    var total = 0;
+    $("tiles").innerHTML = state.accounts.map(function (a) {
+      var b = balance(a.code); total += b;
+      return '<button type="button" class="tile' + (state.stmt === a.code ? " on" : "") + '" data-acct="' + esc(a.code) + '" title="See the statement">' +
+        '<div class="l">' + esc(a.name) + '</div><div class="a' + (b < 0 ? " neg" : "") + '">' + inr.format(b) + "</div>" +
+        '<div class="d">Opening ' + inr.format(a.opening_balance) + " on " + fmtDate(a.opening_date) + "</div></button>";
+    }).join("") || '<div class="empty">No accounts yet.</div>';
+    $("total").textContent = inr.format(total);
+    $("total-s").textContent = state.accounts.map(function (a) { return a.name; }).join(" + ") + ", as of " + fmtDate(todayISO());
+    renderStatement();
+    renderTransfers();
+  }
+
+  function renderStatement() {
+    var el = $("stmt"), code = state.stmt;
+    if (!code) { el.hidden = true; return; }
+    var a = state.accounts.find(function (x) { return x.code === code; });
+    var m = movements(code), run = 0, inn = 0, out = 0;
+    var rows = m.map(function (x) {
+      run += x.amt; if (!x.opening) { if (x.amt > 0) inn += x.amt; else out -= x.amt; }
+      return "<tr" + (x.opening ? ' class="bf"' : "") + "><td>" + fmtDate(x.date) + "</td><td>" + esc(x.desc) + '</td><td class="num pos">' + (x.amt > 0 && !x.opening ? inr2.format(x.amt) : "") +
+        '</td><td class="num neg">' + (x.amt < 0 ? inr2.format(-x.amt) : "") + '</td><td class="num">' + inr2.format(run) + '</td><td class="actions-c">' +
+        (x.id ? '<button class="icon-btn" data-edit="' + x.id + '">Edit</button><button class="icon-btn del" data-del="' + x.id + '">Delete</button>' : "") + "</td></tr>";
+    }).join("");
+    el.innerHTML = '<div class="stmt-head"><h3>' + esc(a.name) + ' statement</h3><div class="spacer"></div><button class="ghost" type="button" id="stmt-close">Close</button></div>' +
+      '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Details</th><th class="num">Money in</th><th class="num">Money out</th><th class="num">Balance</th><th></th></tr></thead><tbody>' + rows +
+      '</tbody><tfoot><tr><td></td><td>Total</td><td class="num pos">' + inr2.format(inn) + '</td><td class="num neg">' + inr2.format(out) + '</td><td class="num">' + inr2.format(run) + "</td><td></td></tr></tfoot></table></div>";
+    el.hidden = false;
+    $("stmt-close").onclick = function () { state.stmt = null; render(); };
+  }
+
+  function renderTransfers() {
+    var list = state.transfers.slice().sort(function (x, y) { return x.transfer_date < y.transfer_date ? 1 : x.transfer_date > y.transfer_date ? -1 : 0; });
+    $("tr-table").innerHTML = list.length
+      ? "<thead><tr><th>Date</th><th>From</th><th>To</th><th>Note</th><th class=\"num\">Amount</th><th></th></tr></thead><tbody>" +
+        list.map(function (t) {
+          return "<tr><td>" + fmtDate(t.transfer_date) + "</td><td>" + esc(acctName(t.from_account)) + "</td><td>" + esc(acctName(t.to_account)) + "</td><td>" + esc(t.note || "") +
+            '</td><td class="num">' + inr2.format(t.amount) + '</td><td class="actions-c"><button class="icon-btn" data-edit="' + t.id + '">Edit</button><button class="icon-btn del" data-del="' + t.id + '">Delete</button></td></tr>';
+        }).join("") + "</tbody>"
+      : '<tbody><tr><td class="empty">No transfers yet. Use Transfer money to record one.</td></tr></tbody>';
+  }
+
+  // ---------- Transfers ----------
+  function fillSelects() {
+    var personal = state.accounts.map(function (a) { return '<option value="' + esc(a.code) + '">' + esc(a.name) + "</option>"; }).join("");
+    var shop = Object.keys(SHOP).map(function (k) { return '<option value="' + k + '">' + SHOP[k] + "</option>"; }).join("");
+    var html = '<optgroup label="Personal accounts">' + personal + '</optgroup><optgroup label="Shop">' + shop + "</optgroup>";
+    var f = $("tr-from").value, t = $("tr-to").value;
+    $("tr-from").innerHTML = html; $("tr-to").innerHTML = html;
+    if (f) $("tr-from").value = f;
+    $("tr-to").value = t || "bank";
+  }
+  function openTransfer(t) {
+    $("ob-form").hidden = true; $("tr-form").hidden = false;
+    state.editing = t ? t.id : null;
+    $("tr-title").textContent = t ? "Edit transfer" : "Transfer money";
+    $("tr-save").textContent = t ? "Save changes" : "Save transfer";
+    $("tr-date").value = t ? t.transfer_date : todayISO();
+    $("tr-from").value = t ? t.from_account : (state.stmt || (state.accounts[0] && state.accounts[0].code) || "");
+    $("tr-to").value = t ? t.to_account : "bank";
+    $("tr-amount").value = t ? t.amount : ""; $("tr-note").value = t ? t.note || "" : "";
+    $("tr-form").scrollIntoView({ behavior: "smooth", block: "center" });
+    $("tr-amount").focus();
+  }
+  $("tr-open").addEventListener("click", function () { if (!$("tr-form").hidden && !state.editing) { $("tr-form").hidden = true; return; } openTransfer(null); });
+  $("tr-cancel").addEventListener("click", function () { $("tr-form").hidden = true; state.editing = null; });
+  $("tr-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var p = { transfer_date: $("tr-date").value, from_account: $("tr-from").value, to_account: $("tr-to").value, amount: toNum($("tr-amount").value), note: $("tr-note").value.trim() };
+    if (p.from_account === p.to_account) { toast("Pick two different accounts."); return; }
+    if (!isPersonal(p.from_account) && !isPersonal(p.to_account)) { toast("One side has to be a personal account. Shop-to-shop transfers go on the shop accounts page."); return; }
+    if (!(p.amount > 0)) { toast("Enter an amount above zero."); return; }
+    if (p.transfer_date < START_DATE) { toast("Transfers start from " + fmtDate(START_DATE) + "."); return; }
+    var btn = $("tr-save"); btn.disabled = true;
+    var r = state.editing ? await sb.from("account_transfers").update(p).eq("id", state.editing) : await sb.from("account_transfers").insert(p);
+    btn.disabled = false;
+    if (r.error) { toast("Couldn't save: " + r.error.message); return; }
+    toast(state.editing ? "Transfer updated" : inr.format(p.amount) + " moved from " + acctName(p.from_account) + " to " + acctName(p.to_account));
+    $("tr-form").hidden = true; state.editing = null;
+    await load();
+  });
+  async function del(id) {
+    var t = state.transfers.find(function (x) { return x.id === id; }); if (!t) return;
+    if (!confirm("Delete the transfer of " + inr2.format(t.amount) + " from " + acctName(t.from_account) + " to " + acctName(t.to_account) + " on " + fmtDate(t.transfer_date) + "?")) return;
+    var r = await sb.from("account_transfers").delete().eq("id", id);
+    if (r.error) { toast("Couldn't delete: " + r.error.message); return; }
+    toast("Transfer deleted"); await load();
+  }
+  document.addEventListener("click", function (e) {
+    var tile = e.target.closest("[data-acct]");
+    if (tile) { state.stmt = state.stmt === tile.dataset.acct ? null : tile.dataset.acct; render(); if (state.stmt) $("stmt").scrollIntoView({ behavior: "smooth", block: "nearest" }); return; }
+    var ed = e.target.getAttribute("data-edit");
+    if (ed) { var t = state.transfers.find(function (x) { return x.id === ed; }); if (t) openTransfer(t); return; }
+    var dl = e.target.getAttribute("data-del");
+    if (dl) del(dl);
+  });
+
+  // ---------- Opening balances ----------
+  $("ob-open").addEventListener("click", function () {
+    var f = $("ob-form"); $("tr-form").hidden = true; f.hidden = !f.hidden; if (f.hidden) return;
+    $("ob-fields").innerHTML = state.accounts.map(function (a) {
+      return '<label>' + esc(a.name) + ' (₹)<input type="number" step="0.01" inputmode="decimal" data-ob="' + esc(a.code) + '" value="' + esc(a.opening_balance) + '" required></label>' +
+        '<label>' + esc(a.name) + ' as of<input type="date" data-obd="' + esc(a.code) + '" value="' + esc(a.opening_date) + '" required></label>';
+    }).join("");
+  });
+  $("ob-cancel").addEventListener("click", function () { $("ob-form").hidden = true; });
+  $("ob-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var btn = e.target.querySelector(".primary"); btn.disabled = true;
+    var jobs = state.accounts.map(function (a) {
+      var v = toNum(document.querySelector('[data-ob="' + a.code + '"]').value), d = document.querySelector('[data-obd="' + a.code + '"]').value;
+      if (v === Number(a.opening_balance) && d === a.opening_date) return null;
+      return sb.from("personal_accounts").update({ opening_balance: v, opening_date: d, updated_at: new Date().toISOString() }).eq("code", a.code);
+    }).filter(Boolean);
+    var res = await Promise.all(jobs);
+    btn.disabled = false;
+    var err = res.find(function (r) { return r.error; });
+    if (err) { toast("Couldn't save: " + err.error.message); return; }
+    $("ob-form").hidden = true;
+    toast(jobs.length ? "Opening balances saved" : "Nothing changed");
+    await load();
+  });
+
+  $("signout").addEventListener("click", async function () { await sb.auth.signOut(); location.href = "admin.html"; });
+
+  sb.auth.getSession().then(function (r) { route(r.data.session); });
+})();
+</script>
+</body>
+</html>

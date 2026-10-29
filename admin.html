@@ -68,6 +68,7 @@
     cursor: pointer; font-size: 0.88rem;
   }
   .ghost:hover { border-color: var(--gold); color: var(--gold); }
+  a.nav-btn { color: var(--text); text-decoration: none; white-space: nowrap; }
   .link-btn { background: none; border: 0; color: var(--muted); font-size: 0.82rem; cursor: pointer; text-decoration: underline; justify-self: center; }
   .link-btn:hover { color: var(--gold); }
   .msg { font-size: 0.85rem; line-height: 1.5; padding: 10px 12px; border-radius: 10px; }
@@ -350,6 +351,7 @@
         <button class="ghost" id="next-month" aria-label="Next month">&rsaquo;</button>
       </div>
       <span class="who" id="who"></span>
+      <a class="ghost nav-btn" href="networth.html">Personal Networth Tracker</a>
       <button class="ghost" id="signout">Sign out</button>
     </div>
   </header>
@@ -382,19 +384,23 @@
         <label>Date <input type="date" id="tr-date" required></label>
         <label>From
           <select id="tr-from">
+            <optgroup label="Shop">
             <option value="cash_credit">SBI cash credit</option>
             <option value="bank">Bank account</option>
             <option value="cash_hand">Cash not deposited</option>
             <option value="bevco">Bevco wallet</option>
+            </optgroup>
           </select>
         </label>
         <label>To
           <select id="tr-to">
+            <optgroup label="Shop">
             <option value="bevco">Bevco wallet</option>
             <option value="bank">Bank account</option>
             <option value="cash_credit">SBI cash credit</option>
             <option value="cash_hand">Cash not deposited</option>
             <option value="bar_counter">Bar counter (expense)</option>
+            </optgroup>
           </select>
         </label>
         <label>Amount (₹) <input type="number" id="tr-amount" step="0.01" min="0" inputmode="decimal" required></label>
@@ -883,7 +889,8 @@
       sb.from("business_balances").select("*").eq("as_of", START_DATE).maybeSingle(),
       fetchAll(function () { return sb.from("account_transfers").select("*").order("transfer_date").order("created_at"); }),
       fetchAll(function () { return sb.from("other_income").select("*").order("income_date", { ascending: false }).order("created_at", { ascending: false }); }),
-      fetchAll(function () { return sb.from("bar_expenses").select("*").order("expense_date").order("created_at"); })
+      fetchAll(function () { return sb.from("bar_expenses").select("*").order("expense_date").order("created_at"); }),
+      sb.from("personal_accounts").select("code,name").order("sort")
     ]);
     if (q.some(function (x) { return x.error; })) toast("Some data couldn't load. Try reloading the page.");
     state.reports = q[0].data || [];
@@ -902,6 +909,7 @@
     state.ledger.income = state.allIncome.filter(function (x) { return x.income_date >= r[0] && x.income_date <= r[1]; });
     state.cap = { stock: (q[11].data || [])[0] || null, ledger: (q[12].data || [])[0] || null, opening: q[13].data || null };
     state.transfers = q[14].data || [];
+    setPersonalAccounts(q[17].data || []);
     renderCapital();
     renderSummary(); renderReports(); renderChecks();
     if (state.tab === "sales") renderMonths();
@@ -930,6 +938,19 @@
 
   // ---------- Business capital ----------
   var ACCT = { bank: "Bank account", cash_credit: "SBI cash credit", bevco: "Bevco wallet", cash_hand: "Cash not deposited" };
+  // Personal bank accounts (from the Personal Networth Tracker) can send money to the shop or take it back
+  function setPersonalAccounts(list) {
+    list.forEach(function (a) { ACCT[a.code] = a.name + " (personal)"; });
+    ["tr-from", "tr-to"].forEach(function (id) {
+      var sel = $(id), g = sel.querySelector('optgroup[data-personal]');
+      if (g) g.remove();
+      if (!list.length) return;
+      g = document.createElement("optgroup"); g.label = "Personal accounts"; g.setAttribute("data-personal", "1");
+      g.innerHTML = list.map(function (a) { return '<option value="' + esc(a.code) + '">' + esc(a.name) + " (personal)</option>"; }).join("");
+      sel.appendChild(g);
+    });
+  }
+  var isPersonal = function (k) { return /^p_/.test(k || ""); };
 
   // Balances on a date, built from the frozen 1 Oct opening plus everything recorded since
   function accountBalances(end) {
@@ -964,8 +985,9 @@
     state.transfers.forEach(function (t) {
       if (t.transfer_date > end) return;
       var a = Number(t.amount);
-      if (t.from_account === "cash_credit") bal.cc_used += a; else bal[t.from_account] -= a;
-      if (t.to_account === "cash_credit") bal.cc_used -= a; else bal[t.to_account] += a;
+      // Personal accounts sit outside the shop: money from them adds to the shop, money to them leaves it
+      if (t.from_account === "cash_credit") bal.cc_used += a; else if (!isPersonal(t.from_account)) bal[t.from_account] -= a;
+      if (t.to_account === "cash_credit") bal.cc_used -= a; else if (!isPersonal(t.to_account)) bal[t.to_account] += a;
     });
     return bal;
   }
@@ -1241,6 +1263,7 @@
     if (p2.to_account === "bar_counter") { saveBarExpense(p2); return; }
     if (state.trEditing && String(state.trEditing).indexOf("bar:") === 0) { toast("A bar expense can only go to the bar counter. Delete it and add a transfer instead."); return; }
     if (p2.from_account === p2.to_account) { toast("Pick two different accounts."); return; }
+    if (isPersonal(p2.from_account) && isPersonal(p2.to_account)) { toast("Move money between your personal accounts from the Personal Networth Tracker page."); return; }
     if (!(p2.amount > 0)) { toast("Enter an amount above zero."); return; }
     if (p2.transfer_date < START_DATE) { toast("Transfers start from " + fmtLong(START_DATE) + "."); return; }
     var editing = state.trEditing;
