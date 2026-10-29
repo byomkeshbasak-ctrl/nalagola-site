@@ -661,7 +661,7 @@
         { name: "amount", label: "Amount (₹)", type: "number", required: true },
         { name: "category", label: "Category", type: "select", def: "Salary",
           // EDIT: expense categories shown in the dropdown
-          options: ["Salary", "Transport", "Tea", "Discount", "Rent", "Electricity", "Licence & Excise", "Repairs", "Misc"] },
+          options: ["Salary", "Transport", "Tea", "Discount", "Rent", "Electricity", "Licence & Excise", "Repairs", "Breakage", "Misc"] },
         { name: "description", label: "Note (optional)", type: "text" }
       ],
       cols: [
@@ -1658,7 +1658,7 @@
       mismatch: entry ? expected - actual : null };
   }
 
-  var EXP_CATS = ["Salary", "Transport", "Tea", "Discount", "Rent", "Electricity", "Licence & Excise", "Repairs", "Misc"];
+  var EXP_CATS = ["Salary", "Transport", "Tea", "Discount", "Rent", "Electricity", "Licence & Excise", "Repairs", "Breakage", "Misc"];
 
   // Live mismatch for a row, using whatever is typed in its inputs
   // A day is locked once a later day's Excel is uploaded and this day balances (mismatch ₹0)
