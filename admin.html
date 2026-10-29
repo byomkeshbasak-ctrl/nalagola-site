@@ -69,6 +69,8 @@
   }
   .ghost:hover { border-color: var(--gold); color: var(--gold); }
   a.nav-btn { color: var(--text); text-decoration: none; white-space: nowrap; }
+  .src-pick { display: grid; gap: 6px; }
+  .src-pick input:not([hidden]) { display: block; }
   .link-btn { background: none; border: 0; color: var(--muted); font-size: 0.82rem; cursor: pointer; text-decoration: underline; justify-self: center; }
   .link-btn:hover { color: var(--gold); }
   .msg { font-size: 0.85rem; line-height: 1.5; padding: 10px 12px; border-radius: 10px; }
@@ -694,7 +696,7 @@
         { name: "amount", label: "Amount (₹)", type: "number", required: true },
         // EDIT: income types shown in the dropdown
         { name: "category", label: "Type", type: "select", def: "Distributor incentive", options: ["Distributor incentive", "Scrap sale", "Rent received", "Other"] },
-        { name: "source", label: "From (distributor or buyer)", type: "text", list: "dl-sources", required: true },
+        { name: "source", label: "From (distributor or buyer, optional)", type: "sourcepick" },
         { name: "received_into", label: "Paid into", type: "select", def: "bank",
           options: [{ v: "bank", l: "Bank account (adds to bank balance)" }, { v: "cash_credit", l: "SBI cash credit (reduces amount used)" }, { v: "shop", l: "Shop (cash at the counter, counted in the daily ledger)" }] },
         { name: "description", label: "Note (optional), e.g. scheme or invoice no.", type: "text" }
@@ -1800,6 +1802,39 @@
     }
   }
 
+  // "From" for other income: names used before in a dropdown, "+ New name" to type one, or left blank
+  function sourceNames() {
+    var m = {};
+    state.allIncome.forEach(function (x) { var n = (x.source || "").trim().replace(/\s+/g, " "); if (n && !m[n.toLowerCase()]) m[n.toLowerCase()] = n; });
+    return Object.keys(m).map(function (k) { return m[k]; }).sort(function (a, b) { return a.localeCompare(b); });
+  }
+  function sourceOptions(selected) {
+    var names = sourceNames(), sel = (selected || "").trim();
+    var hit = sel ? names.find(function (n) { return n.toLowerCase() === sel.toLowerCase(); }) : "";
+    return '<option value=""' + (hit ? "" : " selected") + ">— None —</option>" +
+      names.map(function (n) { return '<option value="' + esc(n) + '"' + (n === hit ? " selected" : "") + ">" + esc(n) + "</option>"; }).join("") +
+      '<option value="__new">+ New name</option>';
+  }
+  function sourcePicker(selected, id) {
+    return '<span class="src-pick"><select name="srcsel"' + (id ? ' id="' + id + '"' : "") + ' aria-label="From">' + sourceOptions(selected) + "</select>" +
+      '<input name="srcnew" type="text" placeholder="Type the new name" autocomplete="off" hidden></span>';
+  }
+  // Name picked (or typed) in a picker; "" when left blank. Same spelling as before if it already exists.
+  function pickedSource(box) {
+    var sel = box.querySelector('select[name="srcsel"]'); if (!sel) return "";
+    var v = sel.value === "__new" ? box.querySelector('input[name="srcnew"]').value : sel.value;
+    v = String(v || "").trim().replace(/\s+/g, " ");
+    var hit = v && sourceNames().find(function (n) { return n.toLowerCase() === v.toLowerCase(); });
+    return hit || v;
+  }
+  // Fresh names after a save, without losing what's picked
+  function refreshSourcePickers() {
+    document.querySelectorAll('.src-pick select[name="srcsel"]').forEach(function (sel) {
+      if (sel.value === "__new") return;
+      sel.innerHTML = sourceOptions(sel.value);
+    });
+  }
+
   // Existing customers in a dropdown; a new name can only be typed after choosing "New customer"
   function customerPicker(selected) {
     var list = customers().slice().sort(function (a, b) { return a.name.localeCompare(b.name); });
@@ -1821,6 +1856,10 @@
     return { name: v };
   }
   document.addEventListener("change", function (e) {
+    if (e.target.name === "srcsel" && e.target.closest(".src-pick")) {
+      var si = e.target.closest(".src-pick").querySelector('input[name="srcnew"]');
+      si.hidden = e.target.value !== "__new"; if (!si.hidden) si.focus();
+    }
     if (e.target.name === "cust" && e.target.closest(".cust-pick")) {
       var inp = e.target.closest(".cust-pick").querySelector('input[name="newname"]');
       inp.hidden = e.target.value !== "__new"; if (!inp.hidden) inp.focus();
@@ -1843,7 +1882,7 @@
       kind === "due" ? '<select name="type"><option value="payment"' + (x.entry_type === "payment" ? " selected" : "") + '>Dues collected</option><option value="credit"' + (x.entry_type === "credit" ? " selected" : "") + ">Credit given</option></select>" +
         AMT_IN(x.amount) + customerPicker(x.customer_name) :
       '<select name="category">' + opts(INC_CATS, x.category) + "</select>" + AMT_IN(x.amount) +
-        '<input name="source" type="text" list="dl-sources" placeholder="From (optional)" value="' + esc(x.source || "") + '">';
+        sourcePicker(x.source);
     return '<form class="bd-add bd-edit" data-editkind="' + kind + '" data-id="' + x.id + '">' + fields +
       '<button class="primary" type="submit">Save</button>' +
       '<div class="bd-edit-act"><button class="x-btn" type="button" data-editcancel="1">Cancel</button>' +
@@ -1879,7 +1918,7 @@
         (frozen ? '<div class="none">Locked.</div></div>' : '<form class="bd-add" data-addinc="' + d + '">' +
           "<select name=\"category\">" + INC_CATS.map(function (c) { return "<option>" + esc(c) + "</option>"; }).join("") + "</select>" +
           '<input name="amount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount ₹" required>' +
-          '<input name="source" type="text" list="dl-sources" placeholder="From (distributor or buyer)" required>' +
+          sourcePicker("") +
           '<button class="primary" type="submit">Add</button></form></div>') +
       "</div></td></tr>";
   }
@@ -1895,9 +1934,7 @@
       if (pick.note) toast(pick.note);
       r = await sb.from("customer_dues").update({ amount: amt, entry_type: f.type.value, customer_name: pick.name }).eq("id", id);
     } else {
-      var src = f.source.value.trim().replace(/\s+/g, " ");
-      var known = src && state.allIncome.find(function (x) { return x.source && x.source.trim().toLowerCase() === src.toLowerCase(); });
-      if (known) src = known.source.trim();
+      var src = pickedSource(f);
       r = await sb.from("other_income").update({ amount: amt, category: f.category.value, source: src }).eq("id", id);
     }
     btn.disabled = false;
@@ -1991,10 +2028,7 @@
     var btn = f.querySelector(".primary"); btn.disabled = true;
     var r;
     if (f.getAttribute("data-addinc")) {
-      var src = f.source.value.trim().replace(/\s+/g, " ");
-      if (!src) { btn.disabled = false; toast("Say who paid it."); return; }
-      var known = state.allIncome.find(function (x) { return x.source && x.source.trim().toLowerCase() === src.toLowerCase(); });
-      if (known) src = known.source.trim();
+      var src = pickedSource(f);
       r = await sb.from("other_income").insert({ income_date: d, amount: amt, category: f.category.value, source: src, received_into: "shop", description: "" });
     } else if (f.getAttribute("data-addexp")) {
       r = await sb.from("expenses").insert({ expense_date: d, amount: amt, category: f.category.value, description: f.note.value.trim() });
@@ -2327,6 +2361,7 @@
   function fieldHTML(fd, row) {
     var val = row ? row[fd.name] : (fd.type === "date" ? defaultDate() : (fd.def || ""));
     if (val == null) val = "";
+    if (fd.type === "sourcepick") return '<label>' + fd.label + sourcePicker(val, "f-" + fd.name) + "</label>";
     if (fd.type === "select") {
       var opts = fd.options.map(function (o) { return typeof o === "string" ? { v: o, l: o } : o; });
       if (val && !opts.some(function (o) { return o.v === val; })) opts.push({ v: val, l: val }); // keep older values when editing
@@ -2344,14 +2379,11 @@
     e.preventDefault();
     var T = LEDGERS[state.tab], payload = {};
     T.fields.forEach(function (fd) {
+      if (fd.type === "sourcepick") { payload[fd.name] = pickedSource($("f-" + fd.name).closest(".src-pick")); return; }
       var v = $("f-" + fd.name).value;
       payload[fd.name] = fd.type === "number" ? (v === "" ? 0 : Number(v)) : String(v).trim();
     });
     if (!(payload.amount > 0)) { toast("Enter an amount above zero."); return; }
-    if (state.tab === "income") {
-      var known = state.allIncome.find(function (x) { return x.source && x.source.trim().toLowerCase() === String(payload.source).trim().toLowerCase(); });
-      if (known) payload.source = known.source.trim();
-    }
     var btn = e.target.querySelector(".primary"); btn.disabled = true;
     var res = state.editing ? await sb.from(T.table).update(payload).eq("id", state.editing.id) : await sb.from(T.table).insert(payload);
     btn.disabled = false;
@@ -2359,7 +2391,7 @@
     toast(state.editing ? "Changes saved" : "Saved");
     var d = payload[T.dateCol]; state.editing = null;
     if (d.slice(0, 7) !== state.month) { state.month = d.slice(0, 7); $("month").value = state.month; }
-    renderForm(); await loadMonth();
+    await loadMonth(); renderForm();
   });
 
   function renderExpensesByDate() {
@@ -2388,6 +2420,7 @@
   }
 
   function renderIncomeExtras() {
+    refreshSourcePickers();
     // Remember names already used, so they autocomplete with the same spelling
     var names = {};
     state.allIncome.forEach(function (x) { if (x.source) names[x.source.trim().toLowerCase()] = x.source.trim(); });
