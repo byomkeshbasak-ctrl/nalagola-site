@@ -94,7 +94,7 @@
 
   .wrap { max-width: 1200px; margin: 0 auto; padding: 20px 16px 48px; }
 
-  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
   .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
   .kpi .k { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
   .kpi .v { margin-top: 6px; font-size: 1.55rem; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -103,7 +103,8 @@
   .pos { color: var(--green); }
   .neg { color: var(--red); }
   .warn-t { color: var(--amber); }
-  @media (max-width: 860px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 1100px) { .kpis .kpi .v { font-size: 1.3rem; } }
+  @media (max-width: 860px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .kpis .kpi:last-child { grid-column: 1 / -1; } }
   .capital { margin-top: 12px; border-color: var(--line-strong); }
   .cap-head { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
   .cap-head .k { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
@@ -366,6 +367,7 @@
       <div class="kpi"><div class="k">Gross profit</div><div class="v" id="k-gp">–</div><div class="s" id="k-gp-s"></div></div>
       <div class="kpi"><div class="k">Expenses</div><div class="v" id="k-exp">–</div><div class="s" id="k-exp-s"></div></div>
       <div class="kpi profit"><div class="k">Net profit</div><div class="v" id="k-net">–</div><div class="s"><span id="k-net-s">Gross profit − expenses</span></div></div>
+      <div class="kpi"><div class="k">Purchases</div><div class="v" id="k-buy">–</div><div class="s" id="k-buy-s">Stock received at cost</div></div>
     </section>
 
     <section class="card capital" aria-label="Business capital">
@@ -439,7 +441,6 @@
       <button class="tab" role="tab" data-tab="dues" aria-selected="false">Dues</button>
       <button class="tab" role="tab" data-tab="expenses" aria-selected="false">Expenses</button>
       <button class="tab" role="tab" data-tab="income" aria-selected="false">Other income</button>
-      <button class="tab" role="tab" data-tab="purchases" aria-selected="false">Supplier payments</button>
       <button class="tab" role="tab" data-tab="items" aria-selected="false">Items &amp; costs</button>
       <button class="tab" role="tab" data-tab="indent" aria-selected="false">Indent</button>
       <button class="tab" role="tab" data-tab="bar" aria-selected="false">Bar counter</button>
@@ -599,7 +600,7 @@
       <div class="card detail" id="rep-detail" hidden></div>
     </section>
 
-    <p class="note">Profit uses cost of goods sold: what each bottle sold cost you, taken from the cost price list at the time the report was uploaded. Supplier payments are a record of money paid out and aren't subtracted again, since the stock cost is already counted when the bottles sell.</p>
+    <p class="note">Profit uses cost of goods sold: what each bottle sold cost you, taken from the cost price list at the time the report was uploaded. Purchases is the cost of the stock received in the month (Stock In × cost price). It isn't subtracted from profit, since the stock cost is counted when the bottles sell.</p>
   </main>
 </div>
 
@@ -1329,6 +1330,11 @@
     $("k-net").textContent = inr.format(net);
     $("k-net-s").textContent = inc ? "Gross profit + " + inr.format(inc) + " other income − expenses" : "Gross profit − expenses";
     $("k-net").className = "v " + (net >= 0 ? "pos" : "neg");
+    // Purchases: what the stock received this month cost (Stock In × cost price, from the daily Excel)
+    var buy = sum(state.reports, "stock_in_cost"), buyUnits = sum(state.reports, "units_in");
+    var buyDays = state.reports.filter(function (r) { return Number(r.units_in || 0) > 0; }).length;
+    $("k-buy").textContent = inr.format(buy);
+    $("k-buy-s").textContent = buyUnits ? num.format(buyUnits) + " bottles received on " + buyDays + " day" + (buyDays === 1 ? "" : "s") + ", at cost" : "No stock received this month";
     renderBars("bd-cat", groupBy(state.cats, "category", "sales_value"), "No sales this month");
     renderBars("bd-exp", groupBy(state.ledger.expenses, "category"), "No expenses this month");
   }
@@ -1354,10 +1360,10 @@
 
   function renderMonths() {
     var tbl = $("month-table"), t = todayISO().slice(0, 7), m = {};
-    var bucket = function (k) { return m[k] || (m[k] = { days: 0, units: 0, sales: 0, gp: 0, exp: 0, bar: 0, inc: 0, stock: null, stockDate: "" }); };
+    var bucket = function (k) { return m[k] || (m[k] = { days: 0, units: 0, sales: 0, gp: 0, exp: 0, bar: 0, inc: 0, buy: 0, stock: null, stockDate: "" }); };
     state.allReports.forEach(function (r) {
       var x = bucket(r.report_date.slice(0, 7));
-      x.days++; x.units += Number(r.units_sold); x.sales += Number(r.sales_value); x.gp += Number(r.gross_profit);
+      x.days++; x.units += Number(r.units_sold); x.sales += Number(r.sales_value); x.gp += Number(r.gross_profit); x.buy += Number(r.stock_in_cost || 0);
       if (r.report_date >= x.stockDate) { x.stockDate = r.report_date; x.stock = Number(r.closing_value_cost); }
     });
     state.allExp.forEach(function (e) { bucket(e.expense_date.slice(0, 7)).exp += Number(e.amount); });
@@ -1372,23 +1378,23 @@
     }
     Object.keys(m).forEach(function (k) { if (months.indexOf(k) < 0) months.push(k); });
     months.sort().reverse();
-    var T = { days: 0, units: 0, sales: 0, gp: 0, exp: 0, bar: 0, inc: 0 };
+    var T = { days: 0, units: 0, sales: 0, gp: 0, exp: 0, bar: 0, inc: 0, buy: 0 };
     var body = months.map(function (k) {
       var x = m[k] || bucket(k), net = x.gp + x.inc - x.exp;
-      T.days += x.days; T.units += x.units; T.sales += x.sales; T.gp += x.gp; T.exp += x.exp; T.bar += x.bar; T.inc += x.inc;
+      T.days += x.days; T.units += x.units; T.sales += x.sales; T.gp += x.gp; T.exp += x.exp; T.bar += x.bar; T.inc += x.inc; T.buy += x.buy;
       return '<tr data-month="' + k + '" class="' + (k === state.month ? "sel" : "") + '"><td>' +
         new Date(k + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" }) + "</td>" +
         '<td class="num">' + x.days + '</td><td class="num">' + num.format(x.units) + '</td><td class="num">' + inr.format(x.sales) +
         '</td><td class="num">' + inr.format(x.gp) + '</td><td class="num">' + pct(x.gp, x.sales) + '</td><td class="num">' + inr.format(x.inc) + '</td><td class="num">' + inr.format(x.exp) +
-        '</td><td class="num ' + (net >= 0 ? "pos" : "neg") + '">' + inr.format(net) + '</td><td class="num">' + inr.format(x.bar) +
+        '</td><td class="num ' + (net >= 0 ? "pos" : "neg") + '">' + inr.format(net) + '</td><td class="num">' + inr.format(x.buy) + '</td><td class="num">' + inr.format(x.bar) +
         '</td><td class="num">' + (x.stock == null ? "–" : inr.format(x.stock)) + "</td></tr>";
     }).join("");
     var tn = T.gp + T.inc - T.exp;
     tbl.innerHTML = '<thead><tr><th>Month</th><th class="num">Days reported</th><th class="num">Bottles</th><th class="num">Sales</th><th class="num">Gross profit</th>' +
-      '<th class="num">Margin</th><th class="num">Other income</th><th class="num">Expenses</th><th class="num">Net profit</th><th class="num" title="Bar collection minus bar expenses">Bar counter (net)</th><th class="num">Stock at month end</th></tr></thead>' +
+      '<th class="num">Margin</th><th class="num">Other income</th><th class="num">Expenses</th><th class="num">Net profit</th><th class="num" title="Stock received at cost">Purchases</th><th class="num" title="Bar collection minus bar expenses">Bar counter (net)</th><th class="num">Stock at month end</th></tr></thead>' +
       "<tbody>" + body + '</tbody><tfoot><tr><td>Total</td><td class="num">' + T.days + '</td><td class="num">' + num.format(T.units) + '</td><td class="num">' + inr.format(T.sales) +
       '</td><td class="num">' + inr.format(T.gp) + '</td><td class="num">' + pct(T.gp, T.sales) + '</td><td class="num">' + inr.format(T.inc) + '</td><td class="num">' + inr.format(T.exp) + '</td><td class="num ' + (tn >= 0 ? "pos" : "neg") + '">' +
-      inr.format(tn) + '</td><td class="num">' + inr.format(T.bar) + "</td><td></td></tr></tfoot>";
+      inr.format(tn) + '</td><td class="num">' + inr.format(T.buy) + '</td><td class="num">' + inr.format(T.bar) + "</td><td></td></tr></tfoot>";
   }
   $("month-table").addEventListener("click", function (e) {
     var tr = e.target.closest("tr[data-month]"); if (!tr) return;
