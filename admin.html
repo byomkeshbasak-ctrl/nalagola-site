@@ -265,6 +265,8 @@
   .cell-in { width: 88px; padding: 6px 6px; font-size: 0.86rem; text-align: right; border-radius: 8px; font-variant-numeric: tabular-nums; }
   .cell-in.saving { border-color: var(--gold); }
   .on-in { display: block; margin-left: auto; }
+  .inc-cat { display: block; width: 108px; margin: 4px 0 0 auto; padding: 4px 4px; font-size: 0.7rem; border-radius: 8px; }
+  .inc-cat:disabled { opacity: 0.5; }
   .on-in + .on-in { margin-top: 4px; }
   .on-split { display: block; font-size: 0.68rem; color: var(--muted); margin-top: 2px; white-space: nowrap; }
   .on-edit { font-size: 0.68rem; padding: 0; }
@@ -1653,7 +1655,8 @@
     var any = ["cash_collection", "online_cc", "online_bank", "shop_balance", "bar_collection"].some(function (f) { var i = tr.querySelector('[data-f="' + f + '"]'); return i && i.value !== ""; });
     if (!any && !b.entry) return null;
     var prev = date === START_DATE ? toNum(val("opening_balance")) : (b.prev || 0);
-    return prev + b.sales + toNum(val("bar_collection")) + b.duesIn - b.credit + b.incShop - b.exp -
+    var incBox = tr.querySelector(".inc-in"), incShop = incBox ? toNum(incBox.value) : b.incShop;
+    return prev + b.sales + toNum(val("bar_collection")) + b.duesIn - b.credit + incShop - b.exp -
       toNum(val("cash_collection")) - toNum(val("online_cc")) - toNum(val("online_bank")) - toNum(val("shop_balance"));
   }
   function mismatchCell(m) {
@@ -1678,12 +1681,44 @@
     return Object.keys(set).sort();
   }
 
+  // Other income taken at the shop: amount box with the type below it.
+  // More than one entry on a day → show the total; edit them in Details.
+  function shopIncome(d) { return state.allIncome.filter(function (x) { return x.income_date === d && x.received_into === "shop"; }); }
+  function incCell(d, frozen, b) {
+    var list = shopIncome(d), one = list.length === 1 ? list[0] : null;
+    if (frozen || list.length > 1) {
+      return '<span class="fixed-v">' + (b.incShop ? inr.format(b.incShop) : "–") + "</span>" +
+        (list.length ? '<span class="on-split">' + (list.length > 1 ? list.length + " entries · see Details" : esc(list[0].category)) + "</span>" : "");
+    }
+    var cat = one ? one.category : "Distributor incentive";
+    return '<input class="cell-in inc-in" type="number" step="0.01" min="0" inputmode="decimal" data-d="' + d + '" data-f="inc_amt" value="' + (one ? esc(one.amount) : "") + '" placeholder="0">' +
+      '<select class="inc-cat" data-d="' + d + '" data-f="inc_cat" title="Type of income">' +
+      INC_CATS.concat(INC_CATS.indexOf(cat) < 0 ? [cat] : []).map(function (c) { return "<option" + (c === cat ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("") + "</select>";
+  }
+  async function saveShopIncome(d, tr) {
+    if (isFrozen(d)) { toast(fmtDate(d) + " is locked."); renderBook(); return; }
+    var list = shopIncome(d); if (list.length > 1) return;
+    var one = list[0] || null, amt = toNum(tr.querySelector(".inc-in").value), cat = tr.querySelector(".inc-cat").value, r;
+    if (one && !(amt > 0)) {
+      if (!confirm("Remove the " + one.category + " income of " + inr2.format(one.amount) + " on " + fmtDate(d) + "?")) { renderBook(); return; }
+      r = await sb.from("other_income").delete().eq("id", one.id);
+    } else if (one) {
+      if (Number(one.amount) === amt && one.category === cat) return;
+      r = await sb.from("other_income").update({ amount: amt, category: cat }).eq("id", one.id);
+    } else if (amt > 0) {
+      r = await sb.from("other_income").insert({ income_date: d, amount: amt, category: cat, source: "", received_into: "shop", description: "" });
+    } else return;
+    if (r.error) { toast("Couldn't save other income: " + r.error.message); return; }
+    toast("Other income saved for " + fmtDate(d));
+    await loadMonth(); // refreshes the ledger, the Other income tab and the capital tiles
+  }
+
   function renderBook() {
     var days = ledgerDays().slice().reverse(), tbl = $("book-table");
     $("book-title").textContent = "Daily ledger, " + new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
     if (!days.length) { tbl.innerHTML = '<tr><td class="empty">No stock report uploaded for this month yet. Upload a day\'s Excel above and that day appears here.</td></tr>'; return; }
     // Keep focus on the box being typed in across re-renders
-    var ae = document.activeElement, keep = ae && ae.classList && ae.classList.contains("cell-in") ? { d: ae.dataset.d, f: ae.dataset.f } : null;
+    var ae = document.activeElement, keep = ae && ae.closest && ae.closest("#book-table") && ae.dataset.d && ae.dataset.f ? { d: ae.dataset.d, f: ae.dataset.f } : null;
     var t = { s: 0, g: 0, e: 0, bar: 0, di: 0, cr: 0, cash: 0, on: 0, m: 0 };
     var money = function (v) { return v ? inr.format(v) : "–"; };
     var signed = function (v) { return Math.abs(v) < 0.5 ? "–" : (v > 0 ? "+" : "−") + inr.format(Math.abs(v)); };
@@ -1713,7 +1748,7 @@
         '<td class="num">' + prevCell + "</td>" +
         '<td class="num" title="Collected ' + inr.format(b.duesIn) + ' − credit given ' + inr.format(b.credit) + '">' + signed(b.duesIn - b.credit) + "</td>" +
         '<td class="num">' + money(b.exp) + "</td>" +
-        '<td class="num" title="Other income taken at the shop. Add it from Details.">' + money(b.incShop) + "</td>" +
+        '<td class="num">' + incCell(d, frozen, b) + "</td>" +
         '<td class="num">' + box("bar_collection", e ? e.bar_collection : "") + "</td>" +
         '<td class="num">' + box("cash_collection", e ? e.cash_collection : "") + "</td>" +
         '<td class="num on-cell">' + onlineCell + "</td>" +
@@ -1734,8 +1769,8 @@
     var wrap = tbl.closest(".table-wrap");
     document.querySelectorAll("#book-table .bd-grid").forEach(function (g) { g.style.width = Math.max(260, wrap.clientWidth - 34) + "px"; });
     if (keep) {
-      var el = document.querySelector('.cell-in[data-d="' + keep.d + '"][data-f="' + keep.f + '"]');
-      if (el) { el.focus(); try { el.select(); } catch (x) {} }
+      var el = document.querySelector('#book-table [data-d="' + keep.d + '"][data-f="' + keep.f + '"]');
+      if (el) { el.focus(); try { if (el.select) el.select(); } catch (x) {} }
     }
   }
 
@@ -1810,7 +1845,9 @@
     if (e.target.classList.contains("cell-in")) paintMismatch(e.target.dataset.d);
   });
   $("book-table").addEventListener("change", async function (e) {
-    var el = e.target; if (!el.classList.contains("cell-in")) return;
+    var el = e.target;
+    if (el.classList.contains("inc-in") || el.classList.contains("inc-cat")) { await saveShopIncome(el.dataset.d, el.closest("tr")); return; }
+    if (!el.classList.contains("cell-in")) return;
     var d = el.dataset.d, tr = el.closest("tr");
     var entry = bookRow(d).entry;
     if (isFrozen(d)) { toast(fmtDate(d) + " is locked."); renderBook(); return; }
