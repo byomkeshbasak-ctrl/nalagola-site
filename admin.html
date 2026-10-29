@@ -273,8 +273,9 @@
   .cell-sel { display: block; margin-top: 4px; text-align: left; padding: 3px 4px; font-size: 0.72rem; color: var(--muted); }
   tr.book-detail > td { background: var(--panel-2); padding: 16px; }
   tr.book-detail:hover > td { background: var(--panel-2); }
-  .bd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-  @media (max-width: 900px) { .bd-grid { grid-template-columns: 1fr; } }
+  .bd-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+  @media (max-width: 1100px) { .bd-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 700px) { .bd-grid { grid-template-columns: 1fr; } }
   .bd-box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
   .bd-box h3 { font-size: 0.85rem; font-weight: 600; margin-bottom: 10px; }
   .bd-list { display: grid; gap: 4px; margin-bottom: 12px; font-size: 0.85rem; }
@@ -579,7 +580,7 @@
           <span class="list-total" id="stock-on-hand"></span>
           <button class="ghost" id="book-csv" type="button">Export CSV</button>
         </div>
-        <p class="hint">Mismatch = total sales + previous day's balance + bar counter + net dues (collected − credit given) − expenses − cash collected − online payment − remaining balance. It should be ₹0 every day; anything else shows in red. Type bar counter, cash, online (cash credit first, then bank) and remaining balance straight into the row. A day locks once a later day's Excel is uploaded and its mismatch is ₹0. Click a date to see that day's items. Use <b>Details</b> on a row to see the previous day's balance and to add that day's expenses, dues collected and credit given. Each day's previous balance is the remaining balance from the day before.</p>
+        <p class="hint">Mismatch = total sales + previous day's balance + bar counter + net dues (collected − credit given) + other income − expenses − cash collected − online payment − remaining balance. It should be ₹0 every day; anything else shows in red. Previous day's balance is the remaining balance from the day before (on 1 Oct, type the opening balance). Other income here is only money taken at the shop; it also shows in the Other income tab with "Paid into: Shop". Type bar counter, cash, online (cash credit first, then bank) and remaining balance straight into the row. Use <b>Details</b> to add that day's expenses, dues and other income. A day locks once a later day's Excel is uploaded and its mismatch is ₹0. Click a date to see that day's items.</p>
         <div class="table-wrap"><table id="book-table"></table></div>
       </div>
       <div class="card detail" id="rep-detail" hidden></div>
@@ -684,14 +685,14 @@
         { name: "category", label: "Type", type: "select", def: "Distributor incentive", options: ["Distributor incentive", "Scrap sale", "Other"] },
         { name: "source", label: "From (distributor or buyer)", type: "text", list: "dl-sources", required: true },
         { name: "received_into", label: "Paid into", type: "select", def: "bank",
-          options: [{ v: "bank", l: "Bank account (adds to bank balance)" }, { v: "cash_credit", l: "SBI cash credit (reduces amount used)" }] },
+          options: [{ v: "bank", l: "Bank account (adds to bank balance)" }, { v: "cash_credit", l: "SBI cash credit (reduces amount used)" }, { v: "shop", l: "Shop (cash at the counter, counted in the daily ledger)" }] },
         { name: "description", label: "Note (optional), e.g. scheme or invoice no.", type: "text" }
       ],
       cols: [
         { key: "income_date", label: "Date", date: true },
         { key: "category", label: "Type" },
         { key: "source", label: "From" },
-        { key: "received_into", label: "Paid into", map: { bank: "Bank account", cash_credit: "SBI cash credit" } },
+        { key: "received_into", label: "Paid into", map: { bank: "Bank account", cash_credit: "SBI cash credit", shop: "Shop" } },
         { key: "description", label: "Note" },
         { key: "amount", label: "Amount", money: true }
       ]
@@ -947,9 +948,10 @@
       var a = Number(x.amount);
       if (x.paid_from === "cash_credit") bal.cc_used += a; else bal[x.paid_from] -= a;
     });
-    // Other income goes straight into the bank or pays down the cash credit
+    // Other income goes straight into the bank or pays down the cash credit.
+    // Income taken at the shop is already inside the day's cash / online / remaining balance.
     state.allIncome.forEach(function (x) {
-      if (x.income_date < START_DATE || x.income_date > end) return;
+      if (x.income_date < START_DATE || x.income_date > end || x.received_into === "shop") return;
       var a = Number(x.amount);
       if (x.received_into === "cash_credit") bal.cc_used -= a; else bal.bank += a;
     });
@@ -1063,7 +1065,7 @@
     state.allIncome.forEach(function (x) {
       if (x.income_date < START_DATE) return;
       var a = Number(x.amount), lbl = "Other income · " + x.category + (x.source ? " · " + x.source : "") + (x.description ? " · " + x.description : "");
-      if (acct === "bank" && x.received_into !== "cash_credit") m.push({ date: x.income_date, desc: lbl, amt: a });
+      if (acct === "bank" && (x.received_into || "bank") === "bank") m.push({ date: x.income_date, desc: lbl, amt: a });
       if (acct === "cash_credit" && x.received_into === "cash_credit") m.push({ date: x.income_date, desc: lbl + " (repays cash credit)", amt: -a });
     });
     state.transfers.forEach(function (t) {
@@ -1594,7 +1596,7 @@
   });
 
   // ---------- Daily ledger ----------
-  // Sales + previous shop balance + dues received − credit given − expenses
+  // Sales + previous shop balance + net dues + other income at the shop − expenses
   //   should equal  cash collection + online received + remaining shop balance
   function bookRow(date) {
     var entry = state.book.find(function (b) { return b.ledger_date === date; }) || null;
@@ -1605,16 +1607,18 @@
     var duesIn = 0, credit = 0;
     state.dues.forEach(function (d) { if (d.entry_date === date) { if (d.entry_type === "payment") duesIn += Number(d.amount); else credit += Number(d.amount); } });
     var exp = expensesByDate()[date] || 0;
+    var incShop = 0;
+    state.allIncome.forEach(function (x) { if (x.income_date === date && x.received_into === "shop") incShop += Number(x.amount); });
     var prev = null;
     if (date === START_DATE) prev = entry && entry.opening_balance != null ? Number(entry.opening_balance) : null;
     else if (prevEntry) prev = Number(prevEntry.shop_balance);
     var prevDate = prevEntry ? prevEntry.ledger_date : null;
     var bar = entry ? Number(entry.bar_collection || 0) : 0;
-    var expected = (prev || 0) + sales + bar + duesIn - credit - exp;
+    var expected = (prev || 0) + sales + bar + duesIn - credit + incShop - exp;
     var actual = entry ? Number(entry.cash_collection) + Number(entry.online_received) + Number(entry.shop_balance) : null;
-    return { date: date, entry: entry, hasReport: !!rep, rep: rep || null, prev: prev, prevDate: prevDate, sales: sales, bar: bar, duesIn: duesIn, credit: credit, exp: exp,
+    return { date: date, entry: entry, hasReport: !!rep, rep: rep || null, prev: prev, prevDate: prevDate, sales: sales, bar: bar, duesIn: duesIn, credit: credit, exp: exp, incShop: incShop,
       expected: expected, actual: actual, diff: entry ? actual - expected : null,
-      // Mismatch = sales + previous balance + bar counter + dues received − credit − expenses − cash − online − remaining balance. Should be 0.
+      // Mismatch = sales + previous balance + bar counter + net dues + other income at the shop − expenses − cash − online − remaining balance. Should be 0.
       mismatch: entry ? expected - actual : null };
   }
 
@@ -1649,7 +1653,7 @@
     var any = ["cash_collection", "online_cc", "online_bank", "shop_balance", "bar_collection"].some(function (f) { var i = tr.querySelector('[data-f="' + f + '"]'); return i && i.value !== ""; });
     if (!any && !b.entry) return null;
     var prev = date === START_DATE ? toNum(val("opening_balance")) : (b.prev || 0);
-    return prev + b.sales + toNum(val("bar_collection")) + b.duesIn - b.credit - b.exp -
+    return prev + b.sales + toNum(val("bar_collection")) + b.duesIn - b.credit + b.incShop - b.exp -
       toNum(val("cash_collection")) - toNum(val("online_cc")) - toNum(val("online_bank")) - toNum(val("shop_balance"));
   }
   function mismatchCell(m) {
@@ -1688,7 +1692,7 @@
     };
     var body = days.map(function (d) {
       var b = bookRow(d), e = b.entry, gp = b.rep ? Number(b.rep.gross_profit) : 0, inc = state.allIncome.reduce(function (a, x) { return a + (x.income_date === d ? Number(x.amount) : 0); }, 0), net = gp + inc - b.exp, mm = mismatchCount(d);
-      t.s += b.sales; t.g += gp; t.e += b.exp; t.di += b.duesIn; t.cr += b.credit; t.inc = (t.inc || 0) + inc;
+      t.s += b.sales; t.g += gp; t.e += b.exp; t.di += b.duesIn; t.cr += b.credit; t.inc = (t.inc || 0) + inc; t.is = (t.is || 0) + b.incShop;
       if (e) { t.cash += Number(e.cash_collection); t.on += Number(e.online_received); t.bar += b.bar; t.m += b.mismatch; }
       var bad = e && Math.abs(b.mismatch) >= 0.5, open = state.bookOpen === d, frozen = isFrozen(d);
       var fixed = function (v) { return '<span class="fixed-v">' + (v == null || v === "" ? "–" : inr.format(v)) + "</span>"; };
@@ -1706,24 +1710,26 @@
         (frozen ? ' <span class="tag ok" title="Locked: a later day is uploaded and this day balances">locked</span>' : "");
       var row = '<tr data-row="' + d + '" class="' + (bad ? "mm-row" : "") + (frozen ? " frozen" : "") + '"><td>' + dateCell + "</td>" +
         '<td class="num">' + money(b.sales) + "</td>" +
+        '<td class="num">' + prevCell + "</td>" +
         '<td class="num" title="Collected ' + inr.format(b.duesIn) + ' − credit given ' + inr.format(b.credit) + '">' + signed(b.duesIn - b.credit) + "</td>" +
         '<td class="num">' + money(b.exp) + "</td>" +
-        '<td class="num ' + (net < 0 ? "neg" : "") + '" title="Gross profit ' + inr.format(gp) + (inc ? " + other income " + inr.format(inc) : "") + ' − expenses">' + (b.hasReport || b.exp || inc ? inr.format(net) : "–") + "</td>" +
+        '<td class="num" title="Other income taken at the shop. Add it from Details.">' + money(b.incShop) + "</td>" +
         '<td class="num">' + box("bar_collection", e ? e.bar_collection : "") + "</td>" +
         '<td class="num">' + box("cash_collection", e ? e.cash_collection : "") + "</td>" +
         '<td class="num on-cell">' + onlineCell + "</td>" +
         '<td class="num">' + box("shop_balance", e ? e.shop_balance : "") + "</td>" +
+        '<td class="num ' + (net < 0 ? "neg" : "") + '" title="Gross profit ' + inr.format(gp) + (inc ? " + other income " + inr.format(inc) : "") + ' − expenses">' + (b.hasReport || b.exp || inc ? inr.format(net) : "–") + "</td>" +
         '<td class="num mm-cell">' + mismatchCell(e ? b.mismatch : null) + "</td>" +
         '<td class="actions"><button class="icon-btn" data-bopen="' + d + '">' + (open ? "Hide" : "Details") + "</button></td></tr>";
-      if (open) row += detailRow(d, frozen, prevCell, b);
+      if (open) row += detailRow(d, frozen);
       return row;
     }).join("");
     var tn = t.g + (t.inc || 0) - t.e;
-    tbl.innerHTML = '<thead><tr><th>Date</th><th class="num">Total sales</th><th class="num" title="Dues collected − credit given">Net dues</th><th class="num">Expenses</th><th class="num">Net profit</th>' +
-      '<th class="num">Bar counter</th><th class="num">Cash collected</th><th class="num">Online payment</th><th class="num">Remaining balance</th><th class="num">Mismatch</th><th></th></tr></thead><tbody>' + body + "</tbody>" +
-      '<tfoot><tr><td>Total</td><td class="num">' + inr.format(t.s) + '</td><td class="num">' + signed(t.di - t.cr) + '</td><td class="num">' + inr.format(t.e) +
-      '</td><td class="num ' + (tn < 0 ? "neg" : "pos") + '">' + inr.format(tn) + '</td><td class="num">' + inr.format(t.bar) + '</td><td class="num">' + inr.format(t.cash) +
-      '</td><td class="num">' + inr.format(t.on) + '</td><td></td><td class="num ' + (Math.abs(t.m) >= 0.5 ? "neg" : "pos") + '">' + inr2.format(Math.abs(t.m) >= 0.5 ? t.m : 0) + "</td><td></td></tr></tfoot>";
+    tbl.innerHTML = '<thead><tr><th>Date</th><th class="num">Total sales</th><th class="num" title="Remaining balance of the previous day">Previous day\'s balance</th><th class="num" title="Dues collected − credit given">Net dues</th><th class="num">Expenses</th>' +
+      '<th class="num" title="Other income taken at the shop">Other income</th><th class="num">Bar counter</th><th class="num">Cash collected</th><th class="num">Online payment</th><th class="num">Remaining balance</th><th class="num">Net profit</th><th class="num">Mismatch</th><th></th></tr></thead><tbody>' + body + "</tbody>" +
+      '<tfoot><tr><td>Total</td><td class="num">' + inr.format(t.s) + '</td><td></td><td class="num">' + signed(t.di - t.cr) + '</td><td class="num">' + inr.format(t.e) +
+      '</td><td class="num">' + inr.format(t.is || 0) + '</td><td class="num">' + inr.format(t.bar) + '</td><td class="num">' + inr.format(t.cash) +
+      '</td><td class="num">' + inr.format(t.on) + '</td><td></td><td class="num ' + (tn < 0 ? "neg" : "pos") + '">' + inr.format(tn) + '</td><td class="num ' + (Math.abs(t.m) >= 0.5 ? "neg" : "pos") + '">' + inr2.format(Math.abs(t.m) >= 0.5 ? t.m : 0) + "</td><td></td></tr></tfoot>";
     // Keep the expenses & dues panel in view when the table scrolls sideways
     var wrap = tbl.closest(".table-wrap");
     document.querySelectorAll("#book-table .bd-grid").forEach(function (g) { g.style.width = Math.max(260, wrap.clientWidth - 34) + "px"; });
@@ -1760,7 +1766,13 @@
     }
   });
 
-  function detailRow(d, frozen, prevCell, b) {
+  var INC_CATS = ["Distributor incentive", "Scrap sale", "Other"];
+  function detailRow(d, frozen) {
+    var incs = state.allIncome.filter(function (x) { return x.income_date === d && x.received_into === "shop"; });
+    var incList = incs.length ? incs.map(function (x) {
+      return '<div class="it"><span>' + esc(x.category) + (x.source ? ' <span style="color:var(--muted)">· ' + esc(x.source) + "</span>" : "") +
+        "</span><span>" + inr2.format(x.amount) + "</span>" + (frozen ? "<span></span>" : '<button class="x-btn" data-delinc="' + x.id + '">Delete</button>') + "</div>";
+    }).join("") : '<div class="none">No other income taken at the shop this day.</div>';
     var exps = state.ledger.expenses.filter(function (x) { return x.expense_date === d; });
     var dues = state.dues.filter(function (x) { return x.entry_date === d; });
     var expList = exps.length ? exps.map(function (x) {
@@ -1771,8 +1783,7 @@
       return '<div class="it"><span>' + esc(x.customer_name) + " · " + (x.entry_type === "payment" ? '<span class="pos">collected</span>' : '<span class="warn-t">credit given</span>') +
         "</span><span>" + inr2.format(x.amount) + "</span>" + (frozen ? "<span></span>" : '<button class="x-btn" data-deldue="' + x.id + '">Delete</button>') + "</div>";
     }).join("") : '<div class="none">No dues collected or credit given this day.</div>';
-    return '<tr class="book-detail"><td colspan="11"><div class="bd-prev">' + (d === START_DATE ? "Opening shop balance on " + fmtDate(d) + ": " : "Previous day's balance" + (b && b.prevDate ? " (remaining balance of " + fmtDate(b.prevDate) + ")" : "") + ": ") +
-      prevCell + '</div><div class="bd-grid">' +
+    return '<tr class="book-detail"><td colspan="13"><div class="bd-grid">' +
       '<div class="bd-box"><h3>Expenses on ' + fmtDate(d) + "</h3><div class=\"bd-list\">" + expList + "</div>" +
         (frozen ? '<div class="none">Locked.</div></div>' : '<form class="bd-add" data-addexp="' + d + '">' +
           "<select name=\"category\">" + EXP_CATS.map(function (c) { return "<option>" + esc(c) + "</option>"; }).join("") + "</select>" +
@@ -1784,6 +1795,12 @@
           '<select name="type"><option value="payment">Dues collected</option><option value="credit">Credit given</option></select>' +
           '<input name="amount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount ₹" required>' +
           customerPicker() +
+          '<button class="primary" type="submit">Add</button></form></div>') +
+      '<div class="bd-box"><h3>Other income at the shop on ' + fmtDate(d) + "</h3><div class=\"bd-list\">" + incList + "</div>" +
+        (frozen ? '<div class="none">Locked.</div></div>' : '<form class="bd-add" data-addinc="' + d + '">' +
+          "<select name=\"category\">" + INC_CATS.map(function (c) { return "<option>" + esc(c) + "</option>"; }).join("") + "</select>" +
+          '<input name="amount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount ₹" required>' +
+          '<input name="source" type="text" list="dl-sources" placeholder="From (distributor or buyer)" required>' +
           '<button class="primary" type="submit">Add</button></form></div>') +
       "</div></td></tr>";
   }
@@ -1826,7 +1843,14 @@
   });
 
   $("book-table").addEventListener("click", async function (e) {
-    var o = e.target.getAttribute("data-bopen"), de = e.target.getAttribute("data-delexp"), dd = e.target.getAttribute("data-deldue");
+    var o = e.target.getAttribute("data-bopen"), de = e.target.getAttribute("data-delexp"), dd = e.target.getAttribute("data-deldue"), di = e.target.getAttribute("data-delinc");
+    if (di) {
+      var w = state.allIncome.find(function (y) { return y.id === di; });
+      if (!confirm("Delete the " + w.category + " income of " + inr2.format(w.amount) + "?")) return;
+      var r3 = await sb.from("other_income").delete().eq("id", di);
+      if (r3.error) { toast("Couldn't delete: " + r3.error.message); return; }
+      toast("Income deleted"); loadMonth(); return;
+    }
     var v = e.target.getAttribute("data-view"), mm = e.target.getAttribute("data-mismatch");
     if (v) { state.detailFilter = "sold"; await openDetail(v); $("rep-detail").scrollIntoView({ behavior: "smooth", block: "start" }); return; }
     if (mm) { showMismatches(mm); return; }
@@ -1851,12 +1875,18 @@
 
   $("book-table").addEventListener("submit", async function (e) {
     e.preventDefault();
-    var f = e.target, d = f.getAttribute("data-addexp") || f.getAttribute("data-adddue");
+    var f = e.target, d = f.getAttribute("data-addexp") || f.getAttribute("data-adddue") || f.getAttribute("data-addinc");
     var amt = toNum(f.amount.value);
     if (!(amt > 0)) { toast("Enter an amount above zero."); return; }
     var btn = f.querySelector(".primary"); btn.disabled = true;
     var r;
-    if (f.getAttribute("data-addexp")) {
+    if (f.getAttribute("data-addinc")) {
+      var src = f.source.value.trim().replace(/\s+/g, " ");
+      if (!src) { btn.disabled = false; toast("Say who paid it."); return; }
+      var known = state.allIncome.find(function (x) { return x.source && x.source.trim().toLowerCase() === src.toLowerCase(); });
+      if (known) src = known.source.trim();
+      r = await sb.from("other_income").insert({ income_date: d, amount: amt, category: f.category.value, source: src, received_into: "shop", description: "" });
+    } else if (f.getAttribute("data-addexp")) {
       r = await sb.from("expenses").insert({ expense_date: d, amount: amt, category: f.category.value, description: f.note.value.trim() });
     } else {
       var pick = pickedName(f);
@@ -1874,9 +1904,10 @@
     var days = ledgerDays();
     if (!days.length) { toast("Nothing to export."); return; }
     downloadCSV("nalagola-ledger-" + state.month + ".csv",
-      ["Date", "Sales", "Gross profit", "Expenses", "Net profit", "Previous day balance", "Bar counter", "Dues collected", "Credit given", "Cash collected", "Online received", "Remaining balance", "Mismatch"],
-      days.map(function (d) { var b = bookRow(d), e = b.entry, gp = b.rep ? Number(b.rep.gross_profit) : 0;
-        return [d, b.sales, gp, b.exp, gp - b.exp, b.prev, e && e.bar_collection, b.duesIn, b.credit, e && e.cash_collection, e && e.online_received, e && e.shop_balance, b.mismatch]; }));
+      ["Date", "Total sales", "Previous day's balance", "Dues collected", "Credit given", "Net dues", "Expenses", "Other income (shop)", "Bar counter", "Cash collected", "Online to cash credit", "Online to bank", "Remaining balance", "Gross profit", "Other income (all)", "Net profit", "Mismatch"],
+      days.map(function (d) { var b = bookRow(d), e = b.entry, gp = b.rep ? Number(b.rep.gross_profit) : 0, sp = onlineSplit(e);
+        var inc = state.allIncome.reduce(function (a, x) { return a + (x.income_date === d ? Number(x.amount) : 0); }, 0);
+        return [d, b.sales, b.prev, b.duesIn, b.credit, b.duesIn - b.credit, b.exp, b.incShop, e && e.bar_collection, e && e.cash_collection, e ? sp.cc : "", e ? sp.bank : "", e && e.shop_balance, gp, inc, gp + inc - b.exp, b.mismatch]; }));
   });
 
   // ---------- Excel reading ----------
