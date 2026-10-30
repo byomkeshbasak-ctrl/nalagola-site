@@ -215,6 +215,15 @@
   .pie-legend small { display: block; margin-left: 18px; color: var(--muted); font-size: 0.72rem; }
   #bd-exp .dim { opacity: 0.35; }
   #month-table tr.month-row { cursor: pointer; }
+  .rep-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 14px; }
+  .rep-tile { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; text-align: left; cursor: pointer; display: grid; gap: 2px; color: var(--text); font: inherit; }
+  .rep-tile:hover, .rep-tile.on { border-color: var(--gold); }
+  .rep-tile .l { font-size: 0.75rem; color: var(--muted); }
+  .rep-tile .a { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .rep-tile .d { font-size: 0.7rem; color: var(--muted); }
+  #cust-table .rep-sel { width: auto; padding: 5px 8px; font-size: 0.82rem; }
+  #cust-table .open-in { width: 100px; }
+  #cust-table small.ph { display: block; color: var(--muted); font-size: 0.72rem; }
   #items-table tr.item-edit td { background: var(--bg); border-bottom: 1px solid var(--line-strong); }
   .ie-form { display: grid; gap: 12px; padding: 6px 2px; }
   .ie-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: end; }
@@ -493,7 +502,7 @@
         <label>Cash credit limit (₹) <input type="number" id="ob-limit" step="0.01" min="0" inputmode="decimal"></label>
         <label>Cash credit used (₹) <input type="number" id="ob-cc" step="0.01" min="0" inputmode="decimal"></label>
         <label>Cash not deposited (₹) <input type="number" id="ob-cash" step="0.01" min="0" inputmode="decimal"></label>
-        <label>Credit owed by customers (₹) <input type="number" id="ob-credit" step="0.01" min="0" inputmode="decimal"></label>
+        <label hidden>Credit owed by customers (₹) <input type="number" id="ob-credit" step="0.01" min="0" inputmode="decimal"></label>
         <div class="form-actions" id="ob-actions">
           <button class="primary" type="submit">Save</button>
           <button class="ghost" type="button" id="ob-freeze">Save and freeze</button>
@@ -615,6 +624,7 @@
             </div>
             <button class="ghost" id="dues-csv" type="button">Export CSV</button>
           </div>
+          <div class="rep-tiles" id="rep-tiles"></div>
           <div class="table-wrap"><table id="cust-table"></table></div>
         </div>
       </div>
@@ -985,7 +995,8 @@
       fetchAll(function () { return sb.from("other_income").select("*").order("income_date", { ascending: false }).order("created_at", { ascending: false }); }),
       fetchAll(function () { return sb.from("bar_expenses").select("*").order("expense_date").order("created_at"); }),
       sb.from("personal_accounts").select("code,name").order("sort"),
-      fetchAll(function () { return sb.from("bar_online").select("*").order("collection_date").order("created_at"); })
+      fetchAll(function () { return sb.from("bar_online").select("*").order("collection_date").order("created_at"); }),
+      sb.from("customers").select("*").order("name")
     ]);
     if (q.some(function (x) { return x.error; })) toast("Some data couldn't load. Try reloading the page.");
     state.reports = q[0].data || [];
@@ -1006,6 +1017,7 @@
     state.transfers = q[14].data || [];
     setPersonalAccounts(q[17].data || []);
     state.barOnline = q[18].data || [];
+    state.custRows = q[19].data || [];
     renderCapital();
     renderSummary(); renderReports(); renderChecks();
     if (state.tab === "sales") renderMonths();
@@ -1130,7 +1142,7 @@
       var k = custKey(d.customer_name);
       per[k] = (per[k] || 0) + (d.entry_type === "credit" ? 1 : -1) * Number(d.amount);
     });
-    var credit = Number((state.cap.opening || {}).credit_opening || 0) + Object.keys(per).reduce(function (a, k) { return a + per[k]; }, 0);
+    var credit = custOpeningTotal() + Object.keys(per).reduce(function (a, k) { return a + per[k]; }, 0);
     var asOf = "as of " + fmtDate(end);
     var parts = [
       { k: "stock", l: "Shop stock value", a: c.stock ? Number(c.stock.closing_value_cost) : 0, d: c.stock ? "at cost, " + fmtDate(c.stock.report_date) : "no report yet" },
@@ -1176,7 +1188,7 @@
   // Every movement for one account, oldest first. Amount is + when the balance goes up.
   function movements(acct) {
     var o = state.cap.opening || {}, m = [];
-    var opening = { bevco: o.bevco_wallet, bank: o.bank_balance, cash_credit: o.cc_used, cash_hand: o.cash_not_deposited, dues: o.credit_opening }[acct];
+    var opening = { bevco: o.bevco_wallet, bank: o.bank_balance, cash_credit: o.cc_used, cash_hand: o.cash_not_deposited, dues: custOpeningTotal() }[acct];
     m.push({ date: START_DATE, desc: "Opening balance (morning of " + fmtDate(START_DATE) + ")", amt: Number(opening || 0), opening: true });
     if (acct === "dues") {
       var byDay = {};
@@ -1792,15 +1804,22 @@
 
   // ---------- Dues (customer credit) ----------
   function custKey(n) { return String(n || "").trim().toLowerCase().replace(/\s+/g, " "); }
+  var REPS = ["Shubhankar", "Ajit", "Sudeb", "Owner"];
+  // Each customer's balance on the morning of 1 Oct, set in the Dues tab
+  function custOpeningTotal() { return (state.custRows || []).reduce(function (a, c) { return a + Number(c.opening_balance || 0); }, 0); }
   function customers() {
     var m = {};
+    (state.custRows || []).forEach(function (r) {
+      var k = custKey(r.name);
+      m[k] = { key: k, name: r.name.trim(), phone: "", credit: 0, paid: 0, last: null, opening: Number(r.opening_balance || 0), rep: r.representative || null, row: r };
+    });
     state.dues.slice().sort(function (a, b) { return a.entry_date < b.entry_date ? -1 : 1; }).forEach(function (d) {
       var k = custKey(d.customer_name);
-      var c = m[k] || (m[k] = { key: k, name: d.customer_name.trim(), phone: "", credit: 0, paid: 0, last: d.entry_date });
-      c.name = d.customer_name.trim(); if (d.phone) c.phone = d.phone; c.last = d.entry_date;
+      var c = m[k] || (m[k] = { key: k, name: d.customer_name.trim(), phone: "", credit: 0, paid: 0, last: d.entry_date, opening: 0, rep: null, row: null });
+      if (!c.row) c.name = d.customer_name.trim(); if (d.phone) c.phone = d.phone; c.last = d.entry_date;
       if (d.entry_type === "credit") c.credit += Number(d.amount); else c.paid += Number(d.amount);
     });
-    return Object.keys(m).map(function (k) { var c = m[k]; c.balance = c.credit - c.paid; return c; })
+    return Object.keys(m).map(function (k) { var c = m[k]; c.balance = c.opening + c.credit - c.paid; return c; })
       .sort(function (a, b) { return b.balance - a.balance || (a.name < b.name ? -1 : 1); });
   }
 
@@ -1815,29 +1834,45 @@
 
   function renderDues() {
     var list = customers(), outstanding = list.reduce(function (a, c) { return a + c.balance; }, 0);
-    var co = state.cap.opening && Number(state.cap.opening.credit_opening || 0);
-    $("dues-opening").innerHTML = co ? "· plus <b>" + inr.format(co) + "</b> opening credit before " + fmtDate(START_DATE) : "";
+    $("dues-opening").innerHTML = "";
     $("dues-total").textContent = inr2.format(outstanding);
     $("dl-customers").innerHTML = list.map(function (c) { return "<option>" + esc(c.name) + "</option>"; }).join("");
+    // Who collects what: one tile per representative
+    var repSum = {}; REPS.concat(["none"]).forEach(function (r) { repSum[r] = { owed: 0, n: 0 }; });
+    list.forEach(function (c) { var r = repSum[c.rep || "none"]; if (c.balance > 0.5) { r.owed += c.balance; r.n++; } });
+    var rf = state.repFilter || "";
+    $("rep-tiles").innerHTML = REPS.concat(["none"]).filter(function (r) { return r !== "none" || list.some(function (c) { return !c.rep; }); }).map(function (r) {
+      return '<button type="button" class="rep-tile' + (rf === r ? " on" : "") + '" data-rep="' + r + '"><span class="l">' + (r === "none" ? "Not assigned" : esc(r)) + '</span><span class="a">' + inr.format(repSum[r].owed) +
+        '</span><span class="d">' + repSum[r].n + " owing</span></button>";
+    }).join("");
     var shown = state.custFilter === "open" ? list.filter(function (c) { return c.balance > 0.5; }) : list;
+    if (rf) shown = shown.filter(function (c) { return (c.rep || "none") === rf; });
     $("cust-title").textContent = list.filter(function (c) { return c.balance > 0.5; }).length + " customer" + (list.length === 1 ? "" : "s") + " owing";
     var ct = $("cust-table");
     ct.innerHTML = !shown.length ? '<tr><td class="empty">' + (list.length ? "Nobody owes anything right now." : "No dues recorded yet.") + "</td></tr>" :
-      '<thead><tr><th>Customer</th><th>Phone</th><th class="num">Credit given</th><th class="num">Collected</th><th class="num">Balance</th><th>Last entry</th></tr></thead><tbody>' +
+      '<thead><tr><th>Customer</th><th>Representative</th><th class="num">Opening 1 Oct</th><th class="num">Credit given</th><th class="num">Collected</th><th class="num">Balance</th><th>Last entry</th></tr></thead><tbody>' +
       shown.map(function (c) {
-        var open = state.custSel === c.key;
-        var row = '<tr class="' + (open ? "sel" : "") + '"><td><span class="clickable" data-cust="' + esc(c.key) + '">' + esc(c.name) + "</span></td><td>" + esc(c.phone) +
-          '</td><td class="num">' + inr2.format(c.credit) + '</td><td class="num">' + inr2.format(c.paid) + '</td><td class="num ' + (c.balance > 0.5 ? "neg" : "pos") + '">' +
-          inr2.format(c.balance) + "</td><td>" + fmtDate(c.last) + "</td></tr>";
+        var open = state.custSel === c.key, ek = encodeURIComponent(c.key);
+        // Representative and opening lock once set; "change" opens them again
+        var repCell = c.rep && state.custEdit !== ek + "|rep"
+          ? esc(c.rep) + ' <button class="icon-btn" type="button" data-cedit="' + ek + '|rep">change</button>'
+          : '<select class="rep-sel" data-ckey="' + ek + '"><option value="">' + (c.rep ? "Not assigned" : "Assign…") + "</option>" +
+            REPS.map(function (r) { return "<option" + (r === c.rep ? " selected" : "") + ">" + r + "</option>"; }).join("") + "</select>";
+        var openCell = state.custEdit === ek + "|open"
+          ? '<input class="cell-in open-in" type="number" step="0.01" data-ckey="' + ek + '" value="' + (c.opening || "") + '" placeholder="0">'
+          : (c.opening ? inr2.format(c.opening) : "–") + ' <button class="icon-btn" type="button" data-cedit="' + ek + '|open">change</button>';
+        var row = '<tr class="' + (open ? "sel" : "") + '"><td><span class="clickable" data-cust="' + esc(c.key) + '">' + esc(c.name) + "</span>" + (c.phone ? '<small class="ph">' + esc(c.phone) + "</small>" : "") + "</td><td>" + repCell +
+          '</td><td class="num">' + openCell + '</td><td class="num">' + inr2.format(c.credit) + '</td><td class="num">' + inr2.format(c.paid) + '</td><td class="num ' + (c.balance > 0.5 ? "neg" : "pos") + '">' +
+          inr2.format(c.balance) + "</td><td>" + (c.last ? fmtDate(c.last) : "–") + "</td></tr>";
         if (open) {
           var hist = state.dues.filter(function (d) { return custKey(d.customer_name) === c.key; })
             .sort(function (a, b) { return a.entry_date < b.entry_date ? 1 : -1; });
-          row += '<tr class="sub-row"><td colspan="6"><table class="sub-table"><thead><tr><th>Date</th><th>Type</th><th class="num">Amount</th><th>Note</th><th></th></tr></thead><tbody>' +
+          row += '<tr class="sub-row"><td colspan="7"><table class="sub-table"><thead><tr><th>Date</th><th>Type</th><th class="num">Amount</th><th>Note</th><th></th></tr></thead><tbody>' +
             hist.map(function (d) {
               return "<tr><td>" + fmtLong(d.entry_date) + "</td><td>" + (d.entry_type === "credit" ? '<span class="tag warn">Credit given</span>' : '<span class="tag ok">Collected</span>') +
                 '</td><td class="num">' + inr2.format(d.amount) + "</td><td>" + esc(d.note) + '</td><td class="actions"><button class="icon-btn" data-dedit="' + d.id +
                 '">Edit</button><button class="icon-btn del" data-ddel="' + d.id + '">Delete</button></td></tr>';
-            }).join("") + "</tbody></table></td></tr>";
+            }).join("") + (c.opening ? '<tr class="bf"><td>' + fmtLong(START_DATE) + '</td><td><span class="tag">Opening balance</span></td><td class="num">' + inr2.format(c.opening) + "</td><td></td><td></td></tr>" : "") + "</tbody></table></td></tr>";
         }
         return row;
       }).join("") + "</tbody>";
@@ -1857,7 +1892,37 @@
       }).join("") + "</tbody>";
   }
 
+  // Save a customer's representative or 1 Oct opening balance (creates the customer row if needed)
+  async function saveCustomer(key, patch) {
+    var c = customers().find(function (x) { return x.key === key; }); if (!c) return;
+    var row = Object.assign({ name: c.name, opening_balance: c.opening || 0, representative: c.rep || null }, patch, { updated_at: new Date().toISOString() });
+    var r = c.row ? await sb.from("customers").update(row).eq("name", c.row.name) : await sb.from("customers").insert(row);
+    if (r.error) { toast("Couldn't save: " + r.error.message); return; }
+    state.custEdit = null;
+    var i = (state.custRows || []).findIndex(function (x) { return custKey(x.name) === key; });
+    if (i >= 0) state.custRows[i] = Object.assign({}, state.custRows[i], row, { name: state.custRows[i].name }); else state.custRows.push(row);
+    toast("Saved for " + c.name);
+    renderDues(); renderCapital();
+  }
+  $("cust-table").addEventListener("change", function (e) {
+    var s = e.target.closest(".rep-sel");
+    if (s) { saveCustomer(decodeURIComponent(s.dataset.ckey), { representative: s.value || null }); return; }
+    var o = e.target.closest(".open-in");
+    if (o) saveCustomer(decodeURIComponent(o.dataset.ckey), { opening_balance: toNum(o.value) });
+  });
+  $("cust-table").addEventListener("keydown", function (e) { if (e.key === "Enter" && e.target.classList.contains("open-in")) e.target.blur(); });
+  $("rep-tiles").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-rep]"); if (!b) return;
+    state.repFilter = state.repFilter === b.dataset.rep ? "" : b.dataset.rep; renderDues();
+  });
   $("cust-table").addEventListener("click", function (e) {
+    var ce = e.target.getAttribute("data-cedit");
+    if (ce) {
+      state.custEdit = ce; renderDues();
+      var pr = ce.split("|"), el = document.querySelector('#cust-table ' + (pr[1] === "rep" ? ".rep-sel" : ".open-in") + '[data-ckey="' + pr[0] + '"]');
+      if (el) { el.focus(); if (el.select) try { el.select(); } catch (x) {} }
+      return;
+    }
     if (e.target.getAttribute("data-dedit") || e.target.getAttribute("data-ddel")) { duesRowAction(e); return; }
     var k = e.target.getAttribute("data-cust"); if (k == null) return;
     state.custSel = state.custSel === k ? null : k; resetDuesForm(); renderDues();
@@ -1909,11 +1974,12 @@
   }
 
   $("dues-csv").addEventListener("click", function () {
-    if (!state.dues.length) { toast("Nothing to export yet."); return; }
-    var bal = {}; customers().forEach(function (c) { bal[c.key] = c.balance; });
-    var rows = state.dues.slice().sort(function (a, b) { return a.customer_name.localeCompare(b.customer_name) || (a.entry_date < b.entry_date ? -1 : 1); })
-      .map(function (d) { return [d.customer_name, d.entry_date, d.entry_type === "credit" ? "Credit given" : "Collected", d.amount, d.note, bal[custKey(d.customer_name)]]; });
-    downloadCSV("nalagola-dues-" + todayISO() + ".csv", ["Customer", "Date", "Type", "Amount", "Note", "Customer balance"], rows);
+    if (!state.dues.length && !(state.custRows || []).length) { toast("Nothing to export yet."); return; }
+    var cs = {}; customers().forEach(function (c) { cs[c.key] = c; });
+    var rows = customers().filter(function (c) { return c.opening; }).map(function (c) { return [c.name, c.rep || "", START_DATE, "Opening balance", c.opening, "", c.balance]; })
+      .concat(state.dues.map(function (d) { var c = cs[custKey(d.customer_name)] || {}; return [d.customer_name, c.rep || "", d.entry_date, d.entry_type === "credit" ? "Credit given" : "Collected", d.amount, d.note, c.balance]; }))
+      .sort(function (a, b) { return a[0].localeCompare(b[0]) || (a[2] < b[2] ? -1 : a[2] > b[2] ? 1 : 0); });
+    downloadCSV("nalagola-dues-" + todayISO() + ".csv", ["Customer", "Representative", "Date", "Type", "Amount", "Note", "Customer balance"], rows);
   });
 
   // ---------- Daily ledger ----------
