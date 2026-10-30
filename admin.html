@@ -244,6 +244,7 @@
   #month-table .m-caret { display: inline-block; width: 14px; color: var(--gold); }
   #month-table tr.day-row td { font-size: 0.82rem; color: var(--muted); background: var(--bg); }
   #month-table tr.day-row td:first-child { padding-left: 24px; color: var(--text); }
+  #entry-table td.nw { white-space: nowrap; }
   #entry-table tr.src-row td { background: var(--panel-2); font-weight: 600; color: var(--gold); }
   #entry-table tr.src-row .src-n { font-weight: 400; color: var(--muted); font-size: 0.78rem; margin-left: 6px; }
 
@@ -3124,10 +3125,9 @@
     if (!rows.length) { tbl.innerHTML = '<tr><td class="empty">No other income recorded for this month yet.</td></tr>'; return; }
     // Latest date first
     rows.sort(function (a, b) { return a.income_date < b.income_date ? 1 : a.income_date > b.income_date ? -1 : (a.created_at < b.created_at ? 1 : -1); });
-    tbl.innerHTML = '<thead><tr><th>Date</th><th>From</th><th>Type</th><th>Paid into</th><th>Note</th><th class="num">Amount</th><th></th></tr></thead><tbody>' +
+    tbl.innerHTML = '<thead><tr><th>Date</th><th>From</th><th>Type</th><th class="num">Amount</th><th></th></tr></thead><tbody>' +
       rows.map(function (x) {
-        return "<tr" + (state.editing && state.editing.id === x.id ? ' class="sel"' : "") + "><td>" + fmtDate(x.income_date) + "</td><td>" + esc(x.source || "–") + "</td><td>" + esc(x.category) +
-          "</td><td>" + esc(PAID_INTO[x.received_into] || x.received_into) + "</td><td>" + esc(x.description || "") + '</td><td class="num">' + inr2.format(x.amount) +
+        return "<tr" + (state.editing && state.editing.id === x.id ? ' class="sel"' : "") + "><td class=\"nw\">" + fmtDate(x.income_date) + "</td><td>" + esc(x.source || "–") + "</td><td>" + esc(x.category) + '</td><td class="num">' + inr2.format(x.amount) +
           '</td><td class="actions"><button class="icon-btn" data-edit="' + x.id + '">Edit</button><button class="icon-btn del" data-del="' + x.id + '">Delete</button></td></tr>';
       }).join("") + "</tbody>";
   }
