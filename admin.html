@@ -2424,7 +2424,8 @@
     state.ind.rows = Object.keys(by).map(function (k) {
       var x = by[k], l = x.last, mrp = Number(l.mrp);
       var item = state.items.find(function (i) { return i.item_name === l.item_name && Number(i.mrp) === mrp; });
-      var cost = l.cost_price != null ? Number(l.cost_price) : item && item.cost_price != null ? Number(item.cost_price) : null;
+      // The price list (Items & costs) always wins, so a price change shows here straight away
+      var cost = item && item.cost_price != null ? Number(item.cost_price) : l.cost_price != null ? Number(l.cost_price) : null;
       var cat = savedCategory(l.item_name, mrp) || l.category || categoryOf(l.item_name);
       return { name: x.name, cat: cat, size: sizeOf(l), mrp: mrp, cost: cost, sold: x.sold, stock: x.stock };
     }).filter(function (r) { return r.sold > 0 || r.stock > 0; });
@@ -2928,7 +2929,7 @@
     state.itemEdit = null;
     toast(x.changed ? "Price saved" + (n ? "; " + n + " report line" + (n === 1 ? "" : "s") + " updated" : "") : "Saved");
     await Promise.all([loadItems(), loadMonth()]);
-    if (state.tab === "indent") loadIndent();
+    await loadIndent(); // indent prices follow the change
   });
   $("items-search").addEventListener("input", renderItems);
   document.querySelectorAll("#items-filter button").forEach(function (b) {
