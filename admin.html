@@ -200,6 +200,22 @@
   .bar { height: 8px; border-radius: 4px; background: rgba(217, 178, 111, 0.12); overflow: hidden; }
   .bar span { display: block; height: 100%; background: var(--gold); border-radius: 4px; }
   .bar-row .amt { text-align: right; font-variant-numeric: tabular-nums; }
+  .pie-wrap { display: grid; gap: 14px; }
+  .pie-box { position: relative; width: 210px; max-width: 100%; margin: 0 auto; }
+  .pie-box svg { display: block; width: 100%; height: auto; }
+  .pie-box path { stroke: var(--panel); stroke-width: 2; stroke-linejoin: round; cursor: pointer; transition: opacity .15s; }
+  .pie-center { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; }
+  .pie-center .l { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+  .pie-center .a { font-size: 1.05rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .pie-tip { position: absolute; z-index: 3; pointer-events: none; background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: 8px; padding: 6px 9px; font-size: 0.78rem; white-space: nowrap; }
+  .pie-legend { font-size: 0.84rem; }
+  .pie-legend td { padding: 6px 4px; vertical-align: top; }
+  .pie-legend tr { cursor: default; transition: opacity .15s; }
+  .pie-legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 8px; vertical-align: -1px; }
+  .pie-legend small { display: block; margin-left: 18px; color: var(--muted); font-size: 0.72rem; }
+  #bd-exp .dim { opacity: 0.35; }
+  #entry-table tr.src-row td { background: var(--panel-2); font-weight: 600; color: var(--gold); }
+  #entry-table tr.src-row .src-n { font-weight: 400; color: var(--muted); font-size: 0.78rem; margin-left: 6px; }
 
   .detail { margin-top: 18px; }
 
@@ -492,7 +508,7 @@
           <form id="entry-form" class="form-grid"></form>
         </div>
         <div class="card" id="ledger-cat-card" hidden>
-          <h2>Expenses by category</h2>
+          <h2 id="exp-pie-title">Expenses by category</h2>
           <div id="bd-exp"></div>
           <p class="hint" style="margin:14px 0 0">Expenses paid from the shop cash are added day by day in the Daily ledger. Expenses paid straight from the bank or cash credit are added with Transfer money → To: Shop expense. Use Edit on any expense to change its category, amount or where it was paid from.</p>
         </div>
@@ -1442,7 +1458,64 @@
     $("k-buy").textContent = inr.format(buy);
     $("k-buy-s").textContent = buyUnits ? num.format(buyUnits) + " bottles received on " + buyDays + " day" + (buyDays === 1 ? "" : "s") + ", at cost" : "No stock received this month";
     renderBars("bd-cat", groupBy(state.cats, "category", "sales_value"), "No sales this month");
-    renderBars("bd-exp", groupBy(state.ledger.expenses, "category"), "No expenses this month");
+    renderExpPie();
+  }
+
+  // ---------- Expenses pie (donut) ----------
+  // Colours stay with the category across months: the 7 categories with the most spend overall get a colour each,
+  // the rest share "Other".
+  var PIE_COLORS = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9"], PIE_OTHER = "#8a8a85";
+  function pieColorMap() {
+    var tot = {}; state.allExp.forEach(function (e) { tot[e.category] = (tot[e.category] || 0) + Number(e.amount || 0); });
+    var order = Object.keys(tot).sort(function (a, b) { return tot[b] - tot[a] || a.localeCompare(b); }), map = {};
+    order.slice(0, PIE_COLORS.length).forEach(function (c, i) { map[c] = PIE_COLORS[i]; });
+    return map;
+  }
+  function renderExpPie() {
+    var el = $("bd-exp"); if (!el) return;
+    var mname = new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    $("exp-pie-title").textContent = "Expenses by category, " + mname;
+    var rows = groupBy(state.ledger.expenses, "category").filter(function (r) { return r[1] > 0; });
+    if (!rows.length) { el.innerHTML = '<div class="empty" style="padding:12px 0">No expenses this month</div>'; return; }
+    var cmap = pieColorMap(), total = rows.reduce(function (a, r) { return a + r[1]; }, 0);
+    // Slices: categories with their own colour, then one "Other" slice for the rest
+    var slices = [], other = { name: "Other", amt: 0, color: PIE_OTHER, parts: [] };
+    rows.forEach(function (r) { if (cmap[r[0]]) slices.push({ name: r[0], amt: r[1], color: cmap[r[0]] }); else { other.amt += r[1]; other.parts.push(r[0] + " " + inr.format(r[1])); } });
+    slices.sort(function (a, b) { return PIE_COLORS.indexOf(a.color) - PIE_COLORS.indexOf(b.color); });
+    if (other.amt > 0) slices.push(other);
+    var R = 90, r0 = 56, cx = 100, cy = 100, a0 = -Math.PI / 2;
+    var pt = function (rad, a) { return (cx + rad * Math.cos(a)).toFixed(2) + " " + (cy + rad * Math.sin(a)).toFixed(2); };
+    var paths = slices.map(function (sl, i) {
+      var frac = sl.amt / total, a1 = a0 + frac * Math.PI * 2, large = frac > 0.5 ? 1 : 0, d;
+      if (frac >= 0.9999) d = "M" + pt(R, -Math.PI / 2) + " A" + R + " " + R + " 0 1 1 " + pt(R, Math.PI * 1.5 - 0.0001) + " L" + pt(r0, Math.PI * 1.5 - 0.0001) + " A" + r0 + " " + r0 + " 0 1 0 " + pt(r0, -Math.PI / 2) + " Z";
+      else d = "M" + pt(R, a0) + " A" + R + " " + R + " 0 " + large + " 1 " + pt(R, a1) + " L" + pt(r0, a1) + " A" + r0 + " " + r0 + " 0 " + large + " 0 " + pt(r0, a0) + " Z";
+      a0 = a1;
+      return '<path d="' + d + '" fill="' + sl.color + '" data-slice="' + i + '"></path>';
+    }).join("");
+    var pctTxt = function (v) { return (v / total * 100).toFixed(v / total < 0.1 ? 1 : 0) + "%"; };
+    el.innerHTML = '<div class="pie-wrap"><div class="pie-box"><svg viewBox="0 0 200 200" role="img" aria-label="Expenses by category, ' + esc(mname) + '">' + paths + "</svg>" +
+      '<div class="pie-center"><div class="l">Total</div><div class="a">' + inr.format(total) + "</div></div>" +
+      '<div class="pie-tip" hidden></div></div>' +
+      '<table class="pie-legend"><tbody>' + slices.map(function (sl, i) {
+        return '<tr data-slice="' + i + '"><td><span class="sw" style="background:' + sl.color + '"></span>' + esc(sl.name) +
+          (sl.parts ? '<small>' + esc(sl.parts.join(", ")) + "</small>" : "") + '</td><td class="num">' + inr.format(sl.amt) + '</td><td class="num">' + pctTxt(sl.amt) + "</td></tr>";
+      }).join("") + "</tbody></table></div>";
+    var tip = el.querySelector(".pie-tip"), box = el.querySelector(".pie-box");
+    var focus = function (i) {
+      el.querySelectorAll("[data-slice]").forEach(function (n) { n.classList.toggle("dim", i != null && n.getAttribute("data-slice") !== String(i)); });
+    };
+    el.onmousemove = function (e) {
+      var t = e.target.closest("[data-slice]");
+      if (!t) { focus(null); tip.hidden = true; return; }
+      var i = Number(t.getAttribute("data-slice")), sl = slices[i];
+      focus(i);
+      if (t.tagName.toLowerCase() === "path") {
+        var bb = box.getBoundingClientRect();
+        tip.innerHTML = "<b>" + esc(sl.name) + "</b><br>" + inr2.format(sl.amt) + " · " + pctTxt(sl.amt);
+        tip.style.left = (e.clientX - bb.left + 12) + "px"; tip.style.top = (e.clientY - bb.top - 48) + "px"; tip.hidden = false;
+      } else tip.hidden = true;
+    };
+    el.onmouseleave = function () { focus(null); tip.hidden = true; };
   }
 
   function renderBars(id, rows, emptyText) {
@@ -2719,23 +2792,36 @@
     var names = {};
     state.allIncome.forEach(function (x) { if (x.source) names[x.source.trim().toLowerCase()] = x.source.trim(); });
     $("dl-sources").innerHTML = Object.keys(names).sort().map(function (k) { return "<option>" + esc(names[k]) + "</option>"; }).join("");
-    var g = {}, rows = state.ledger.income;
+  }
+  // Other income grouped by distributor / buyer, with each entry's date and an Edit button
+  var PAID_INTO = { bank: "Bank account", cash_credit: "SBI cash credit", shop: "Shop" };
+  function renderIncomeBySource() {
+    var rows = state.ledger.income, tbl = $("entry-table");
+    $("list-title").textContent = "By distributor / buyer, " + new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    $("list-total").textContent = inr2.format(sum(rows));
+    if (!rows.length) { tbl.innerHTML = '<tr><td class="empty">No other income recorded for this month yet.</td></tr>'; return; }
+    var g = {};
     rows.forEach(function (x) {
-      var k = (x.source || "Not named").trim(), e = g[k] || (g[k] = { n: k, types: {}, amt: 0, count: 0 });
-      e.amt += Number(x.amount); e.count++; e.types[x.category] = 1;
+      var n = (x.source || "").trim(), k = n.toLowerCase() || "~", e = g[k] || (g[k] = { n: n || "Not named", list: [], amt: 0 });
+      e.amt += Number(x.amount); e.list.push(x);
     });
-    var list = Object.keys(g).map(function (k) { return g[k]; }).sort(function (a, b) { return b.amt - a.amt; });
-    var box = $("income-by-source");
-    if (!box) { box = document.createElement("div"); box.id = "income-by-source"; box.style.marginTop = "18px"; $("entry-table").closest(".table-wrap").after(box); }
-    box.hidden = !list.length;
-    box.innerHTML = !list.length ? "" : '<h2 style="font-size:0.9rem;margin-bottom:8px">By distributor / buyer this month</h2><div class="table-wrap"><table><thead><tr><th>From</th><th>Type</th><th class="num">Entries</th><th class="num">Total</th></tr></thead><tbody>' +
-      list.map(function (e) { return "<tr><td>" + esc(e.n) + "</td><td>" + esc(Object.keys(e.types).join(", ")) + '</td><td class="num">' + e.count + '</td><td class="num">' + inr2.format(e.amt) + "</td></tr>"; }).join("") + "</tbody></table></div>";
+    var groups = Object.keys(g).map(function (k) { return g[k]; }).sort(function (a, b) { return b.amt - a.amt; });
+    tbl.innerHTML = '<thead><tr><th>Date</th><th>Type</th><th>Paid into</th><th>Note</th><th class="num">Amount</th><th></th></tr></thead><tbody>' +
+      groups.map(function (e) {
+        e.list.sort(function (a, b) { return a.income_date < b.income_date ? 1 : a.income_date > b.income_date ? -1 : 0; });
+        return '<tr class="src-row"><td colspan="4">' + esc(e.n) + ' <span class="src-n">' + e.list.length + " entr" + (e.list.length === 1 ? "y" : "ies") + '</span></td><td class="num">' + inr2.format(e.amt) + "</td><td></td></tr>" +
+          e.list.map(function (x) {
+            return "<tr" + (state.editing && state.editing.id === x.id ? ' class="sel"' : "") + "><td>" + fmtDate(x.income_date) + "</td><td>" + esc(x.category) + "</td><td>" + esc(PAID_INTO[x.received_into] || x.received_into) +
+              "</td><td>" + esc(x.description || "") + '</td><td class="num">' + inr2.format(x.amount) +
+              '</td><td class="actions"><button class="icon-btn" data-edit="' + x.id + '">Edit</button><button class="icon-btn del" data-del="' + x.id + '">Delete</button></td></tr>';
+          }).join("");
+      }).join("") + "</tbody>";
   }
 
   function renderLedger() {
     var box = $("income-by-source"); if (box) box.hidden = state.tab !== "income";
     if (state.tab === "expenses") { renderExpensesByDate(); return; }
-    if (state.tab === "income") renderIncomeExtras();
+    if (state.tab === "income") { renderIncomeExtras(); renderIncomeBySource(); return; }
     var T = LEDGERS[state.tab], rows = state.ledger[state.tab], tbl = $("entry-table");
     $("list-title").textContent = T.plural + " in " + new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
     $("list-total").textContent = inr2.format(sum(rows));
