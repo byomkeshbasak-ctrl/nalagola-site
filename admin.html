@@ -2463,7 +2463,7 @@
   // Average sold per day over the last 30 days of reports (or fewer, if that's all there is),
   // compared with the latest closing stock. Order enough to hold the minimum days, in full cases.
   var IND_DEFAULT_CASES = { "spirits:750": 12, "spirits:600": 20, "spirits:500": 18, "spirits:375": 24, "spirits:330": 24, "spirits:300": 30, "spirits:180": 48,
-    "beer:650": 12, "beer:500": 24, "beer:330": 24 };
+    "beer:650": 12, "beer:500": 24, "beer:330": 24, "country:375": 32 };
   var IND_CAT_ORDER = ["Whisky", "Rum", "Vodka", "Gin", "Brandy", "Overseas Spirits", "Country Spirits", "Beer", "Wines", "Other"];
   state.ind = { rows: [], cases: {}, sort: "cat", dir: 1, latest: null, days: 0, from: null, ovr: {} };
   // Order numbers typed over the suggestion are kept in this browser until the next day's report comes in
@@ -2471,12 +2471,13 @@
   function loadIndOvr() { try { state.ind.ovr = JSON.parse(localStorage.getItem(indOvrKey()) || "{}") || {}; } catch (x) { state.ind.ovr = {}; } }
   function saveIndOvr() { try { localStorage.setItem(indOvrKey(), JSON.stringify(state.ind.ovr)); } catch (x) {} }
   try { var sd = Number(localStorage.getItem("ind-days")); if (sd > 0) $("ind-days").value = sd; } catch (x) {}
-  var indKind = function (cat) { return cat === "Beer" || cat === "Wines" ? "beer" : "spirits"; };
+  var indKind = function (cat) { return cat === "Beer" || cat === "Wines" ? "beer" : cat === "Country Spirits" ? "country" : "spirits"; };
   var sizeOf = function (l) { var n = Number(l.size_ml); if (n > 0) return n; var m = String(l.item_name).match(/(\d+)\s*$/); return m ? Number(m[1]) : 0; };
   function caseSizeFor(cat, size) {
     if (cat === "Overseas Spirits") return { n: 1, perBottle: true };
     var k = indKind(cat), c = state.ind.cases;
-    var n = c[k + ":" + size] || c[(k === "beer" ? "spirits" : "beer") + ":" + size];
+    // Country spirits use their own size if set, otherwise the spirits one
+    var n = c[k + ":" + size] || (k === "country" ? c["spirits:" + size] : null) || c[(k === "beer" ? "spirits" : "beer") + ":" + size];
     return n ? { n: n } : { n: 1, missing: true };
   }
 
@@ -2636,10 +2637,10 @@
     var keys = Object.keys(used).sort(function (a, b) { var pa = a.split(":"), pb = b.split(":"); return pa[0].localeCompare(pb[0]) * -1 || Number(pb[1]) - Number(pa[1]); });
     var grp = function (kind, title) {
       return "<h3>" + title + '</h3><div class="grid">' + keys.filter(function (k) { return k.indexOf(kind + ":") === 0; }).map(function (k) {
-        return "<label>" + k.split(":")[1] + ' ML<input type="number" min="1" step="1" inputmode="numeric" data-case="' + k + '" value="' + (state.ind.cases[k] || "") + '" placeholder="bottles"></label>';
+        return "<label>" + k.split(":")[1] + ' ML<input type="number" min="1" step="1" inputmode="numeric" data-case="' + k + '" value="' + (state.ind.cases[k] || (k.indexOf("country:") === 0 ? state.ind.cases["spirits:" + k.split(":")[1]] : "") || "") + '" placeholder="bottles"></label>';
       }).join("") + "</div>";
     };
-    f.innerHTML = grp("spirits", "Spirits (whisky, rum, vodka, gin, country spirits)") + grp("beer", "Beer and wine") +
+    f.innerHTML = grp("spirits", "Spirits (whisky, rum, vodka, gin)") + grp("country", "Country spirits") + grp("beer", "Beer and wine") +
       '<div class="form-actions"><button class="primary" type="submit">Save case sizes</button><button class="ghost" type="button" id="ind-cases-cancel">Cancel</button></div>';
     $("ind-cases-cancel").onclick = function () { f.hidden = true; };
   });
