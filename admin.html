@@ -214,6 +214,10 @@
   .pie-legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 8px; vertical-align: -1px; }
   .pie-legend small { display: block; margin-left: 18px; color: var(--muted); font-size: 0.72rem; }
   #bd-exp .dim { opacity: 0.35; }
+  #month-table tr.month-row { cursor: pointer; }
+  #month-table .m-caret { display: inline-block; width: 14px; color: var(--gold); }
+  #month-table tr.day-row td { font-size: 0.82rem; color: var(--muted); background: var(--bg); }
+  #month-table tr.day-row td:first-child { padding-left: 24px; color: var(--text); }
   #entry-table tr.src-row td { background: var(--panel-2); font-weight: 600; color: var(--gold); }
   #entry-table tr.src-row .src-n { font-weight: 400; color: var(--muted); font-size: 0.78rem; margin-left: 6px; }
 
@@ -315,6 +319,7 @@
   .on-in + .on-in { margin-top: 4px; }
   .on-split { display: block; font-size: 0.68rem; color: var(--muted); margin-top: 2px; white-space: nowrap; }
   .on-edit { font-size: 0.68rem; padding: 0; }
+  #book-table .on-edit { display: block; margin: 2px 0 0 auto; }
   .fixed-v { font-variant-numeric: tabular-nums; }
   tr.frozen td { color: #d9cfc7; }
   .cell-sel { display: block; margin-top: 4px; text-align: left; padding: 3px 4px; font-size: 0.72rem; color: var(--muted); }
@@ -493,7 +498,7 @@
       <div class="card sub-card">
         <div class="list-head">
           <h2>Month by month</h2>
-          <span class="list-total">Click a month to open it</span>
+          <span class="list-total">Click a month for its days</span>
         </div>
         <div class="table-wrap"><table id="month-table"></table></div>
       </div>
@@ -1531,17 +1536,22 @@
   }
 
   function renderMonths() {
-    var tbl = $("month-table"), t = todayISO().slice(0, 7), m = {};
-    var bucket = function (k) { return m[k] || (m[k] = { days: 0, units: 0, sales: 0, gp: 0, exp: 0, bar: 0, inc: 0, buy: 0, stock: null, stockDate: "" }); };
+    var tbl = $("month-table"), t = todayISO().slice(0, 7), m = {}, days = {};
+    var blank = function () { return { days: 0, sales: 0, gp: 0, exp: 0, bar: 0, inc: 0, buy: 0, stock: null, stockDate: "" }; };
+    var bucket = function (k) { return m[k] || (m[k] = blank()); };
+    var day = function (d) { return days[d] || (days[d] = blank()); };
+    var add = function (d, f, v) { bucket(d.slice(0, 7))[f] += v; day(d)[f] += v; };
     state.allReports.forEach(function (r) {
-      var x = bucket(r.report_date.slice(0, 7));
-      x.days++; x.units += Number(r.units_sold); x.sales += Number(r.sales_value); x.gp += Number(r.gross_profit); x.buy += Number(r.stock_in_cost || 0);
-      if (r.report_date >= x.stockDate) { x.stockDate = r.report_date; x.stock = Number(r.closing_value_cost); }
+      var d = r.report_date, x = bucket(d.slice(0, 7));
+      x.days++; day(d).days = 1;
+      add(d, "sales", Number(r.sales_value)); add(d, "gp", Number(r.gross_profit)); add(d, "buy", Number(r.stock_in_cost || 0));
+      if (d >= x.stockDate) { x.stockDate = d; x.stock = Number(r.closing_value_cost); }
+      day(d).stock = Number(r.closing_value_cost);
     });
-    state.allExp.forEach(function (e) { bucket(e.expense_date.slice(0, 7)).exp += Number(e.amount); });
-    state.allBook.forEach(function (b) { bucket(b.ledger_date.slice(0, 7)).bar += Number(b.bar_collection || 0); });
-    state.allIncome.forEach(function (x) { bucket(x.income_date.slice(0, 7)).inc += Number(x.amount); });
-    state.barExp.forEach(function (x) { bucket(x.expense_date.slice(0, 7)).bar -= Number(x.amount); });
+    state.allExp.forEach(function (e) { add(e.expense_date, "exp", Number(e.amount)); });
+    state.allBook.forEach(function (b) { add(b.ledger_date, "bar", Number(b.bar_collection || 0)); });
+    state.allIncome.forEach(function (x) { add(x.income_date, "inc", Number(x.amount)); });
+    state.barExp.forEach(function (x) { add(x.expense_date, "bar", -Number(x.amount)); });
     var months = [];
     for (var k = START_DATE.slice(0, 7); k <= t; ) {
       months.push(k);
@@ -1550,27 +1560,36 @@
     }
     Object.keys(m).forEach(function (k) { if (months.indexOf(k) < 0) months.push(k); });
     months.sort().reverse();
-    var T = { days: 0, units: 0, sales: 0, gp: 0, exp: 0, bar: 0, inc: 0, buy: 0 };
+    var cells = function (x) {
+      var net = x.gp + x.inc - x.exp;
+      return '<td class="num">' + inr.format(x.sales) + '</td><td class="num">' + inr.format(x.gp) + '</td><td class="num">' + pct(x.gp, x.sales) +
+        '</td><td class="num">' + inr.format(x.inc) + '</td><td class="num">' + inr.format(x.exp) + '</td><td class="num ' + (net >= 0 ? "pos" : "neg") + '">' + inr.format(net) +
+        '</td><td class="num">' + inr.format(x.buy) + '</td><td class="num">' + inr.format(x.bar) + '</td><td class="num">' + (x.stock == null ? "–" : inr.format(x.stock)) + "</td>";
+    };
+    var T = blank();
     var body = months.map(function (k) {
-      var x = m[k] || bucket(k), net = x.gp + x.inc - x.exp;
-      T.days += x.days; T.units += x.units; T.sales += x.sales; T.gp += x.gp; T.exp += x.exp; T.bar += x.bar; T.inc += x.inc; T.buy += x.buy;
-      return '<tr data-month="' + k + '" class="' + (k === state.month ? "sel" : "") + '"><td>' +
-        new Date(k + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" }) + "</td>" +
-        '<td class="num">' + x.days + '</td><td class="num">' + num.format(x.units) + '</td><td class="num">' + inr.format(x.sales) +
-        '</td><td class="num">' + inr.format(x.gp) + '</td><td class="num">' + pct(x.gp, x.sales) + '</td><td class="num">' + inr.format(x.inc) + '</td><td class="num">' + inr.format(x.exp) +
-        '</td><td class="num ' + (net >= 0 ? "pos" : "neg") + '">' + inr.format(net) + '</td><td class="num">' + inr.format(x.buy) + '</td><td class="num">' + inr.format(x.bar) +
-        '</td><td class="num">' + (x.stock == null ? "–" : inr.format(x.stock)) + "</td></tr>";
+      var x = m[k] || blank(), open = state.monthOpen === k;
+      ["days", "sales", "gp", "exp", "bar", "inc", "buy"].forEach(function (f) { T[f] += x[f]; });
+      var row = '<tr data-month="' + k + '" class="month-row' + (open ? " sel" : "") + '"><td><span class="m-caret">' + (open ? "▾" : "▸") + "</span>" +
+        new Date(k + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" }) + '</td><td class="num">' + x.days + "</td>" + cells(x) + "</tr>";
+      if (open) {
+        var ds = Object.keys(days).filter(function (d) { return d.slice(0, 7) === k; }).sort().reverse();
+        row += ds.length ? ds.map(function (d) {
+          return '<tr class="day-row"><td>' + fmtDate(d) + '</td><td class="num">' + (days[d].days ? "✓" : "–") + "</td>" + cells(days[d]) + "</tr>";
+        }).join("") : '<tr class="day-row"><td colspan="11" class="empty">No days recorded in this month.</td></tr>';
+      }
+      return row;
     }).join("");
-    var tn = T.gp + T.inc - T.exp;
-    tbl.innerHTML = '<thead><tr><th>Month</th><th class="num">Days reported</th><th class="num">Bottles</th><th class="num">Sales</th><th class="num">Gross profit</th>' +
-      '<th class="num">Margin</th><th class="num">Other income</th><th class="num">Expenses</th><th class="num">Net profit</th><th class="num" title="Stock received at cost">Purchases</th><th class="num" title="Bar collection minus bar expenses">Bar counter (net)</th><th class="num">Stock at month end</th></tr></thead>' +
-      "<tbody>" + body + '</tbody><tfoot><tr><td>Total</td><td class="num">' + T.days + '</td><td class="num">' + num.format(T.units) + '</td><td class="num">' + inr.format(T.sales) +
-      '</td><td class="num">' + inr.format(T.gp) + '</td><td class="num">' + pct(T.gp, T.sales) + '</td><td class="num">' + inr.format(T.inc) + '</td><td class="num">' + inr.format(T.exp) + '</td><td class="num ' + (tn >= 0 ? "pos" : "neg") + '">' +
-      inr.format(tn) + '</td><td class="num">' + inr.format(T.buy) + '</td><td class="num">' + inr.format(T.bar) + "</td><td></td></tr></tfoot>";
+    tbl.innerHTML = '<thead><tr><th>Month</th><th class="num">Days reported</th><th class="num">Sales</th><th class="num">Gross profit</th>' +
+      '<th class="num">Margin</th><th class="num">Other income</th><th class="num">Expenses</th><th class="num">Net profit</th><th class="num" title="Stock received at cost">Purchases</th><th class="num" title="Bar collection minus bar expenses">Bar counter (net)</th><th class="num">Stock at day / month end</th></tr></thead>' +
+      "<tbody>" + body + '</tbody><tfoot><tr><td>Total</td><td class="num">' + T.days + "</td>" + cells(Object.assign(T, { stock: null })).replace(/<td class="num">–<\/td>$/, "<td></td>") + "</tr></tfoot>";
   }
+
   $("month-table").addEventListener("click", function (e) {
     var tr = e.target.closest("tr[data-month]"); if (!tr) return;
-    state.month = tr.dataset.month; $("month").value = state.month; state.detailDate = null; loadMonth();
+    var k = tr.dataset.month;
+    state.monthOpen = state.monthOpen === k ? null : k;
+    if (k !== state.month) { state.month = k; $("month").value = k; state.detailDate = null; loadMonth(); } else renderMonths();
   });
 
   async function showMismatches(date) {
@@ -1896,12 +1915,17 @@
       return '<span class="fixed-v">' + (b.incShop ? inr.format(b.incShop) : "–") + "</span>" +
         (list.length ? '<span class="on-split">' + (list.length > 1 ? list.length + " entries · see Details" : esc(list[0].category)) + "</span>" : "");
     }
+    if (one && state.cellEdit !== d + "|inc") {
+      return '<span class="fixed-v">' + inr.format(one.amount) + '</span><span class="on-split">' + esc(one.category) + "</span>" +
+        '<button class="icon-btn on-edit" type="button" data-celledit="' + d + '|inc">change</button>';
+    }
     var cat = one ? one.category : "Distributor incentive";
     return '<input class="cell-in inc-in" type="number" step="0.01" min="0" inputmode="decimal" data-d="' + d + '" data-f="inc_amt" value="' + (one ? esc(one.amount) : "") + '" placeholder="0">' +
       '<select class="inc-cat" data-d="' + d + '" data-f="inc_cat" title="Type of income">' +
       INC_CATS.concat(INC_CATS.indexOf(cat) < 0 ? [cat] : []).map(function (c) { return "<option" + (c === cat ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("") + "</select>";
   }
-  async function saveShopIncome(d, tr) {
+  async function saveShopIncome(d, tr, src) {
+    state.cellEdit = src && src.classList.contains("inc-in") ? d + "|inc" : null;
     if (isFrozen(d)) { toast(fmtDate(d) + " is locked."); renderBook(); return; }
     var list = shopIncome(d); if (list.length > 1) return;
     var one = list[0] || null, amt = toNum(tr.querySelector(".inc-in").value), cat = tr.querySelector(".inc-cat").value, r;
@@ -1916,6 +1940,7 @@
     } else return;
     if (r.error) { toast("Couldn't save other income: " + r.error.message); return; }
     toast("Other income saved for " + fmtDate(d));
+    await new Promise(function (res) { setTimeout(res, 0); });
     await loadMonth(); // refreshes the ledger, the Other income tab and the capital tiles
   }
 
@@ -1942,6 +1967,13 @@
       var bad = e && Math.abs(b.mismatch) >= 0.5, open = state.bookOpen === d, frozen = isFrozen(d);
       var fixed = function (v) { return '<span class="fixed-v">' + (v == null || v === "" ? "–" : inr.format(v)) + "</span>"; };
       var box = function (f, v) { return frozen ? fixed(v) : inp(d, f, v); };
+      // Bar counter, cash and remaining balance lock once a value is in; "change" opens them again
+      var lockBox = function (f, v) {
+        if (frozen) return fixed(v);
+        var n = v == null || v === "" ? 0 : Number(v);
+        if (n !== 0 && state.cellEdit !== d + "|" + f) return fixed(v) + '<button class="icon-btn on-edit" type="button" data-celledit="' + d + "|" + f + '">change</button>';
+        return inp(d, f, v);
+      };
       var sp = onlineSplit(e), onTotal = sp.cc + sp.bank;
       var onlineCell = (frozen || (onTotal && state.onlineEdit !== d))
         ? '<span class="fixed-v">' + inr.format(onTotal) + '</span><span class="on-split">CC ' + inr.format(sp.cc) + " · Bank " + inr.format(sp.bank) + "</span>" +
@@ -1960,11 +1992,10 @@
         '<td class="num" title="Collected ' + inr.format(b.duesIn) + ' − credit given ' + inr.format(b.credit) + '">' + signed(b.duesIn - b.credit) + "</td>" +
         '<td class="num"' + (expAll - b.exp >= 0.5 ? ' title="' + inr.format(expAll - b.exp) + ' more was paid straight from the bank, cash credit or cash not deposited, so it isn\'t in the mismatch"' : "") + ">" + money(b.exp) + (expAll - b.exp >= 0.5 ? '<span class="on-split">+' + inr.format(expAll - b.exp) + " from bank / CC</span>" : "") + "</td>" +
         '<td class="num">' + incCell(d, frozen, b) + "</td>" +
-        '<td class="num">' + box("bar_collection", e ? e.bar_collection : "") + "</td>" +
-        '<td class="num">' + box("cash_collection", e ? e.cash_collection : "") + "</td>" +
+        '<td class="num">' + lockBox("bar_collection", e ? e.bar_collection : "") + "</td>" +
+        '<td class="num">' + lockBox("cash_collection", e ? e.cash_collection : "") + "</td>" +
         '<td class="num on-cell">' + onlineCell + "</td>" +
-        '<td class="num">' + box("shop_balance", e ? e.shop_balance : "") + "</td>" +
-        '<td class="num ' + (net < 0 ? "neg" : "") + '" title="Gross profit ' + inr.format(gp) + (inc ? " + other income " + inr.format(inc) : "") + ' − all expenses ' + inr.format(expAll) + '">' + (b.hasReport || expAll || inc ? inr.format(net) : "–") + "</td>" +
+        '<td class="num">' + lockBox("shop_balance", e ? e.shop_balance : "") + "</td>" +
         '<td class="num mm-cell">' + mismatchCell(e ? b.mismatch : null) + "</td>" +
         "</tr>";
       if (open) row += detailRow(d, frozen);
@@ -1972,10 +2003,10 @@
     }).join("");
     var tn = t.g + (t.inc || 0) - (t.ea || 0);
     tbl.innerHTML = '<thead><tr><th>Date</th><th class="num">Total sales</th><th class="num" title="Remaining balance of the previous day">Previous day\'s balance</th><th class="num" title="Dues collected − credit given">Net dues</th><th class="num">Expenses</th>' +
-      '<th class="num" title="Other income taken at the shop">Other income</th><th class="num">Bar counter</th><th class="num">Cash collected</th><th class="num">Online payment</th><th class="num">Remaining balance</th><th class="num">Net profit</th><th class="num">Mismatch</th></tr></thead><tbody>' + body + "</tbody>" +
+      '<th class="num" title="Other income taken at the shop">Other income</th><th class="num">Bar counter</th><th class="num">Cash collected</th><th class="num">Online payment</th><th class="num">Remaining balance</th><th class="num">Mismatch</th></tr></thead><tbody>' + body + "</tbody>" +
       '<tfoot><tr><td>Total</td><td class="num">' + inr.format(t.s) + '</td><td></td><td class="num">' + signed(t.di - t.cr) + '</td><td class="num">' + inr.format(t.e) +
       '</td><td class="num">' + inr.format(t.is || 0) + '</td><td class="num">' + inr.format(t.bar) + '</td><td class="num">' + inr.format(t.cash) +
-      '</td><td class="num">' + inr.format(t.on) + '</td><td></td><td class="num ' + (tn < 0 ? "neg" : "pos") + '">' + inr.format(tn) + '</td><td class="num ' + (Math.abs(t.m) >= 0.5 ? "neg" : "pos") + '">' + inr2.format(Math.abs(t.m) >= 0.5 ? t.m : 0) + "</td></tr></tfoot>";
+      '</td><td class="num">' + inr.format(t.on) + '</td><td></td><td class="num ' + (Math.abs(t.m) >= 0.5 ? "neg" : "pos") + '">' + inr2.format(Math.abs(t.m) >= 0.5 ? t.m : 0) + "</td></tr></tfoot>";
     // Keep the expenses & dues panel in view when the table scrolls sideways
     var wrap = tbl.closest(".table-wrap");
     document.querySelectorAll("#book-table .bd-grid").forEach(function (g) { g.style.width = Math.max(260, wrap.clientWidth - 34) + "px"; });
@@ -2085,7 +2116,7 @@
     var duesList = dues.length ? dues.map(function (x) {
       return bdItem("due", x, esc(x.customer_name) + " · " + (x.entry_type === "payment" ? '<span class="pos">collected</span>' : '<span class="warn-t">credit given</span>'), frozen);
     }).join("") : '<div class="none">No dues collected or credit given this day.</div>';
-    return '<tr class="book-detail"><td colspan="12"><div class="bd-grid">' +
+    return '<tr class="book-detail"><td colspan="11"><div class="bd-grid">' +
       '<div class="bd-box"><h3>Expenses on ' + fmtDate(d) + "</h3><div class=\"bd-list\">" + expList + "</div>" +
         (frozen ? '<div class="none">Locked.</div></div>' : '<form class="bd-add" data-addexp="' + d + '">' +
           "<select name=\"category\">" + EXP_CATS.map(function (c) { return "<option>" + esc(c) + "</option>"; }).join("") + "</select>" +
@@ -2134,7 +2165,7 @@
   });
   $("book-table").addEventListener("change", async function (e) {
     var el = e.target;
-    if (el.classList.contains("inc-in") || el.classList.contains("inc-cat")) { await saveShopIncome(el.dataset.d, el.closest("tr")); return; }
+    if (el.classList.contains("inc-in") || el.classList.contains("inc-cat")) { await saveShopIncome(el.dataset.d, el.closest("tr"), el); return; }
     if (!el.classList.contains("cell-in")) return;
     var d = el.dataset.d, tr = el.closest("tr");
     var entry = bookRow(d).entry;
@@ -2147,6 +2178,7 @@
       shop_balance: toNum(val("shop_balance")), bar_collection: toNum(val("bar_collection")),
       online_to: bk > cc ? "bank" : "cash_credit", updated_at: new Date().toISOString() };
     // Online: after the cash credit box, ask for bank; after the bank box, show the total
+    if (state.cellEdit && state.cellEdit.indexOf(d + "|") === 0) state.cellEdit = null;
     if (el.dataset.f === "online_cc") state.onlineEdit = d;
     if (el.dataset.f === "online_bank") state.onlineEdit = null;
     if (d === START_DATE) payload.opening_balance = toNum(val("opening_balance"));
@@ -2160,6 +2192,7 @@
     var lite = { ledger_date: d, bar_collection: payload.bar_collection, cash_collection: payload.cash_collection, online_received: payload.online_received, online_to: payload.online_to, online_cc: cc, online_bank: bk };
     if (j >= 0) state.allBook[j] = Object.assign(state.allBook[j], lite); else state.allBook.push(lite);
     if (!state.cap.ledger || d >= state.cap.ledger.ledger_date) state.cap.ledger = { ledger_date: d, shop_balance: payload.shop_balance };
+    await new Promise(function (res) { setTimeout(res, 0); }); // let Tab move focus first, so it isn't lost on re-render
     renderBook(); // next day's previous balance and mismatch move with it
     renderCapital();
   });
@@ -2185,6 +2218,13 @@
     if (v) { state.detailFilter = "sold"; await openDetail(v); $("rep-detail").scrollIntoView({ behavior: "smooth", block: "start" }); return; }
     if (mm) { showMismatches(mm); return; }
     if (o) { state.bookOpen = state.bookOpen === o ? null : o; renderBook(); }
+    var ce = e.target.getAttribute("data-celledit");
+    if (ce) {
+      state.cellEdit = ce; renderBook();
+      var pr = ce.split("|"), fi = document.querySelector('#book-table [data-d="' + pr[0] + '"][data-f="' + (pr[1] === "inc" ? "inc_amt" : pr[1]) + '"]');
+      if (fi) { fi.focus(); try { fi.select(); } catch (x) {} }
+      return;
+    }
     var oe = e.target.getAttribute("data-onedit");
     if (oe) { state.onlineEdit = oe; renderBook(); var f = document.querySelector('.cell-in[data-d="' + oe + '"][data-f="online_cc"]'); if (f) f.focus(); }
     if (de) {
