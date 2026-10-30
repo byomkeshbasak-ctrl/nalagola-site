@@ -215,6 +215,21 @@
   .pie-legend small { display: block; margin-left: 18px; color: var(--muted); font-size: 0.72rem; }
   #bd-exp .dim { opacity: 0.35; }
   #month-table tr.month-row { cursor: pointer; }
+  #items-table tr.item-edit td { background: var(--bg); border-bottom: 1px solid var(--line-strong); }
+  .ie-form { display: grid; gap: 12px; padding: 6px 2px; }
+  .ie-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: end; }
+  .ie-grid input, .ie-grid select { padding: 8px 10px; font-size: 0.88rem; }
+  .ie-when { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 0.86rem; }
+  .ie-when .lbl { color: var(--muted); font-size: 0.8rem; }
+  .ie-when .radio { display: flex; flex-direction: row; align-items: center; gap: 6px; color: var(--text); font-size: 0.86rem; }
+  .ie-when input[type=radio] { width: auto; accent-color: var(--gold); }
+  .ie-when input[type=date] { width: auto; padding: 6px 8px; }
+  .ie-impact { font-size: 0.85rem; line-height: 1.6; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+  .ie-impact .muted { color: var(--muted); }
+  .ie-nums { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 4px; }
+  .ie-hist { font-size: 0.78rem; color: var(--muted); line-height: 1.6; }
+  .ie-hist b { color: var(--text); font-weight: 600; }
+  @media (max-width: 640px) { .ie-grid { grid-template-columns: 1fr 1fr; } }
   #month-table .m-caret { display: inline-block; width: 14px; color: var(--gold); }
   #month-table tr.day-row td { font-size: 0.82rem; color: var(--muted); background: var(--bg); }
   #month-table tr.day-row td:first-child { padding-left: 24px; color: var(--text); }
@@ -1010,7 +1025,10 @@
       if (r.error) { toast("Couldn't load items: " + r.error.message); break; }
       all = all.concat(r.data); if (r.data.length < page) break; from += page;
     }
-    state.items = all; renderItems();
+    state.items = all;
+    var pc = await sb.from("price_changes").select("*").order("created_at", { ascending: false }).limit(500);
+    state.priceChanges = pc.error ? [] : pc.data || [];
+    renderItems();
   }
 
   // Expenses paid from the counter cash; these go into the daily ledger mismatch.
@@ -2821,9 +2839,97 @@
         var m = i.cost_price == null ? null : Number(i.mrp) - Number(i.cost_price);
         return "<tr><td>" + esc(i.item_name) + "</td><td>" + esc(i.category) + '</td><td class="num">' + inr2.format(i.mrp) + '</td><td class="num">' +
           (i.cost_price == null ? '<span class="tag warn">missing</span>' : inr2.format(i.cost_price)) + '</td><td class="num">' +
-          (m == null ? "" : inr2.format(m) + " · " + pct(m, i.mrp)) + '</td><td class="actions"><button class="icon-btn" data-edititem="' + i.id + '">Edit</button></td></tr>';
+          (m == null ? "" : inr2.format(m) + " · " + pct(m, i.mrp)) + '</td><td class="actions"><button class="icon-btn" data-edititem="' + i.id + '">' + (state.itemEdit && state.itemEdit.id === i.id ? "Close" : "Edit") + "</button></td></tr>" +
+          (state.itemEdit && state.itemEdit.id === i.id ? itemEditRow(i) : "");
       }).join("") + "</tbody>";
+    if (state.itemEdit) updateItemImpact();
   }
+
+  // ---------- Change an item's MRP / cost (from the beginning or from a date) ----------
+  var ITEM_CATS = ["Whisky", "Rum", "Vodka", "Gin", "Brandy", "Beer", "Wines", "Overseas Spirits", "Country Spirits", "Other"];
+  function itemEditRow(i) {
+    var ed = state.itemEdit, latest = state.allReports.reduce(function (m, r) { return r.report_date > m ? r.report_date : m; }, todayISO());
+    var cats = ITEM_CATS.indexOf(i.category) < 0 ? ITEM_CATS.concat([i.category]) : ITEM_CATS;
+    var hist = (state.priceChanges || []).filter(function (c) { return c.item_name === i.item_name && (Number(c.new_mrp) === Number(i.mrp) || Number(c.old_mrp) === Number(i.mrp)); });
+    return '<tr class="item-edit"><td colspan="6"><form id="ie-form" class="ie-form" autocomplete="off">' +
+      '<div class="ie-grid">' +
+      '<label>MRP (₹)<input type="number" id="ie-mrp" step="0.01" min="0" inputmode="decimal" value="' + esc(i.mrp) + '" required></label>' +
+      '<label>Cost price (₹)<input type="number" id="ie-cost" step="0.01" min="0" inputmode="decimal" value="' + (i.cost_price == null ? "" : esc(i.cost_price)) + '"></label>' +
+      '<label>Category<select id="ie-cat">' + cats.map(function (c) { return "<option" + (c === i.category ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("") + "</select></label>" +
+      '<div class="ie-when"><span class="lbl">Price applies</span>' +
+        '<label class="radio"><input type="radio" name="ie-when" value="all"' + (ed.when === "all" ? " checked" : "") + "> From the beginning</label>" +
+        '<label class="radio"><input type="radio" name="ie-when" value="from"' + (ed.when === "from" ? " checked" : "") + '> From <input type="date" id="ie-from" value="' + esc(ed.from || latest) + '"></label></div>' +
+      "</div>" +
+      '<div class="ie-impact" id="ie-impact">' + (ed.lines ? "" : "Checking saved reports…") + "</div>" +
+      '<div class="form-actions"><button class="primary" type="submit">Save price</button><button class="ghost" type="button" id="ie-cancel">Cancel</button></div>' +
+      (hist.length ? '<div class="ie-hist"><b>Earlier changes</b>' + hist.map(function (c) {
+        return "<div>" + fmtDate(c.created_at.slice(0, 10)) + ": MRP " + inr2.format(c.old_mrp) + (Number(c.old_mrp) !== Number(c.new_mrp) ? " → " + inr2.format(c.new_mrp) : "") +
+          ", cost " + (c.old_cost == null ? "–" : inr2.format(c.old_cost)) + " → " + (c.new_cost == null ? "–" : inr2.format(c.new_cost)) +
+          (c.effective_from ? ", from " + fmtDate(c.effective_from) : ", from the beginning") + "</div>";
+      }).join("") + "</div>" : "") +
+      "</form></td></tr>";
+  }
+  // What the change does to saved reports, worked out before saving
+  function itemImpact() {
+    var ed = state.itemEdit, it = state.items.find(function (x) { return x.id === ed.id; }); if (!it || !ed.lines) return null;
+    var mrp = toNum($("ie-mrp").value), costRaw = $("ie-cost").value, cost = costRaw === "" ? null : toNum(costRaw);
+    var when = (document.querySelector('input[name="ie-when"]:checked') || {}).value || "all", from = when === "from" ? $("ie-from").value : null;
+    ed.when = when; ed.from = $("ie-from").value;
+    var lines = ed.lines.filter(function (l) { return !from || l.report_date >= from; });
+    var days = {}, dSales = 0, dCost = 0, latest = "", latestClose = 0, latestOldCost = 0;
+    lines.forEach(function (l) {
+      days[l.report_date] = 1;
+      var so = Number(l.stock_out || 0), oc = l.cost_price == null ? null : Number(l.cost_price);
+      dSales += so * (mrp - Number(l.mrp));
+      if (cost != null || oc != null) dCost += so * ((cost || 0) - (oc || 0));
+      if (l.report_date > latest) { latest = l.report_date; latestClose = Number(l.closing_stock || 0); latestOldCost = oc || 0; }
+    });
+    var dList = Object.keys(days).sort();
+    var ledgerDays = dList.filter(function (d) { return state.allBook.some(function (b) { return b.ledger_date === d; }); });
+    return { it: it, mrp: mrp, cost: cost, from: from, n: lines.length, days: dList, dSales: dSales, dProfit: dSales - dCost,
+      dStock: latest ? latestClose * ((cost || 0) - latestOldCost) : 0, ledgerDays: ledgerDays,
+      changed: mrp !== Number(it.mrp) || (cost == null ? it.cost_price != null : it.cost_price == null || cost !== Number(it.cost_price)) };
+  }
+  function updateItemImpact() {
+    var el = $("ie-impact"); if (!el) return;
+    var x = itemImpact(); if (!x) return;
+    var sgn = function (v) { return Math.abs(v) < 0.5 ? "no change" : (v > 0 ? "+" : "−") + inr.format(Math.abs(v)); };
+    if (!x.changed) { el.innerHTML = '<span class="muted">Change the MRP or cost to see what it does to your saved reports.</span>'; return; }
+    if (!x.n) { el.innerHTML = "No saved report has this item " + (x.from ? "from " + fmtDate(x.from) : "yet") + ". The new price applies to reports you upload next."; return; }
+    el.innerHTML = "Updates <b>" + x.days.length + " day" + (x.days.length === 1 ? "" : "s") + "</b> of reports (" + fmtDate(x.days[0]) + " – " + fmtDate(x.days[x.days.length - 1]) + ")." +
+      '<div class="ie-nums"><span>Sales <b>' + sgn(x.dSales) + "</b></span><span>Gross profit <b>" + sgn(x.dProfit) + "</b></span><span>Latest stock value <b>" + sgn(x.dStock) + "</b></span></div>" +
+      (Math.abs(x.dSales) >= 0.5 && x.ledgerDays.length ? '<div class="warn-t">Total sales change on ' + x.ledgerDays.length + " day" + (x.ledgerDays.length === 1 ? "" : "s") +
+        " already entered in the Daily ledger, so those days will show the difference as a mismatch.</div>" : "");
+  }
+  $("items-table").addEventListener("input", function (e) { if (e.target.closest("#ie-form")) updateItemImpact(); });
+  $("items-table").addEventListener("change", function (e) { if (e.target.closest("#ie-form")) updateItemImpact(); });
+  $("items-table").addEventListener("submit", async function (e) {
+    if (e.target.id !== "ie-form") return;
+    e.preventDefault();
+    var x = itemImpact(); if (!x) return;
+    var cat = $("ie-cat").value, it = x.it;
+    if (!(x.mrp > 0)) { toast("Enter the MRP."); return; }
+    if (x.from && x.from < START_DATE) { toast("Reports start from " + fmtDate(START_DATE) + "."); return; }
+    var clash = x.mrp !== Number(it.mrp) && state.items.find(function (o) { return o.item_name === it.item_name && Number(o.mrp) === x.mrp; });
+    if (clash && !confirm(it.item_name + " already has a row at MRP " + inr2.format(x.mrp) + ". The changed reports join that row and its cost becomes " + (x.cost == null ? "blank" : inr2.format(x.cost)) + ". Go ahead?")) return;
+    if (x.changed && Math.abs(x.dSales) >= 0.5 && x.ledgerDays.length && !confirm("Total sales change on " + x.ledgerDays.length + " day(s) already in the Daily ledger, so they'll show a mismatch. Go ahead?")) return;
+    var btn = e.target.querySelector(".primary"); btn.disabled = true;
+    var n = 0;
+    if (x.changed) {
+      var r = await sb.rpc("change_item_price", { p_item: it.item_name, p_old_mrp: Number(it.mrp), p_new_mrp: x.mrp, p_cost: x.cost, p_from: x.from });
+      if (r.error) { btn.disabled = false; toast("Couldn't save: " + r.error.message); return; }
+      n = r.data || 0;
+    }
+    if (cat !== it.category) {
+      var r2 = await sb.from("items").update({ category: cat, updated_at: new Date().toISOString() }).eq("item_name", it.item_name).eq("mrp", x.changed ? x.mrp : Number(it.mrp));
+      if (r2.error) { btn.disabled = false; toast("Couldn't save the category: " + r2.error.message); return; }
+    }
+    btn.disabled = false;
+    state.itemEdit = null;
+    toast(x.changed ? "Price saved" + (n ? "; " + n + " report line" + (n === 1 ? "" : "s") + " updated" : "") : "Saved");
+    await Promise.all([loadItems(), loadMonth()]);
+    if (state.tab === "indent") loadIndent();
+  });
   $("items-search").addEventListener("input", renderItems);
   document.querySelectorAll("#items-filter button").forEach(function (b) {
     b.addEventListener("click", function () {
@@ -2833,18 +2939,16 @@
     });
   });
   $("items-table").addEventListener("click", async function (e) {
+    if (e.target.id === "ie-cancel") { state.itemEdit = null; renderItems(); return; }
     var id = e.target.getAttribute("data-edititem"); if (!id) return;
+    if (state.itemEdit && state.itemEdit.id === id) { state.itemEdit = null; renderItems(); return; }
     var it = state.items.find(function (i) { return i.id === id; });
-    var c = prompt("Cost price for " + it.item_name + " (MRP ₹" + it.mrp + ")", it.cost_price == null ? "" : it.cost_price);
-    if (c === null) return;
-    var cat = prompt("Category for " + it.item_name + " (Whisky, Beer, Rum, Vodka, Gin, Wines, Overseas Spirits, Country Spirits, Other)", it.category);
-    if (cat === null) return;
-    var cost = c.trim() === "" ? null : toNum(c);
-    var r = await sb.from("items").update({ cost_price: cost, category: cat.trim() || "Other", updated_at: new Date().toISOString() }).eq("id", id);
-    if (r.error) { toast("Couldn't save: " + r.error.message); return; }
-    var f = await sb.rpc("fill_missing_costs");
-    toast("Item updated" + (!f.error && f.data ? "; " + f.data + " report lines filled" : ""));
-    await Promise.all([loadItems(), loadMonth()]);
+    state.itemEdit = { id: id, when: "all", from: null, lines: null };
+    renderItems();
+    var r = await fetchAll(function () { return sb.from("stock_report_lines").select("report_date,mrp,cost_price,stock_out,closing_stock").eq("item_name", it.item_name).eq("mrp", it.mrp).order("report_date"); });
+    if (!state.itemEdit || state.itemEdit.id !== id) return;
+    state.itemEdit.lines = r.data || [];
+    updateItemImpact();
   });
 
   // ---------- Manual ledgers (expenses, supplier payments) ----------
