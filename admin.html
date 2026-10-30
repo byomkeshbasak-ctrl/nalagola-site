@@ -416,7 +416,6 @@
         <div>
           <div class="k">Business capital</div>
           <div class="v" id="cap-total">–</div>
-          <div class="s">Stock value + Bevco wallet + bank balance − cash credit used + credit given + cash not deposited + remaining balance</div>
         </div>
         <div class="spacer"></div>
         <button class="ghost" id="tr-open" type="button">Transfer money</button>
@@ -510,7 +509,6 @@
         <div class="card" id="ledger-cat-card" hidden>
           <h2 id="exp-pie-title">Expenses by category</h2>
           <div id="bd-exp"></div>
-          <p class="hint" style="margin:14px 0 0">Expenses paid from the shop cash are added day by day in the Daily ledger. Expenses paid straight from the bank or cash credit are added with Transfer money → To: Shop expense. Use Edit on any expense to change its category, amount or where it was paid from.</p>
         </div>
         <div class="card">
           <div class="list-head">
@@ -528,7 +526,6 @@
       <div class="panel">
         <div class="card">
           <h2>Upload cost prices</h2>
-          <p class="hint">Excel sheet with Item Name, MRP and Cost Price. Items are matched on name and MRP, so the same brand at a revised MRP keeps its own cost.</p>
           <label class="drop" id="cost-drop">
             <input type="file" id="cost-file" accept=".xlsx,.xls,.csv">
             <b>Choose file or drop it here</b>
@@ -633,7 +630,6 @@
           <button class="ghost" id="bar-add" type="button">Add bar expense</button>
           <button class="ghost" id="bar-csv" type="button">Export CSV</button>
         </div>
-        <p class="hint">Collections come from the Bar counter column in the Daily ledger. Expenses are entered with <b>Transfer money → To: Bar counter</b>, and come out of the account you pick.</p>
         <div class="table-wrap"><table id="bar-table"></table></div>
       </div>
     </section>
@@ -642,7 +638,6 @@
     <section id="pane-book" hidden>
       <div class="card upload-card">
           <h2>Upload day's stock report</h2>
-          <p class="hint">The Excel sheet with Opening, Stock In, Stock Out and Closing for each item. Stock Out × MRP becomes the day's sales; Stock Out × cost price gives the profit.</p>
           <label class="drop" id="rep-drop">
             <input type="file" id="rep-file" accept=".xlsx,.xls,.csv">
             <b>Choose file or drop it here</b>
@@ -656,13 +651,11 @@
           <span class="list-total" id="stock-on-hand"></span>
           <button class="ghost" id="book-csv" type="button">Export CSV</button>
         </div>
-        <p class="hint">Mismatch = total sales + previous day's balance + bar counter + net dues (collected − credit given) + other income − expenses − cash collected − online payment − remaining balance. It should be ₹0 every day; anything else shows in red. Previous day's balance is the remaining balance from the day before (on 1 Oct, type the opening balance). Other income here is only money taken at the shop; it also shows in the Other income tab with "Paid into: Shop". Type bar counter, cash, online (cash credit first, then bank) and remaining balance straight into the row. Use <b>Details</b> to add that day's expenses, dues and other income. A day locks once a later day's Excel is uploaded and its mismatch is ₹0. Click a date to see that day's items.</p>
         <div class="table-wrap"><table id="book-table"></table></div>
       </div>
       <div class="card detail" id="rep-detail" hidden></div>
     </section>
 
-    <p class="note">Profit uses cost of goods sold: what each bottle sold cost you, taken from the cost price list at the time the report was uploaded. Purchases is the cost of the stock received in the month (Stock In × cost price). It isn't subtracted from profit, since the stock cost is counted when the bottles sell.</p>
   </main>
 </div>
 
@@ -1411,8 +1404,8 @@
     var f = $("ob-form"), o = state.cap.opening || {}; $("tr-form").hidden = true; f.hidden = !f.hidden; if (f.hidden) return;
     var locked = !!o.frozen;
     $("ob-hint").textContent = locked
-      ? "Frozen. These are the balances on the morning of " + fmtLong(START_DATE) + ". Everything since then comes from transfers, stock in, the Daily ledger and Dues."
-      : "Balances on the morning of " + fmtLong(START_DATE) + ", before that day's stock in, sales and collections. Once frozen they can't be changed.";
+      ? "Frozen · balances on the morning of " + fmtDate(START_DATE)
+      : "Balances on the morning of " + fmtDate(START_DATE);
     $("ob-bevco").value = o.bevco_wallet != null ? o.bevco_wallet : "";
     $("ob-bank").value = o.bank_balance != null ? o.bank_balance : "";
     $("ob-limit").value = o.cc_limit != null ? o.cc_limit : 2000000;
@@ -2316,9 +2309,7 @@
     var all = indentCalc(), show = $("ind-show").value, cat = $("ind-cat").value, q = $("ind-q").value.trim().toLowerCase();
     var minDays = all.length ? all[0].minDays : 15, n = state.ind.days;
     $("ind-title").textContent = "Indent for the next order";
-    $("ind-basis").innerHTML = "Average sold per day over the last " + n + " day" + (n === 1 ? "" : "s") + " of reports (" + fmtDate(state.ind.from > START_DATE ? state.ind.from : START_DATE) + " to " + fmtDate(state.ind.latest) + ")" +
-      (n < 30 ? ", since 30 days of data aren't in yet" : "") + ". Current stock is the closing stock of " + fmtDate(state.ind.latest) + ". Each item is ordered up to " + minDays +
-      " days of stock, rounded to the nearest full case. Overseas spirits are ordered by the bottle. Days with no report (dry days) aren't counted.";
+    $("ind-basis").textContent = n + " day" + (n === 1 ? "" : "s") + " of sales (" + fmtDate(state.ind.from > START_DATE ? state.ind.from : START_DATE) + " – " + fmtDate(state.ind.latest) + ") · stock as of " + fmtDate(state.ind.latest);
     var order = all.filter(function (r) { return r.units > 0; });
     var tot = order.reduce(function (a, r) { a.b += r.bottles; a.v += r.value || 0; if (!r.cz.perBottle) a.c += r.units; else a.ob += r.units; if (r.value == null) a.nc++; return a; }, { b: 0, v: 0, c: 0, ob: 0, nc: 0 });
     $("ind-sum").innerHTML =
@@ -2403,7 +2394,6 @@
       }).join("") + "</div>";
     };
     f.innerHTML = grp("spirits", "Spirits (whisky, rum, vodka, gin, country spirits)") + grp("beer", "Beer and wine") +
-      '<p class="hint">Bottles in one case for each size. Overseas spirits are always ordered by the bottle.</p>' +
       '<div class="form-actions"><button class="primary" type="submit">Save case sizes</button><button class="ghost" type="button" id="ind-cases-cancel">Cancel</button></div>';
     $("ind-cases-cancel").onclick = function () { f.hidden = true; };
   });

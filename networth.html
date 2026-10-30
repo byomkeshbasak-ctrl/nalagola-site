@@ -145,14 +145,12 @@
         <label>Amount (₹) <input type="number" id="tr-amount" step="0.01" min="0" inputmode="decimal" required></label>
         <label>Note (optional) <input type="text" id="tr-note" autocomplete="off"></label>
         <div class="actions"><button class="primary" type="submit" id="tr-save">Save transfer</button><button class="ghost" type="button" id="tr-cancel">Cancel</button></div>
-        <p class="hint">Money sent from a personal account to the shop bank or cash credit lowers that personal balance and raises the shop's. Sending it the other way does the opposite. Shop transfers also show in the shop's Business capital.</p>
       </form>
 
       <form class="form" id="ob-form" hidden>
         <h3>Opening balances</h3>
         <div id="ob-fields" style="display:contents"></div>
         <div class="actions"><button class="primary" type="submit">Save balances</button><button class="ghost" type="button" id="ob-cancel">Cancel</button></div>
-        <p class="hint">The balance in each account at the start of the date shown. Transfers on or after that date are added to it. You can change these any time.</p>
       </form>
 
       <div class="stmt" id="stmt" hidden></div>
