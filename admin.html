@@ -213,7 +213,8 @@
   .pie-legend tr { cursor: default; transition: opacity .15s; }
   .pie-legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 8px; vertical-align: -1px; }
   .pie-legend small { display: block; margin-left: 18px; color: var(--muted); font-size: 0.72rem; }
-  #bd-exp .dim { opacity: 0.35; }
+  #bd-exp .dim, #bd-inc .dim { opacity: 0.35; }
+  .ledger-left { display: grid; gap: 18px; align-content: start; min-width: 0; }
   #month-table tr.month-row { cursor: pointer; }
   .rep-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 14px; }
   .rep-tile { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; text-align: left; cursor: pointer; display: grid; gap: 2px; color: var(--text); font: inherit; }
@@ -543,6 +544,7 @@
     <!-- ===== Expenses / supplier payments (manual) ===== -->
     <section id="pane-ledger" hidden>
       <div class="panel">
+        <div class="ledger-left">
         <div class="card" id="ledger-form-card">
           <h2 id="form-title">Add expense</h2>
           <form id="entry-form" class="form-grid"></form>
@@ -550,6 +552,11 @@
         <div class="card" id="ledger-cat-card" hidden>
           <h2 id="exp-pie-title">Expenses by category</h2>
           <div id="bd-exp"></div>
+        </div>
+        <div class="card" id="inc-cat-card" hidden>
+          <h2 id="inc-pie-title">Income by category</h2>
+          <div id="bd-inc"></div>
+        </div>
         </div>
         <div class="card">
           <div class="list-head">
@@ -970,6 +977,7 @@
     if (tab === "sales") renderMonths();
     $("ledger-form-card").hidden = tab === "expenses";
     $("ledger-cat-card").hidden = tab !== "expenses";
+    $("inc-cat-card").hidden = tab !== "income";
   }
   document.querySelectorAll(".tab").forEach(function (t) { t.addEventListener("click", function () { selectTab(t.dataset.tab); }); });
 
@@ -1574,13 +1582,20 @@
     order.slice(0, PIE_COLORS.length).forEach(function (c, i) { map[c] = PIE_COLORS[i]; });
     return map;
   }
-  function renderExpPie() {
-    var el = $("bd-exp"); if (!el) return;
+  function renderExpPie() { drawPie("bd-exp", "exp-pie-title", "Expenses", state.ledger.expenses, pieColorMap()); }
+  // Other income types keep a fixed colour each, in the order of the dropdown
+  function incColorMap() {
+    var map = {}, n = 0;
+    INC_CATS.concat((state.allIncome || []).map(function (x) { return x.category; })).forEach(function (c) { if (!(c in map) && n < PIE_COLORS.length) map[c] = PIE_COLORS[n++]; });
+    return map;
+  }
+  function drawPie(elId, titleId, label, src, cmap) {
+    var el = $(elId); if (!el) return;
     var mname = new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
-    $("exp-pie-title").textContent = "Expenses by category, " + mname;
-    var rows = groupBy(state.ledger.expenses, "category").filter(function (r) { return r[1] > 0; });
-    if (!rows.length) { el.innerHTML = '<div class="empty" style="padding:12px 0">No expenses this month</div>'; return; }
-    var cmap = pieColorMap(), total = rows.reduce(function (a, r) { return a + r[1]; }, 0);
+    $(titleId).textContent = label + " by category, " + mname;
+    var rows = groupBy(src, "category").filter(function (r) { return r[1] > 0; });
+    if (!rows.length) { el.innerHTML = '<div class="empty" style="padding:12px 0">No ' + label.toLowerCase() + " this month</div>"; return; }
+    var total = rows.reduce(function (a, r) { return a + r[1]; }, 0);
     // Slices: categories with their own colour, then one "Other" slice for the rest
     var slices = [], other = { name: "Other", amt: 0, color: PIE_OTHER, parts: [] };
     rows.forEach(function (r) { if (cmap[r[0]]) slices.push({ name: r[0], amt: r[1], color: cmap[r[0]] }); else { other.amt += r[1]; other.parts.push(r[0] + " " + inr.format(r[1])); } });
@@ -1596,7 +1611,7 @@
       return '<path d="' + d + '" fill="' + sl.color + '" data-slice="' + i + '"></path>';
     }).join("");
     var pctTxt = function (v) { return (v / total * 100).toFixed(v / total < 0.1 ? 1 : 0) + "%"; };
-    el.innerHTML = '<div class="pie-wrap"><div class="pie-box"><svg viewBox="0 0 200 200" role="img" aria-label="Expenses by category, ' + esc(mname) + '">' + paths + "</svg>" +
+    el.innerHTML = '<div class="pie-wrap"><div class="pie-box"><svg viewBox="0 0 200 200" role="img" aria-label="' + label + ' by category, ' + esc(mname) + '">' + paths + "</svg>" +
       '<div class="pie-center"><div class="l">Total</div><div class="a">' + inr.format(total) + "</div></div>" +
       '<div class="pie-tip" hidden></div></div>' +
       '<table class="pie-legend"><tbody>' + slices.map(function (sl, i) {
@@ -3101,6 +3116,7 @@
   // Other income grouped by distributor / buyer, with each entry's date and an Edit button
   var PAID_INTO = { bank: "Bank account", cash_credit: "SBI cash credit", shop: "Shop" };
   function renderIncomeBySource() {
+    drawPie("bd-inc", "inc-pie-title", "Income", state.ledger.income, incColorMap());
     var rows = state.ledger.income, tbl = $("entry-table");
     $("list-title").textContent = "By distributor / buyer, " + new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
     $("list-total").textContent = inr2.format(sum(rows));
