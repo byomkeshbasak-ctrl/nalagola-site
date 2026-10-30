@@ -3091,14 +3091,13 @@
     var by = {};
     rows.forEach(function (r) { (by[r.expense_date] = by[r.expense_date] || []).push(r); });
     var dates = Object.keys(by).sort().reverse();
-    tbl.innerHTML = '<thead><tr><th>Date</th><th class="num">Entries</th><th>Categories</th><th class="num">Total</th><th></th></tr></thead><tbody>' +
+    tbl.innerHTML = '<thead><tr><th>Date</th><th>Categories</th><th class="num">Total</th><th></th></tr></thead><tbody>' +
       dates.map(function (d) {
         var list = by[d], open = state.expOpen === d;
         var cats = groupBy(list, "category").map(function (c) { return c[0]; }).join(", ");
-        var row = '<tr class="' + (open ? "sel" : "") + '"><td><span class="date-link" data-expday="' + d + '">' + fmtDate(d) + '</span></td><td class="num">' + list.length +
-          "</td><td>" + esc(cats) + '</td><td class="num">' + inr2.format(sum(list)) + '</td><td class="actions"><button class="icon-btn" data-expday="' + d + '">' + (open ? "Hide" : "Details") + "</button></td></tr>";
+        var row = '<tr class="' + (open ? "sel" : "") + '"><td><span class="date-link" data-expday="' + d + '">' + fmtDate(d) + "</span></td><td>" + esc(cats) + '</td><td class="num">' + inr2.format(sum(list)) + '</td><td class="actions"><button class="icon-btn" data-expday="' + d + '">' + (open ? "Hide" : "Details") + "</button></td></tr>";
         if (open) {
-          row += '<tr class="sub-row"><td colspan="5"><table class="sub-table"><thead><tr><th>Category</th><th>Note</th><th>Paid from</th><th class="num">Amount</th><th></th></tr></thead><tbody>' +
+          row += '<tr class="sub-row"><td colspan="4"><table class="sub-table"><thead><tr><th>Category</th><th>Note</th><th>Paid from</th><th class="num">Amount</th><th></th></tr></thead><tbody>' +
             list.map(function (x) {
               return "<tr><td>" + esc(x.category) + "</td><td>" + esc(x.description) + "</td><td>" + (paidFromShop(x) ? "Shop cash" : esc(PAID[x.paid_from])) + '</td><td class="num">' + inr2.format(x.amount) +
                 '</td><td class="actions"><button class="icon-btn" data-edit="' + x.id + '">Edit</button><button class="icon-btn del" data-del="' + x.id + '">Delete</button></td></tr>';
