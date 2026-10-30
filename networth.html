@@ -254,7 +254,7 @@
       return "<tr" + (x.opening ? ' class="bf"' : "") + "><td>" + fmtDate(x.date) + "</td><td>" + esc(x.desc) + '</td><td class="num pos">' + (x.amt > 0 && !x.opening ? inr2.format(x.amt) : "") +
         '</td><td class="num neg">' + (x.amt < 0 ? inr2.format(-x.amt) : "") + '</td><td class="num">' + inr2.format(run) + '</td><td class="actions-c">' +
         (x.id ? '<button class="icon-btn" data-edit="' + x.id + '">Edit</button><button class="icon-btn del" data-del="' + x.id + '">Delete</button>' : "") + "</td></tr>";
-    }).join("");
+    }).reverse().join(""); // latest first, opening balance at the bottom
     el.innerHTML = '<div class="stmt-head"><h3>' + esc(a.name) + ' statement</h3><div class="spacer"></div><button class="ghost" type="button" id="stmt-close">Close</button></div>' +
       '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Details</th><th class="num">Money in</th><th class="num">Money out</th><th class="num">Balance</th><th></th></tr></thead><tbody>' + rows +
       '</tbody><tfoot><tr><td></td><td>Total</td><td class="num pos">' + inr2.format(inn) + '</td><td class="num neg">' + inr2.format(out) + '</td><td class="num">' + inr2.format(run) + "</td><td></td></tr></tfoot></table></div>";
