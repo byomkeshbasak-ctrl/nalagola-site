@@ -1863,7 +1863,9 @@
     var money = function (v) { return v ? inr.format(v) : "–"; };
     var signed = function (v) { return Math.abs(v) < 0.5 ? "–" : (v > 0 ? "+" : "−") + inr.format(Math.abs(v)); };
     var inp = function (d, f, v) {
-      return '<input class="cell-in" type="number" step="0.01" min="0" inputmode="decimal" data-d="' + d + '" data-f="' + f + '" value="' + (v == null ? "" : esc(v)) + '" placeholder="0">';
+      // Remaining balance can go below zero (more cash in the shop than the books show), so no minimum there
+      var neg = f === "shop_balance";
+      return '<input class="cell-in" type="number" step="0.01"' + (neg ? ' title="Can be negative"' : ' min="0" inputmode="decimal"') + ' data-d="' + d + '" data-f="' + f + '" value="' + (v == null ? "" : esc(v)) + '" placeholder="0">';
     };
     var expAllDay = expensesByDate(true);
     var body = days.map(function (d) {
