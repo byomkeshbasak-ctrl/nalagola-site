@@ -290,6 +290,12 @@
   .bd-prev { margin-bottom: 12px; font-size: 0.85rem; color: var(--muted); display: flex; align-items: center; gap: 8px; }
   .bd-prev span, .bd-prev .fixed-v { color: var(--text); font-weight: 600; }
   #book-table td:first-child .tag { display: block; width: max-content; margin-top: 3px; }
+  #book-table tr.bk-row { cursor: pointer; }
+  #book-table .bk-date { white-space: nowrap; }
+  #book-table .bk-date .caret { display: inline-block; width: 12px; color: var(--gold); font-size: 0.75rem; }
+  #book-table tr.bk-row.open td { background: var(--panel-2); }
+  #book-table tr.frozen .bk-date { color: var(--muted); }
+  .bd-links { position: sticky; left: 0; margin-bottom: 10px; }
   .bd-toggle { display: block; margin-top: 5px; background: none; border: 1px solid var(--line); border-radius: 8px; padding: 2px 8px; font-size: 0.72rem; color: var(--gold); cursor: pointer; }
   .bd-toggle:hover, .bd-toggle.on { border-color: var(--gold); }
   #book-table th:first-child, #book-table tbody tr:not(.book-detail) td:first-child, #book-table tfoot td:first-child { position: sticky; left: 0; z-index: 1; background: var(--panel); }
@@ -1982,16 +1988,14 @@
           '<input class="cell-in on-in" type="number" step="0.01" min="0" inputmode="decimal" data-d="' + d + '" data-f="online_bank" value="' + (e && sp.bank ? sp.bank : "") + '" placeholder="to bank">';
       var prevCell = d === START_DATE ? box("opening_balance", e ? e.opening_balance : "") :
         (b.prev == null ? '<span title="Previous day not entered yet">–</span>' : '<span title="Remaining balance of ' + fmtDate(b.prevDate) + '">' + inr.format(b.prev) + "</span>");
-      var dateCell = (b.hasReport ? '<span class="date-link" data-view="' + d + '" title="See this day\'s items">' + fmtDate(d) + "</span>" : fmtDate(d)) +
-        (mm ? ' <span class="tag bad" data-mismatch="' + d + '" title="Opening stock differs from the previous day\'s closing">' + mm + " stock</span>" : "") +
-        (frozen ? ' <span class="tag ok" title="Locked: a later day is uploaded and this day balances">locked</span>' : "") +
-        '<button class="bd-toggle' + (open ? " on" : "") + '" type="button" data-bopen="' + d + '" title="Expenses, dues and other income for this day">' + (open ? "Hide details" : "Details") + "</button>";
-      var row = '<tr data-row="' + d + '" class="' + (bad ? "mm-row" : "") + (frozen ? " frozen" : "") + '"><td>' + dateCell + "</td>" +
+      var dateCell = '<span class="bk-date">' + '<span class="caret">' + (open ? "▾" : "▸") + "</span>" + fmtDate(d) + "</span>" +
+        (mm ? ' <span class="tag bad" data-mismatch="' + d + '" title="Opening stock differs from the previous day\'s closing">' + mm + " stock</span>" : "");
+      var row = '<tr data-row="' + d + '" class="bk-row' + (bad ? " mm-row" : "") + (frozen ? " frozen" : "") + (open ? " open" : "") + '"' + (frozen ? ' title="Locked: a later day is uploaded and this day balances"' : "") + "><td>" + dateCell + "</td>" +
         '<td class="num">' + money(b.sales) + "</td>" +
         '<td class="num">' + prevCell + "</td>" +
         '<td class="num" title="Collected ' + inr.format(b.duesIn) + ' − credit given ' + inr.format(b.credit) + '">' + signed(b.duesIn - b.credit) + "</td>" +
         '<td class="num"' + (expAll - b.exp >= 0.5 ? ' title="' + inr.format(expAll - b.exp) + ' more was paid straight from the bank, cash credit or cash not deposited, so it isn\'t in the mismatch"' : "") + ">" + money(b.exp) + (expAll - b.exp >= 0.5 ? '<span class="on-split">+' + inr.format(expAll - b.exp) + " from bank / CC</span>" : "") + "</td>" +
-        '<td class="num">' + incCell(d, frozen, b) + "</td>" +
+        '<td class="num">' + money(b.incShop) + "</td>" +
         '<td class="num">' + lockBox("bar_collection", e ? e.bar_collection : "") + "</td>" +
         '<td class="num">' + lockBox("cash_collection", e ? e.cash_collection : "") + "</td>" +
         '<td class="num on-cell">' + onlineCell + "</td>" +
@@ -2116,7 +2120,8 @@
     var duesList = dues.length ? dues.map(function (x) {
       return bdItem("due", x, esc(x.customer_name) + " · " + (x.entry_type === "payment" ? '<span class="pos">collected</span>' : '<span class="warn-t">credit given</span>'), frozen);
     }).join("") : '<div class="none">No dues collected or credit given this day.</div>';
-    return '<tr class="book-detail"><td colspan="11"><div class="bd-grid">' +
+    var hasRep = state.reports.some(function (r) { return r.report_date === d; });
+    return '<tr class="book-detail"><td colspan="11">' + (hasRep ? '<div class="bd-links"><button class="icon-btn" type="button" data-view="' + d + '">See items sold on ' + fmtDate(d) + "</button></div>" : "") + '<div class="bd-grid">' +
       '<div class="bd-box"><h3>Expenses on ' + fmtDate(d) + "</h3><div class=\"bd-list\">" + expList + "</div>" +
         (frozen ? '<div class="none">Locked.</div></div>' : '<form class="bd-add" data-addexp="' + d + '">' +
           "<select name=\"category\">" + EXP_CATS.map(function (c) { return "<option>" + esc(c) + "</option>"; }).join("") + "</select>" +
@@ -2215,6 +2220,11 @@
       toast("Income deleted"); loadMonth(); return;
     }
     var v = e.target.getAttribute("data-view"), mm = e.target.getAttribute("data-mismatch");
+    // A click anywhere on a day's row (not on a box or link) opens its expenses, dues and income
+    var rowEl = e.target.closest("tr.bk-row");
+    if (rowEl && !e.target.closest("input, select, button, a, .tag")) {
+      state.bookOpen = state.bookOpen === rowEl.dataset.row ? null : rowEl.dataset.row; renderBook(); return;
+    }
     if (v) { state.detailFilter = "sold"; await openDetail(v); $("rep-detail").scrollIntoView({ behavior: "smooth", block: "start" }); return; }
     if (mm) { showMismatches(mm); return; }
     if (o) { state.bookOpen = state.bookOpen === o ? null : o; renderBook(); }
