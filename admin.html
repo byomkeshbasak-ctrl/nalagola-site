@@ -449,6 +449,7 @@
             <option value="bank">Bank account</option>
             <option value="cash_hand">Cash not deposited</option>
             <option value="bevco">Bevco wallet</option>
+            <option value="bar_online">Bar counter (online collection)</option>
             </optgroup>
           </select>
         </label>
@@ -635,7 +636,7 @@
     <!-- ===== Bar counter ===== -->
     <section id="pane-bar" hidden>
       <section class="kpis" style="margin-top:18px">
-        <div class="kpi"><div class="k">Collection</div><div class="v" id="bar-in">–</div><div class="s">From the Daily ledger</div></div>
+        <div class="kpi"><div class="k">Collection</div><div class="v" id="bar-in">–</div><div class="s" id="bar-in-s"></div></div>
         <div class="kpi"><div class="k">Expenses</div><div class="v" id="bar-out">–</div><div class="s" id="bar-out-s">Money spent on bar goods</div></div>
         <div class="kpi profit"><div class="k">Net</div><div class="v" id="bar-net">–</div><div class="s">Collection − expenses</div></div>
         <div class="kpi"><div class="k">Days open</div><div class="v" id="bar-days">–</div><div class="s" id="bar-avg"></div></div>
@@ -643,6 +644,7 @@
       <div class="card sub-card">
         <div class="list-head">
           <h2 id="bar-title">Bar counter</h2>
+          <button class="ghost" id="bar-online-add" type="button">Add online collection</button>
           <button class="ghost" id="bar-add" type="button">Add bar expense</button>
           <button class="ghost" id="bar-csv" type="button">Export CSV</button>
         </div>
@@ -793,7 +795,7 @@
     items: [], itemsFilter: "all",
     mismatches: [], missingDays: [], book: [], dues: [],
     custFilter: "all", custSel: null, duesEditing: null, bookOpen: null, expOpen: null,
-    allReports: [], allExp: [], allBook: [], cap: { stock: null, ledger: null, opening: null }, transfers: [], stmt: null, trEditing: null, onlineEdit: null, barExp: [],
+    allReports: [], allExp: [], allBook: [], cap: { stock: null, ledger: null, opening: null }, transfers: [], stmt: null, trEditing: null, onlineEdit: null, barExp: [], barOnline: [],
     editing: null, pending: null, pendingCost: null, detailDate: null, detailRows: [], detailFilter: "sold"
   };
 
@@ -967,7 +969,8 @@
       fetchAll(function () { return sb.from("account_transfers").select("*").order("transfer_date").order("created_at"); }),
       fetchAll(function () { return sb.from("other_income").select("*").order("income_date", { ascending: false }).order("created_at", { ascending: false }); }),
       fetchAll(function () { return sb.from("bar_expenses").select("*").order("expense_date").order("created_at"); }),
-      sb.from("personal_accounts").select("code,name").order("sort")
+      sb.from("personal_accounts").select("code,name").order("sort"),
+      fetchAll(function () { return sb.from("bar_online").select("*").order("collection_date").order("created_at"); })
     ]);
     if (q.some(function (x) { return x.error; })) toast("Some data couldn't load. Try reloading the page.");
     state.reports = q[0].data || [];
@@ -987,6 +990,7 @@
     state.cap = { stock: (q[11].data || [])[0] || null, ledger: (q[12].data || [])[0] || null, opening: q[13].data || null };
     state.transfers = q[14].data || [];
     setPersonalAccounts(q[17].data || []);
+    state.barOnline = q[18].data || [];
     renderCapital();
     renderSummary(); renderReports(); renderChecks();
     if (state.tab === "sales") renderMonths();
@@ -1055,6 +1059,12 @@
       var a = Number(x.amount);
       if (x.paid_from === "cash_credit") bal.cc_used += a; else bal[x.paid_from] -= a;
     });
+    // Bar counter money paid online goes straight into the bank or pays down the cash credit
+    state.barOnline.forEach(function (x) {
+      if (x.collection_date < START_DATE || x.collection_date > end) return;
+      var a = Number(x.amount);
+      if (x.received_into === "cash_credit") bal.cc_used -= a; else bal.bank += a;
+    });
     // Bar counter purchases come out of the account they were paid from
     state.barExp.forEach(function (x) {
       if (x.expense_date < START_DATE || x.expense_date > end) return;
@@ -1088,6 +1098,7 @@
     state.transfers.forEach(function (t) { take(t.transfer_date); });
     state.allIncome.forEach(function (x) { take(x.income_date); });
     state.barExp.forEach(function (x) { take(x.expense_date); });
+    state.barOnline.forEach(function (x) { take(x.collection_date); });
     state.dues.forEach(function (d) { take(d.entry_date); });
     return last;
   }
@@ -1176,6 +1187,11 @@
       var a = Number(x.amount);
       m.push({ date: x.expense_date, desc: "Shop expense · " + x.category + (x.description ? " · " + x.description : ""), amt: acct === "cash_credit" ? a : -a, eid: x.id });
     });
+    state.barOnline.forEach(function (x) {
+      if (x.collection_date < START_DATE || x.received_into !== acct) return;
+      var a = Number(x.amount);
+      m.push({ date: x.collection_date, desc: "Bar counter online collection" + (x.description ? " · " + x.description : ""), amt: acct === "cash_credit" ? -a : a, oid: x.id });
+    });
     state.barExp.forEach(function (x) {
       if (x.expense_date < START_DATE || x.paid_from !== acct) return;
       var a = Number(x.amount);
@@ -1236,7 +1252,8 @@
           '</td><td class="num">' + (last ? "<b>" + inr2.format(bal) + "</b>" : '<span style="color:var(--muted)">' + inr2.format(bal) + "</span>") +
           '</td><td class="actions">' + (x.tid ? '<button class="icon-btn" data-edittr="' + x.tid + '">Edit</button><button class="icon-btn del" data-deltr="' + x.tid + '">Delete</button>' :
             x.bid ? '<button class="icon-btn" data-editbar="' + x.bid + '">Edit</button><button class="icon-btn del" data-delbar="' + x.bid + '">Delete</button>' :
-            x.eid ? '<button class="icon-btn" data-editsexp="' + x.eid + '">Edit</button><button class="icon-btn del" data-delsexp="' + x.eid + '">Delete</button>' : "") + "</td></tr>");
+            x.eid ? '<button class="icon-btn" data-editsexp="' + x.eid + '">Edit</button><button class="icon-btn del" data-delsexp="' + x.eid + '">Delete</button>' :
+            x.oid ? '<button class="icon-btn" data-editbaron="' + x.oid + '">Edit</button><button class="icon-btn del" data-delbaron="' + x.oid + '">Delete</button>' : "") + "</td></tr>");
         csv.push([x.date, x.desc, x.amt > 0 ? x.amt : "", x.amt < 0 ? -x.amt : "", bal]);
       });
       rows.reverse(); // latest first; the bold figure is each day's closing balance
@@ -1250,7 +1267,9 @@
       var eb = e.target.getAttribute("data-editbar"); if (eb) { editBarExpense(eb); return; }
       var db = e.target.getAttribute("data-delbar"); if (db) { deleteBarExpense(db); return; }
       var es = e.target.getAttribute("data-editsexp"); if (es) { editShopExpense(es); return; }
-      var ds = e.target.getAttribute("data-delsexp"); if (ds) deleteShopExpense(ds);
+      var ds = e.target.getAttribute("data-delsexp"); if (ds) { deleteShopExpense(ds); return; }
+      var eo = e.target.getAttribute("data-editbaron"); if (eo) { editBarOnline(eo); return; }
+      var dn = e.target.getAttribute("data-delbaron"); if (dn) deleteBarOnline(dn);
     };
     $("stmt-close").onclick = function () { state.stmt = null; el.hidden = true; renderCapital(); };
     $("stmt-csv").onclick = function () { downloadCSV("nalagola-" + k + "-" + state.month + ".csv", csv[0], csv.slice(1)); };
@@ -1269,12 +1288,14 @@
   var PAID = { bank: "Bank account", cash_credit: "SBI cash credit", cash_hand: "Cash not deposited" };
   function renderBar() {
     var r = monthRange(state.month), days = {};
-    var day = function (d) { return days[d] || (days[d] = { inn: 0, out: 0, items: [] }); };
-    state.allBook.forEach(function (b) { if (b.ledger_date >= r[0] && b.ledger_date <= r[1] && Number(b.bar_collection || 0)) day(b.ledger_date).inn += Number(b.bar_collection); });
+    var day = function (d) { return days[d] || (days[d] = { inn: 0, cash: 0, onl: 0, out: 0, items: [], online: [] }); };
+    state.allBook.forEach(function (b) { if (b.ledger_date >= r[0] && b.ledger_date <= r[1] && Number(b.bar_collection || 0)) { var o = day(b.ledger_date); o.inn += Number(b.bar_collection); o.cash += Number(b.bar_collection); } });
+    state.barOnline.forEach(function (x) { if (x.collection_date >= r[0] && x.collection_date <= r[1]) { var o = day(x.collection_date); o.inn += Number(x.amount); o.onl += Number(x.amount); o.online.push(x); } });
     state.barExp.forEach(function (x) { if (x.expense_date >= r[0] && x.expense_date <= r[1]) { var o = day(x.expense_date); o.out += Number(x.amount); o.items.push(x); } });
-    var keys = Object.keys(days).sort().reverse(), tin = 0, tout = 0, open = 0;
-    keys.forEach(function (k) { tin += days[k].inn; tout += days[k].out; if (days[k].inn) open++; });
-    $("bar-in").textContent = inr.format(tin); $("bar-out").textContent = inr.format(tout);
+    var keys = Object.keys(days).sort().reverse(), tin = 0, tout = 0, open = 0, tcash = 0, tonl = 0;
+    keys.forEach(function (k) { tin += days[k].inn; tout += days[k].out; tcash += days[k].cash; tonl += days[k].onl; if (days[k].inn) open++; });
+    $("bar-in").textContent = inr.format(tin);
+    $("bar-in-s").textContent = "Cash " + inr.format(tcash) + " · Online " + inr.format(tonl); $("bar-out").textContent = inr.format(tout);
     $("bar-net").textContent = inr.format(tin - tout); $("bar-net").className = "v " + (tin - tout >= 0 ? "pos" : "neg");
     $("bar-days").textContent = open; $("bar-avg").textContent = open ? "avg " + inr.format(tin / open) + " a day" : "";
     $("bar-title").textContent = "Bar counter, " + new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
@@ -1282,19 +1303,59 @@
     if (!keys.length) { tbl.innerHTML = '<tr><td class="empty">Nothing for the bar counter this month yet.</td></tr>'; return; }
     var run = 0;
     var rows = keys.slice().reverse().map(function (k) { run += days[k].inn - days[k].out; return { k: k, run: run }; }).reverse();
-    tbl.innerHTML = '<thead><tr><th>Date</th><th class="num">Collection</th><th class="num">Expenses</th><th>Expense details</th><th class="num">Net</th><th class="num">Month so far</th><th></th></tr></thead><tbody>' +
+    tbl.innerHTML = '<thead><tr><th>Date</th><th class="num">Collection</th><th class="num">Expenses</th><th>Details</th><th class="num">Net</th><th class="num">Month so far</th><th></th></tr></thead><tbody>' +
       rows.map(function (row) {
         var o = days[row.k], net = o.inn - o.out;
-        return "<tr><td>" + fmtDate(row.k) + '</td><td class="num">' + (o.inn ? inr.format(o.inn) : "–") + '</td><td class="num">' + (o.out ? inr.format(o.out) : "–") + "</td><td>" +
-          o.items.map(function (x) { return esc((x.description || "Bar goods") + " (" + PAID[x.paid_from] + ") " + inr.format(x.amount)); }).join("<br>") +
+        var det = o.online.map(function (x) { return '<span class="pos">Online in</span> ' + esc((x.description ? x.description + " " : "") + "(" + PAID[x.received_into] + ") " + inr.format(x.amount)); })
+          .concat(o.items.map(function (x) { return esc((x.description || "Bar goods") + " (" + PAID[x.paid_from] + ") " + inr.format(x.amount)); }));
+        return "<tr><td>" + fmtDate(row.k) + '</td><td class="num">' + (o.inn ? inr.format(o.inn) : "–") +
+          (o.onl && o.cash ? '<span class="on-split">Cash ' + inr.format(o.cash) + " · Online " + inr.format(o.onl) + "</span>" : o.onl ? '<span class="on-split">Online</span>' : "") +
+          '</td><td class="num">' + (o.out ? inr.format(o.out) : "–") + "</td><td>" + det.join("<br>") +
           '</td><td class="num ' + (net < 0 ? "neg" : "pos") + '">' + inr.format(net) + '</td><td class="num">' + inr.format(row.run) + '</td><td class="actions">' +
-          o.items.map(function (x) { return '<button class="icon-btn" data-editbar="' + x.id + '">Edit</button><button class="icon-btn del" data-delbar="' + x.id + '">Delete</button>'; }).join("<br>") + "</td></tr>";
+          o.online.map(function (x) { return '<button class="icon-btn" data-editbaron="' + x.id + '">Edit</button><button class="icon-btn del" data-delbaron="' + x.id + '">Delete</button>'; })
+            .concat(o.items.map(function (x) { return '<button class="icon-btn" data-editbar="' + x.id + '">Edit</button><button class="icon-btn del" data-delbar="' + x.id + '">Delete</button>'; })).join("<br>") + "</td></tr>";
       }).join("") + '</tbody><tfoot><tr><td>Total</td><td class="num">' + inr.format(tin) + '</td><td class="num">' + inr.format(tout) + '</td><td></td><td class="num ' + (tin - tout >= 0 ? "pos" : "neg") + '">' + inr.format(tin - tout) + "</td><td></td><td></td></tr></tfoot>";
   }
   $("bar-table").addEventListener("click", function (e) {
     var eb = e.target.getAttribute("data-editbar"); if (eb) { editBarExpense(eb); return; }
-    var db = e.target.getAttribute("data-delbar"); if (db) deleteBarExpense(db);
+    var db = e.target.getAttribute("data-delbar"); if (db) { deleteBarExpense(db); return; }
+    var eo = e.target.getAttribute("data-editbaron"); if (eo) { editBarOnline(eo); return; }
+    var dn = e.target.getAttribute("data-delbaron"); if (dn) deleteBarOnline(dn);
   });
+  // Online bar collections (UPI etc.) go straight to the bank or the cash credit, not through the shop cash
+  $("bar-online-add").addEventListener("click", function () {
+    $("tr-open").click(); if ($("tr-form").hidden) $("tr-open").click();
+    $("tr-from").value = "bar_online"; $("tr-to").value = "bank"; syncTrCat();
+    $("tr-form").scrollIntoView({ behavior: "smooth", block: "center" }); $("tr-amount").focus();
+  });
+  async function saveBarOnline(p2) {
+    if (["bank", "cash_credit"].indexOf(p2.to_account) < 0) { toast("Online bar collection goes to the bank account or the SBI cash credit."); return; }
+    if (!(p2.amount > 0)) { toast("Enter an amount above zero."); return; }
+    if (p2.transfer_date < START_DATE) { toast("Entries start from " + fmtLong(START_DATE) + "."); return; }
+    var row = { collection_date: p2.transfer_date, received_into: p2.to_account, amount: p2.amount, description: p2.note };
+    var editing = state.trEditing && String(state.trEditing).indexOf("baron:") === 0 ? state.trEditing.slice(6) : null;
+    if (state.trEditing && !editing) { toast("This entry can't become a bar collection. Delete it and add the collection instead."); return; }
+    var r = editing ? await sb.from("bar_online").update(row).eq("id", editing) : await sb.from("bar_online").insert(row);
+    if (r.error) { toast("Couldn't save: " + r.error.message); return; }
+    $("tr-form").hidden = true; state.trEditing = null;
+    toast(editing ? "Bar collection updated" : inr.format(row.amount) + " bar collection into " + PAID[row.received_into]);
+    loadMonth();
+  }
+  function editBarOnline(id) {
+    var x = state.barOnline.find(function (y) { return y.id === id; }); if (!x) return;
+    var f = $("tr-form"); $("ob-form").hidden = true; f.hidden = false; state.trEditing = "baron:" + id;
+    $("tr-date").value = x.collection_date; $("tr-from").value = "bar_online"; $("tr-to").value = x.received_into; syncTrCat();
+    $("tr-amount").value = x.amount; $("tr-note").value = x.description || "";
+    f.querySelector(".primary").textContent = "Save changes";
+    f.scrollIntoView({ behavior: "smooth", block: "center" }); $("tr-amount").focus();
+  }
+  async function deleteBarOnline(id) {
+    var x = state.barOnline.find(function (y) { return y.id === id; }); if (!x) return;
+    if (!confirm("Delete the bar collection of " + inr2.format(x.amount) + " on " + fmtDate(x.collection_date) + "?")) return;
+    var r = await sb.from("bar_online").delete().eq("id", id);
+    if (r.error) { toast("Couldn't delete: " + r.error.message); return; }
+    toast("Bar collection deleted"); loadMonth();
+  }
   $("bar-add").addEventListener("click", function () {
     $("tr-open").click(); if ($("tr-form").hidden) $("tr-open").click();
     $("tr-from").value = "bank"; $("tr-to").value = "bar_counter"; syncTrCat();
@@ -1303,7 +1364,8 @@
   $("bar-csv").addEventListener("click", function () {
     var r = monthRange(state.month);
     var rows = state.barExp.filter(function (x) { return x.expense_date >= r[0] && x.expense_date <= r[1]; }).map(function (x) { return [x.expense_date, "Expense", PAID[x.paid_from], x.description, -Number(x.amount)]; })
-      .concat(state.allBook.filter(function (b) { return b.ledger_date >= r[0] && b.ledger_date <= r[1] && Number(b.bar_collection || 0); }).map(function (b) { return [b.ledger_date, "Collection", "", "", Number(b.bar_collection)]; }))
+      .concat(state.allBook.filter(function (b) { return b.ledger_date >= r[0] && b.ledger_date <= r[1] && Number(b.bar_collection || 0); }).map(function (b) { return [b.ledger_date, "Cash collection", "", "", Number(b.bar_collection)]; }))
+      .concat(state.barOnline.filter(function (x) { return x.collection_date >= r[0] && x.collection_date <= r[1]; }).map(function (x) { return [x.collection_date, "Online collection", PAID[x.received_into], x.description, Number(x.amount)]; }))
       .sort(function (a, b) { return a[0] < b[0] ? -1 : 1; });
     if (!rows.length) { toast("Nothing to export."); return; }
     downloadCSV("nalagola-bar-" + state.month + ".csv", ["Date", "Type", "Paid from", "Details", "Amount"], rows);
@@ -1394,9 +1456,10 @@
   $("tr-form").addEventListener("submit", async function (e) {
     e.preventDefault();
     var p2 = { transfer_date: $("tr-date").value, from_account: $("tr-from").value, to_account: $("tr-to").value, amount: toNum($("tr-amount").value), note: $("tr-note").value.trim() };
+    if (p2.from_account === "bar_online") { saveBarOnline(p2); return; }
     if (p2.to_account === "shop_expense") { saveShopExpense(p2); return; }
     if (p2.to_account === "bar_counter") { saveBarExpense(p2); return; }
-    if (state.trEditing && /^(bar|exp):/.test(String(state.trEditing))) { toast("An expense can't become a transfer. Delete it and add a transfer instead."); return; }
+    if (state.trEditing && /^(bar|exp|baron):/.test(String(state.trEditing))) { toast("An expense can't become a transfer. Delete it and add a transfer instead."); return; }
     if (p2.from_account === p2.to_account) { toast("Pick two different accounts."); return; }
     if (isPersonal(p2.from_account) && isPersonal(p2.to_account)) { toast("Move money between your personal accounts from the Personal Networth Tracker page."); return; }
     if (!(p2.amount > 0)) { toast("Enter an amount above zero."); return; }
@@ -1564,6 +1627,7 @@
     state.allBook.forEach(function (b) { add(b.ledger_date, "bar", Number(b.bar_collection || 0)); });
     state.allIncome.forEach(function (x) { add(x.income_date, "inc", Number(x.amount)); });
     state.barExp.forEach(function (x) { add(x.expense_date, "bar", -Number(x.amount)); });
+    state.barOnline.forEach(function (x) { add(x.collection_date, "bar", Number(x.amount)); });
     var months = [];
     for (var k = START_DATE.slice(0, 7); k <= t; ) {
       months.push(k);
