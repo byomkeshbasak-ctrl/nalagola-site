@@ -265,7 +265,12 @@
   #ind-table th { white-space: normal; line-height: 1.3; }
   #ind-table th, #ind-table td { padding-left: 7px; padding-right: 7px; }
   #ind-table tr.cat-row td { background: var(--panel-2); font-weight: 600; font-size: 0.8rem; color: var(--gold); letter-spacing: 0.04em; }
-  #ind-table td.order { font-weight: 600; color: var(--gold); }
+  #ind-table td.order { font-weight: 600; color: var(--gold); white-space: nowrap; }
+  .ind-in { width: 58px; padding: 5px 6px; font-size: 0.86rem; text-align: right; border-radius: 8px; color: var(--gold); font-weight: 600; }
+  .ind-in.edited { border-color: var(--gold); }
+  .ind-unit { margin-left: 5px; font-size: 0.78rem; color: var(--muted); font-weight: 400; display: inline-block; min-width: 40px; text-align: left; }
+  .ind-reset { display: block; margin: 3px 0 0 auto; background: none; border: 0; color: var(--muted); font-size: 0.7rem; text-decoration: underline; cursor: pointer; }
+  .ind-reset:hover { color: var(--gold); }
   tr.missing td { color: var(--muted); font-style: italic; }
   tr.missing td:first-child { font-style: normal; }
 
@@ -2295,7 +2300,11 @@
   var IND_DEFAULT_CASES = { "spirits:750": 12, "spirits:600": 20, "spirits:500": 18, "spirits:375": 24, "spirits:330": 24, "spirits:300": 30, "spirits:180": 48,
     "beer:650": 12, "beer:500": 24, "beer:330": 24 };
   var IND_CAT_ORDER = ["Whisky", "Rum", "Vodka", "Gin", "Brandy", "Overseas Spirits", "Country Spirits", "Beer", "Wines", "Other"];
-  state.ind = { rows: [], cases: {}, sort: "cat", dir: 1, latest: null, days: 0, from: null };
+  state.ind = { rows: [], cases: {}, sort: "cat", dir: 1, latest: null, days: 0, from: null, ovr: {} };
+  // Order numbers typed over the suggestion are kept in this browser until the next day's report comes in
+  var indOvrKey = function () { return "ind-ovr-" + state.ind.latest; };
+  function loadIndOvr() { try { state.ind.ovr = JSON.parse(localStorage.getItem(indOvrKey()) || "{}") || {}; } catch (x) { state.ind.ovr = {}; } }
+  function saveIndOvr() { try { localStorage.setItem(indOvrKey(), JSON.stringify(state.ind.ovr)); } catch (x) {} }
   try { var sd = Number(localStorage.getItem("ind-days")); if (sd > 0) $("ind-days").value = sd; } catch (x) {}
   var indKind = function (cat) { return cat === "Beer" || cat === "Wines" ? "beer" : "spirits"; };
   var sizeOf = function (l) { var n = Number(l.size_ml); if (n > 0) return n; var m = String(l.item_name).match(/(\d+)\s*$/); return m ? Number(m[1]) : 0; };
@@ -2318,7 +2327,7 @@
     if (q[0].error) { toast("Couldn't load the stock for the indent: " + q[0].error.message); return; }
     var cases = Object.assign({}, IND_DEFAULT_CASES);
     (q[1].data || []).forEach(function (c) { cases[c.kind + ":" + c.size_ml] = Number(c.bottles); });
-    state.ind.cases = cases; state.ind.latest = latest; state.ind.from = from;
+    state.ind.cases = cases; state.ind.latest = latest; state.ind.from = from; loadIndOvr();
     var lines = q[0].data || [], dates = {};
     lines.forEach(function (l) { dates[l.report_date] = 1; });
     state.ind.days = Object.keys(dates).length;
@@ -2350,8 +2359,10 @@
     return state.ind.rows.map(function (r) {
       var avg = r.sold / n, target = avg * minDays, short = Math.max(0, target - r.stock), cz = caseSizeFor(r.cat, r.size);
       var units = cz.perBottle ? Math.round(short) : Math.round(short / cz.n); // nearest case (or bottle for overseas spirits)
+      var suggested = units, ov = state.ind.ovr[r.name], edited = ov != null && ov !== suggested;
+      if (ov != null) units = ov;
       var bottles = cz.perBottle ? units : units * cz.n;
-      return Object.assign({}, r, { avg: avg, daysLeft: avg > 0 ? r.stock / avg : Infinity, short: short, cz: cz, units: units, bottles: bottles,
+      return Object.assign({}, r, { avg: avg, daysLeft: avg > 0 ? r.stock / avg : Infinity, short: short, cz: cz, units: units, bottles: bottles, suggested: suggested, edited: edited, touched: ov != null,
         value: r.cost != null ? bottles * r.cost : null, low: avg > 0 && r.stock < target, minDays: minDays });
     });
   }
@@ -2369,7 +2380,7 @@
       '<div><div class="l">Bottles</div><div class="a">' + num.format(tot.b) + "</div></div>" +
       '<div><div class="l">Order value (at cost)</div><div class="a gold">' + inr.format(tot.v) + "</div>" + (tot.nc ? '<div class="l warn-t">' + tot.nc + " item" + (tot.nc > 1 ? "s" : "") + " without a cost price</div>" : "") + "</div>";
     var rows = all.filter(function (r) {
-      if (show === "order" && !(r.units > 0)) return false;
+      if (show === "order" && !(r.units > 0) && !r.touched) return false;
       if (show === "low" && !r.low) return false;
       if (cat && r.cat !== cat) return false;
       if (q && r.name.toLowerCase().indexOf(q) < 0) return false;
@@ -2398,7 +2409,9 @@
       if (key === "cat" && r.cat !== lastCat) { lastCat = r.cat; pre = '<tr class="cat-row"><td colspan="10">' + esc(r.cat) + "</td></tr>"; }
       ft.b += r.bottles; ft.v += r.value || 0; if (!r.cz.perBottle) ft.c += r.units;
       var unit = r.cz.perBottle ? "bottle" : "case";
-      var orderCell = r.units > 0 ? r.units + " " + unit + (r.units > 1 ? "s" : "") : "–";
+      var orderCell = '<input class="ind-in' + (r.edited ? " edited" : "") + '" type="number" min="0" step="1" inputmode="numeric" data-iname="' + esc(r.name) + '" value="' + (r.units || "") + '" placeholder="0" aria-label="' + unit + 's to order">' +
+        '<span class="ind-unit">' + unit + (r.units === 1 ? "" : "s") + "</span>" +
+        (r.edited ? '<button class="ind-reset" type="button" data-ireset="' + esc(r.name) + '" title="Back to the suggested ' + r.suggested + '">suggested ' + r.suggested + "</button>" : "");
       return pre + "<tr><td class=\"item\">" + esc(r.name) + "<small>" + esc(r.cat) + (r.cz.perBottle ? " · by the bottle" : " · " + (r.cz.missing ? '<span class="warn-t">case size not set</span>' : r.cz.n + " per case")) + (r.stock <= 0 && r.avg > 0 ? ' · <span class="neg">out of stock</span>' : "") + "</small></td>" +
         '<td class="num">' + inr2.format(r.mrp) + '</td><td class="num">' + (r.cost == null ? '<span class="warn-t">not set</span>' : inr2.format(r.cost)) +
         '</td><td class="num">' + r.avg.toFixed(1) + '</td><td class="num">' + num.format(r.stock) +
@@ -2418,6 +2431,22 @@
     renderIndent();
   });
   ["ind-show", "ind-cat"].forEach(function (id) { $(id).addEventListener("change", renderIndent); });
+  // Editing the order: whole cases (bottles for overseas spirits); totals and value follow
+  $("ind-table").addEventListener("change", function (e) {
+    var i = e.target.closest(".ind-in"); if (!i) return;
+    var v = Math.max(0, Math.round(toNum(i.value)));
+    state.ind.ovr[i.dataset.iname] = v; saveIndOvr();
+    setTimeout(function () {
+      var ae = document.activeElement, keep = ae && ae.classList && ae.classList.contains("ind-in") ? ae.dataset.iname : null;
+      renderIndent();
+      if (keep) { var n = [].find.call(document.querySelectorAll("#ind-table .ind-in"), function (x) { return x.dataset.iname === keep; }); if (n) { n.focus(); n.select(); } }
+    }, 0);
+  });
+  $("ind-table").addEventListener("keydown", function (e) { if (e.key === "Enter" && e.target.classList.contains("ind-in")) e.target.blur(); });
+  $("ind-table").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-ireset]"); if (!b) return;
+    delete state.ind.ovr[b.dataset.ireset]; saveIndOvr(); renderIndent();
+  });
   $("ind-q").addEventListener("input", renderIndent);
   $("ind-days").addEventListener("input", function () {
     try { if (toNum(this.value) > 0) localStorage.setItem("ind-days", String(Math.round(toNum(this.value)))); } catch (x) {}
