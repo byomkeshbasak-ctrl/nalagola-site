@@ -383,6 +383,13 @@
   #goods-table tr.gd-detail > td { padding: 0 0 10px 18px; background: var(--bg); }
   .gd-inner { font-size: 0.8rem; }
   .gd-inner th { position: static; background: var(--bg); }
+  .top-row { display: grid; grid-template-columns: 22px minmax(120px, 190px) 1fr 120px; gap: 10px; align-items: center; padding: 7px 0; border-bottom: 1px solid rgba(217,178,111,0.08); font-size: 0.86rem; }
+  .top-row:last-child { border-bottom: 0; }
+  .top-row .rk { color: var(--gold); font-weight: 600; }
+  .top-row .nm small { display: block; color: var(--muted); font-size: 0.72rem; }
+  .top-row .amt { text-align: right; font-variant-numeric: tabular-nums; }
+  .top-row .amt small { display: block; color: var(--muted); font-size: 0.72rem; }
+  @media (max-width: 560px) { .top-row { grid-template-columns: 22px 1fr 100px; } .top-row .bar { grid-column: 2 / -1; grid-row: 2; } }
   .bk-assign { width: auto; display: inline-block; padding: 2px 6px; font-size: 0.75rem; margin-left: 6px; }
   .on-split { display: block; font-size: 0.68rem; color: var(--muted); margin-top: 2px; white-space: nowrap; }
   .on-edit { font-size: 0.68rem; padding: 0; }
@@ -703,9 +710,22 @@
         <div class="kpi"><div class="k">Goods given to rep</div><div class="v" id="bar-gv">–</div><div class="s" id="bar-gv-s">At selling price, this month</div></div>
         <div class="kpi profit"><div class="k">Rep owes you</div><div class="v" id="bar-rep">–</div><div class="s" id="bar-rep-s"></div></div>
         <div class="kpi"><div class="k">You owe vendors</div><div class="v" id="bar-owe">–</div><div class="s" id="bar-owe-s"></div></div>
-        <div class="kpi"><div class="k">Margin on goods</div><div class="v" id="bar-margin">–</div><div class="s">Selling − cost, this month</div></div>
+        <div class="kpi"><div class="k">Net profit</div><div class="v" id="bar-margin">–</div><div class="s" id="bar-margin-s">Selling − cost of goods, this month</div></div>
       </section>
       <div id="bar-setup" class="msg warn" style="margin-top:14px" hidden>The bar accounts tables aren't set up yet. Run bar_accounts.sql once in Supabase (SQL Editor), then reload this page.</div>
+
+      <!-- Top selling goods -->
+      <div class="card sub-card">
+        <div class="list-head">
+          <h2 id="top-title">Top 5 selling goods</h2>
+          <div class="seg" id="top-by">
+            <button type="button" data-by="sell" aria-pressed="true">Sales</button>
+            <button type="button" data-by="qty" aria-pressed="false">Quantity</button>
+            <button type="button" data-by="profit" aria-pressed="false">Profit</button>
+          </div>
+        </div>
+        <div id="top-list"></div>
+      </div>
 
       <!-- Representative account -->
       <div class="card sub-card">
@@ -1431,7 +1451,7 @@
       rows.map(function (row) {
         var o = days[row.k], net = o.inn - o.out;
         var det = o.online.map(function (x) { return '<span class="pos">Online in</span> ' + esc((x.description ? x.description + " " : "") + "(" + PAID[x.received_into] + ") " + inr.format(x.amount)); })
-          .concat(o.items.map(function (x) { return esc((vendName(x.vendor_id) || x.description || "Bar goods") + " (" + PAID[x.paid_from] + ") " + inr.format(x.amount)) + (x.vendor_id || !state.bk.ok ? "" : vendSelect(x.id)); }));
+          .concat(o.items.map(function (x) { return esc((vendName(x.vendor_id) || x.description || "Bar goods") + " (" + PAID[x.paid_from] + ") " + inr.format(x.amount)) + (x.vendor_id || !state.bk.ok ? "" : ' <span class="tag">September invoice</span>'); }));
         return "<tr><td>" + fmtDate(row.k) + '</td><td class="num">' + (o.inn ? inr.format(o.inn) : "–") +
           (o.onl && o.cash ? '<span class="on-split">Cash ' + inr.format(o.cash) + " · Online " + inr.format(o.onl) + "</span>" : o.onl ? '<span class="on-split">Online</span>' : "") +
           '</td><td class="num">' + (o.out ? inr.format(o.out) : "–") + "</td><td>" + det.join("<br>") +
@@ -1570,12 +1590,14 @@
     var c = bkCalc(), r = c.range;
     var mg = state.bk.goods.filter(function (g) { return g.goods_date >= r[0] && g.goods_date <= r[1]; });
     var gSell = mg.reduce(function (a, g) { return a + g.qty * g.sell_price; }, 0), gCost = mg.reduce(function (a, g) { return a + g.qty * g.cost_price; }, 0);
-    var owe = c.vend.reduce(function (a, x) { return a + x.owe; }, 0) - c.unassigned;
+    var owe = c.vend.reduce(function (a, x) { return a + x.owe; }, 0);
     $("bar-gv").textContent = inr.format(gSell); $("bar-gv-s").textContent = "At selling price · cost " + inr.format(gCost);
     $("bar-rep").textContent = inr.format(c.repNow);
     $("bar-rep-s").textContent = "As of " + fmtDate(c.rows.length ? c.rows[c.rows.length - 1].date : START_DATE);
-    $("bar-owe").textContent = inr.format(owe); $("bar-owe-s").textContent = c.unassigned ? inr.format(c.unassigned) + " paid without a vendor" : "Across all vendors";
+    $("bar-owe").textContent = inr.format(owe); $("bar-owe-s").textContent = "Across all vendors";
     $("bar-margin").textContent = inr.format(gSell - gCost); $("bar-margin").className = "v " + (gSell - gCost >= 0 ? "pos" : "neg");
+    $("bar-margin-s").textContent = gSell ? (100 * (gSell - gCost) / gSell).toFixed(1) + "% of sales, this month" : "Selling − cost of goods, this month";
+    renderTopGoods(mg);
 
     // Representative table: this month's days, newest first
     var mrows = c.rows.filter(function (x) { return x.date >= r[0]; });
@@ -1600,9 +1622,8 @@
         return "<tr><td>" + esc(x.v.name) + '</td><td class="num">' + inr.format(x.open) + '</td><td class="num">' + inr.format(x.goods) + '</td><td class="num">' + inr.format(x.paid) +
           '</td><td class="num"><b>' + inr.format(x.owe) + '</b></td><td class="actions"><button class="icon-btn" data-vopen="' + x.v.id + '">Opening</button><button class="icon-btn" data-vpay="' + x.v.id + '">Pay</button></td></tr>';
       }).join("") : '<tr><td class="empty" colspan="6">No vendors yet.</td></tr>') +
-      (c.unassigned ? '<tr><td class="warn-t">Paid, vendor not picked</td><td></td><td></td><td class="num">' + inr.format(c.unassigned) + '</td><td class="num">− ' + inr.format(c.unassigned) + '</td><td class="hint" style="font-size:.72rem">pick the vendor in the table at the bottom</td></tr>' : "") +
-      '</tbody><tfoot><tr><td>Total</td><td class="num">' + inr.format(vt.open) + '</td><td class="num">' + inr.format(vt.goods) + '</td><td class="num">' + inr.format(vt.paid + c.unassigned) +
-      '</td><td class="num">' + inr.format(vt.owe - c.unassigned) + "</td><td></td></tr></tfoot>";
+      '</tbody><tfoot><tr><td>Total</td><td class="num">' + inr.format(vt.open) + '</td><td class="num">' + inr.format(vt.goods) + '</td><td class="num">' + inr.format(vt.paid) +
+      '</td><td class="num">' + inr.format(vt.owe) + "</td><td></td></tr></tfoot>";
 
     // Goods received this month: one row per day, click to see the items
     $("goods-title").textContent = "Goods received, " + monthName;
@@ -1629,6 +1650,34 @@
       '</td><td class="num">' + inr2.format(gt.s - gt.c) + "</td><td></td></tr></tfoot>"
       : '<tbody><tr><td class="empty">No goods entered this month yet.</td></tr></tbody>';
   }
+
+  // Top 5 goods for the month, by sales value, quantity or profit
+  state.bk.topBy = "sell";
+  function renderTopGoods(mg) {
+    var monthName = new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    $("top-title").textContent = "Top 5 selling goods, " + monthName;
+    var by = {}, key = state.bk.topBy;
+    mg.forEach(function (g) {
+      var k = g.vendor_id + "|" + g.item_name.toLowerCase(), x = by[k] || (by[k] = { name: g.item_name, vendor: vendName(g.vendor_id), qty: 0, sell: 0, cost: 0 });
+      x.qty += Number(g.qty); x.sell += g.qty * g.sell_price; x.cost += g.qty * g.cost_price;
+    });
+    var rows = Object.keys(by).map(function (k) { var x = by[k]; x.profit = x.sell - x.cost; return x; })
+      .sort(function (a, b) { return b[key] - a[key] || b.sell - a.sell; }).slice(0, 5);
+    if (!rows.length) { $("top-list").innerHTML = '<div class="empty" style="padding:12px 0">No goods entered this month yet.</div>'; return; }
+    var max = Math.max.apply(null, rows.map(function (r) { return r[key]; })) || 1;
+    var fmt = function (r) { return key === "qty" ? num.format(r.qty) + " units" : inr.format(r[key]); };
+    var sub = function (r) { return key === "qty" ? inr.format(r.sell) + " sales" : key === "sell" ? num.format(r.qty) + " units · profit " + inr.format(r.profit) : inr.format(r.sell) + " sales · " + (r.sell ? (100 * r.profit / r.sell).toFixed(0) : 0) + "%"; };
+    $("top-list").innerHTML = rows.map(function (r, i) {
+      return '<div class="top-row"><span class="rk">' + (i + 1) + '</span><span class="nm">' + esc(r.name) + "<small>" + esc(r.vendor) + '</small></span><div class="bar"><span style="width:' +
+        Math.max(2, (Math.max(0, r[key]) / max) * 100).toFixed(1) + '%"></span></div><span class="amt">' + fmt(r) + "<small>" + sub(r) + "</small></span></div>";
+    }).join("");
+  }
+  $("top-by").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-by]"); if (!b) return;
+    state.bk.topBy = b.dataset.by;
+    this.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+    renderBarBook();
+  });
 
   // Representative opening balance
   $("rep-open-btn").addEventListener("click", async function () {
