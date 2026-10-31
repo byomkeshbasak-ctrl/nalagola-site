@@ -91,6 +91,21 @@
 
 
 
+  /* ---------- Growth chart ---------- */
+  .dash-charts { margin-top: 14px; display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 12px; }
+  @media (max-width: 900px) { .dash-charts { grid-template-columns: 1fr; } }
+  .area-wrap { position: relative; }
+  .area-wrap svg { width: 100%; height: auto; display: block; }
+  .area-wrap .gl { stroke: var(--line); stroke-width: 1; }
+  .area-wrap .ax { fill: var(--muted); font-size: 10px; }
+  .area-wrap .hov { stroke: var(--gold); stroke-width: 1; stroke-dasharray: 3 3; }
+  .area-tip { position: absolute; top: 4px; pointer-events: none; background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: 8px; padding: 8px 10px; font-size: 0.74rem; min-width: 170px; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+  .area-tip b { display: block; margin-bottom: 4px; color: var(--gold); }
+  .area-tip div { display: flex; justify-content: space-between; gap: 12px; font-variant-numeric: tabular-nums; }
+  .area-tip i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
+  .area-key { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.74rem; color: var(--muted); }
+  .area-key i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
+
   /* ---------- Charts ---------- */
   .charts { margin-top: 14px; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 12px; }
   @media (max-width: 820px) { .charts { grid-template-columns: 1fr; } }
@@ -266,6 +281,21 @@
         <div class="nw-split" id="nw-split"></div>
         <div class="alloc" id="nw-alloc"></div>
       </section>
+      <div class="dash-charts">
+        <section class="card" aria-label="Net worth growth">
+          <div class="list-h"><h2>Net worth growth</h2>
+            <div class="seg" id="gr-range"><button type="button" data-mode="all" aria-pressed="true">All</button><button type="button" data-mode="5" aria-pressed="false">5 years</button><button type="button" data-mode="1" aria-pressed="false">1 year</button></div>
+          </div>
+          <div class="area-wrap" id="gr-chart"></div>
+          <div class="area-key" id="gr-key"></div>
+          <div class="mf-note" id="gr-note"></div>
+        </section>
+        <section class="card" aria-label="Net worth by category">
+          <div class="list-h"><h2>Net worth by category</h2></div>
+          <div id="nw-pie"></div>
+          <div class="mf-note" id="nw-pie-note"></div>
+        </section>
+      </div>
       <div class="dash-grid" id="dash-grid"></div>
       <div class="dash-two">
         <section class="card" aria-label="Expenses this month">
@@ -610,7 +640,7 @@
     state.transfers = (q[1].data || []).filter(function (t) { return isPersonal(t.from_account) || isPersonal(t.to_account); });
     fillSelects();
     render();
-    await Promise.all([loadMF(), loadStocks(), loadOthers()]);
+    await Promise.all([loadMF(), loadStocks(), loadOthers(), loadHistory()]);
     renderNetWorth();
   }
 
@@ -1233,6 +1263,11 @@
     }).join("") +
       '<button type="button" class="dtile" data-go="expenses"><div class="l"><i style="background:#ef8f8f"></i>Expenses this month</div><div class="a">' + inr.format(exMonthTotal(todayISO().slice(0, 7))) + '</div><div class="d">Not part of net worth · ' + exCompare() + "</div></button>";
     renderDashExpenses(); renderDashPremiums();
+    // Net worth by category (assets); loans owed shown underneath
+    donut("nw-pie", parts.map(function (x) { return { l: x.c.l, v: x.a, c: x.c.c }; }), [inr.format(nw).replace("₹", "₹ "), "net worth"]);
+    $("nw-pie-note").textContent = liab ? "Assets " + inr.format(assets) + " less loans owed " + inr.format(liab) + " = net worth " + inr.format(nw) + "." : "No loans owed, so net worth equals total assets.";
+    if (mf.count !== undefined && st.count !== undefined) saveSnapshot(v, nw);
+    renderGrowth();
   }
   function countLine(kind, word) {
     var n = itemsOf(kind).length; if (!n) return "None added yet";
@@ -1240,6 +1275,78 @@
     return n + " " + word + (n > 1 ? "s" : "") + " · updated " + fmtDate(d);
   }
 
+
+
+  // ---------- Net worth history: growth chart + daily snapshot ----------
+  var hist = { rows: [], range: "all", lastSaved: "" };
+  async function loadHistory() {
+    var r = await sb.from("nw_history").select("*").order("as_of");
+    hist.rows = r.data || [];
+  }
+  // Save today's figures once the page has everything, so the chart keeps growing day by day
+  function saveSnapshot(v, total) {
+    var parts = { stocks: v.stocks, mf: v.mf, business: v.business, bank: v.bank, epf: v.epf, gold: v.gold, loans_given: v.given, loans_taken: v.taken, insurance: v.insurance, trading: v.trading };
+    Object.keys(parts).forEach(function (k) { parts[k] = Math.round(parts[k] || 0); });
+    var row = { as_of: todayISO(), total: Math.round(total), parts: parts, source: "daily", updated_at: new Date().toISOString() };
+    var ix = hist.rows.findIndex(function (x) { return x.as_of === row.as_of; });
+    if (ix >= 0) hist.rows[ix] = row; else hist.rows.push(row);
+    var key = JSON.stringify([row.as_of, row.total, parts]); if (key === hist.lastSaved) return; hist.lastSaved = key;
+    sb.from("nw_history").upsert(row, { onConflict: "as_of" }).then(function () {});
+  }
+  var GR_KEYS = [["stocks", "Shares"], ["mf", "Mutual funds"], ["business", "Business"], ["bank", "Bank"], ["epf", "PF / EPF"], ["gold", "Gold"], ["loans_given", "Loans given"], ["insurance", "Insurance"], ["trading", "Trading"]];
+  function grColor(k) { var c = COMP.find(function (x) { return x.k === (k === "loans_given" ? "loans" : k); }); return c ? c.c : "#888"; }
+  function renderGrowth() {
+    var el = $("gr-chart");
+    // one point per month (the last saved day of the month)
+    var byM = {}; hist.rows.forEach(function (r) { var m = r.as_of.slice(0, 7); if (!byM[m] || r.as_of >= byM[m].as_of) byM[m] = r; });
+    var pts = Object.keys(byM).sort().map(function (m) { var r = byM[m], p = r.parts || {}; return { d: r.as_of, p: p, t: Number(r.total), src: r.source }; });
+    if (hist.range !== "all") { var cut = new Date(); cut.setFullYear(cut.getFullYear() - Number(hist.range)); var cs = cut.toISOString().slice(0, 10); pts = pts.filter(function (x) { return x.d >= cs; }); }
+    if (pts.length < 2) { el.innerHTML = '<div class="empty">The chart fills in as history builds up.</div>'; $("gr-key").innerHTML = ""; return; }
+    var keys = GR_KEYS.filter(function (k) { return pts.some(function (x) { return Number(x.p[k[0]] || 0) > 0; }); });
+    var W = 640, H = 260, L = 52, R = 10, T = 12, B = 26;
+    var t0 = Date.parse(pts[0].d), t1 = Date.parse(pts[pts.length - 1].d);
+    var stackTop = pts.map(function (x) { return keys.reduce(function (a, k) { return a + Math.max(0, Number(x.p[k[0]] || 0)); }, 0); });
+    var max = Math.max.apply(null, stackTop.concat(pts.map(function (x) { return x.t; }))) || 1;
+    var nice = Math.pow(10, Math.floor(Math.log10(max))), top = Math.ceil(max / nice) * nice; if (top / nice > 6) nice *= 2; top = Math.ceil(max / nice) * nice;
+    var X = function (d) { return L + (W - L - R) * (t1 === t0 ? 0 : (Date.parse(d) - t0) / (t1 - t0)); };
+    var Y = function (v) { return T + (H - T - B) * (1 - v / top); };
+    var short = function (v) { return v >= 1e7 ? (v / 1e7).toFixed(v % 1e7 ? 1 : 0) + " Cr" : v >= 1e5 ? (v / 1e5).toFixed(v % 1e5 ? 1 : 0) + " L" : v >= 1e3 ? Math.round(v / 1e3) + "k" : String(v); };
+    var g = "";
+    for (var v = 0; v <= top + 1; v += nice) g += '<line class="gl" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(v).toFixed(1) + '" y2="' + Y(v).toFixed(1) + '"/><text class="ax" x="' + (L - 6) + '" y="' + (Y(v) + 3).toFixed(1) + '" text-anchor="end">₹' + short(v) + "</text>";
+    var y0 = new Date(t0).getFullYear(), y1 = new Date(t1).getFullYear(), step = Math.max(1, Math.ceil((y1 - y0 + 1) / 8));
+    if (y1 === y0 || hist.range === "1") {
+      pts.forEach(function (x, i) { if (i % Math.max(1, Math.ceil(pts.length / 7)) === 0) g += '<text class="ax" x="' + X(x.d).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle">' + new Date(x.d).toLocaleDateString("en-IN", { month: "short", year: "2-digit" }) + "</text>"; });
+    } else for (var yy = y0 + 1; yy <= y1; yy += step) { var xd = yy + "-01-01"; if (Date.parse(xd) > t0 && Date.parse(xd) < t1) g += '<line class="gl" x1="' + X(xd).toFixed(1) + '" x2="' + X(xd).toFixed(1) + '" y1="' + T + '" y2="' + (H - B) + '" stroke-dasharray="2 4"/><text class="ax" x="' + X(xd).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle">' + yy + "</text>"; }
+    // stacked areas
+    var base = pts.map(function () { return 0; }), areas = "";
+    keys.forEach(function (k) {
+      var topv = pts.map(function (x, i) { return base[i] + Math.max(0, Number(x.p[k[0]] || 0)); });
+      var d = "M" + pts.map(function (x, i) { return X(x.d).toFixed(1) + " " + Y(topv[i]).toFixed(1); }).join(" L") + " L" + pts.slice().reverse().map(function (x, j) { var i = pts.length - 1 - j; return X(x.d).toFixed(1) + " " + Y(base[i]).toFixed(1); }).join(" L") + " Z";
+      areas += '<path d="' + d + '" fill="' + grColor(k[0]) + '" fill-opacity="0.55" stroke="' + grColor(k[0]) + '" stroke-width="0.8"/>';
+      base = topv;
+    });
+    var line = '<path d="M' + pts.map(function (x) { return X(x.d).toFixed(1) + " " + Y(Math.max(0, x.t)).toFixed(1); }).join(" L") + '" fill="none" stroke="#f4ece4" stroke-width="1.6"/>';
+    el.innerHTML = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Net worth over time">' + g + areas + line + '<line class="hov" id="gr-hov" y1="' + T + '" y2="' + (H - B) + '" x1="-10" x2="-10"/><rect x="' + L + '" y="' + T + '" width="' + (W - L - R) + '" height="' + (H - T - B) + '" fill="transparent" id="gr-hit"/></svg><div class="area-tip" id="gr-tip" hidden></div>';
+    $("gr-key").innerHTML = keys.map(function (k) { return '<span><i style="background:' + grColor(k[0]) + '"></i>' + k[1] + "</span>"; }).join("") + '<span><i style="background:#f4ece4;height:2px;vertical-align:3px"></i>Net worth</span>';
+    var first = pts[0], last = pts[pts.length - 1], ch = last.t - first.t;
+    var yrs = (t1 - t0) / (365.25 * dayMs), cagr = yrs > 0.9 && first.t > 0 ? Math.pow(last.t / first.t, 1 / yrs) - 1 : NaN;
+    var firstFull = hist.rows.find(function (r) { return r.source !== "backfill"; });
+    $("gr-note").innerHTML = "From " + fmtDate(first.d) + ": " + inr.format(first.t) + " → " + inr.format(last.t) + ' (<span class="' + (ch >= 0 ? "pos" : "neg") + '">' + (ch >= 0 ? "+" : "") + inr.format(ch) + "</span>, including new money put in). " +
+      (firstFull ? "Before " + fmtDate(firstFull.as_of) + " only shares and mutual funds are counted (month-end prices); other parts are included from then on." : "Past months count shares and mutual funds only.");
+    // hover
+    var svg = el.querySelector("svg"), tip = $("gr-tip"), hov = $("gr-hov");
+    $("gr-hit").addEventListener("mousemove", function (e) {
+      var r = svg.getBoundingClientRect(), x = (e.clientX - r.left) * W / r.width, best = 0;
+      pts.forEach(function (p, i) { if (Math.abs(X(p.d) - x) < Math.abs(X(pts[best].d) - x)) best = i; });
+      var p = pts[best], px2 = X(p.d); hov.setAttribute("x1", px2); hov.setAttribute("x2", px2);
+      tip.innerHTML = "<b>" + new Date(p.d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) + " · " + inr.format(p.t) + "</b>" +
+        keys.slice().reverse().filter(function (k) { return Number(p.p[k[0]] || 0) > 0; }).map(function (k) { return '<div><span><i style="background:' + grColor(k[0]) + '"></i>' + k[1] + "</span><span>" + inr.format(p.p[k[0]]) + "</span></div>"; }).join("") +
+        (Number(p.p.loans_taken || 0) > 0 ? '<div><span class="neg">Loans owed</span><span class="neg">−' + inr.format(p.p.loans_taken) + "</span></div>" : "");
+      tip.hidden = false; var left = (px2 / W) * r.width; tip.style.left = Math.min(Math.max(0, left + 12), r.width - tip.offsetWidth) + "px";
+    });
+    $("gr-hit").addEventListener("mouseleave", function () { tip.hidden = true; hov.setAttribute("x1", -10); hov.setAttribute("x2", -10); });
+  }
+  segToggle("gr-range", function (m) { hist.range = m; renderGrowth(); });
 
   // ---------- Tabs ----------
   var TABS = ["dash", "stocks", "mf", "business", "bank", "epf", "gold", "loans", "insurance", "trading", "expenses"];
