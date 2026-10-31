@@ -1271,9 +1271,19 @@
     return { parts: parts, bal: bal, end: end, total: parts.reduce(function (s2, p) { return s2 + p.a; }, 0) };
   }
 
+  // Keep the latest business capital where the Personal Networth Tracker can read it
+  var lastCapSaved = "";
+  function saveCapitalSnapshot(x) {
+    if (!state.cap.opening || !x.end) return;
+    var parts = x.parts.map(function (p) { return { k: p.k, l: p.l, a: Math.round(p.a * 100) / 100, d: p.d }; });
+    var key = x.end + "|" + Math.round(x.total) + "|" + JSON.stringify(parts);
+    if (key === lastCapSaved) return; lastCapSaved = key;
+    sb.from("business_capital").upsert({ as_of: x.end, total: Math.round(x.total * 100) / 100, parts: parts, updated_at: new Date().toISOString() }, { onConflict: "as_of" }).then(function () {});
+  }
   function renderCapital() {
     var x = capitalParts(), o = state.cap.opening;
     $("cap-total").textContent = inr.format(x.total);
+    saveCapitalSnapshot(x);
     $("cap-lines").innerHTML = x.parts.map(function (p) {
       var neg = p.a < -0.5;
       return '<button type="button" class="cap-line' + (p.minus ? " minus" : "") + (state.stmt === p.k ? " on" : "") + '" data-stmt="' + p.k + '" title="See the day-wise statement">' +

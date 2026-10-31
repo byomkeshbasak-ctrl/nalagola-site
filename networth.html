@@ -89,8 +89,43 @@
 
   .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: 10px; padding: 10px 16px; font-size: 0.88rem; z-index: 20; max-width: calc(100% - 32px); }
 
+
+  /* ---------- Tabs, dashboard ---------- */
+  .tabs { border-top: 1px solid var(--line); }
+  .tabs-inner { max-width: 1100px; margin: 0 auto; padding: 0 16px; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+  .tabs-inner::-webkit-scrollbar { display: none; }
+  .tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: 12px 12px 10px; font-size: 0.86rem; color: var(--muted); cursor: pointer; white-space: nowrap; }
+  .tab:hover { color: var(--text); }
+  .tab[aria-selected="true"] { color: var(--gold); border-bottom-color: var(--gold); }
+  .dash-grid { margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+  .dtile { background: var(--panel); border: 1px solid var(--line-strong); border-radius: 14px; padding: 14px 16px; text-align: left; cursor: pointer; width: 100%; display: grid; gap: 4px; }
+  .dtile:hover { border-color: var(--gold); }
+  .dtile:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); }
+  .dtile .l { font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .dtile .l i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+  .dtile .a { font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .dtile .a.neg { color: var(--red); }
+  .dtile .d { font-size: 0.76rem; color: var(--muted); line-height: 1.45; }
+  .dtile .d .pos, .dtile .d .neg { font-weight: 500; }
+  .dtile.liab { border-style: dashed; }
+  .dash-two { margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 760px) { .dash-two { grid-template-columns: 1fr; } }
+  .list-h { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .list-h h2 { flex: 1; font-size: 0.95rem; font-weight: 600; }
+  .sub-h { margin: 18px 0 8px; font-size: 0.88rem; font-weight: 600; color: var(--gold); }
+  .bar-row { display: grid; grid-template-columns: 130px 1fr 100px; gap: 10px; align-items: center; font-size: 0.84rem; padding: 4px 0; }
+  .bar-row .bar { height: 8px; border-radius: 4px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
+  .bar-row .bar span { display: block; height: 100%; background: var(--gold); }
+  .bar-row .amt { text-align: right; font-variant-numeric: tabular-nums; }
+  .month-pick { display: flex; align-items: center; gap: 8px; }
+  .month-pick input { width: auto; padding: 8px 10px; }
+  .form textarea { width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; color: var(--text); font: inherit; }
+  .pill { display: inline-block; font-size: 0.7rem; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .pill.due { border-color: var(--amber); color: var(--amber); }
+  .pill.over { border-color: var(--red); color: var(--red); }
   /* ---------- Net worth + stocks ---------- */
   .nw-split { margin-top: 14px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .nw-card .v { font-size: 2.3rem; }
   .nw-split div { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 11px 13px; }
   .nw-split .l { font-size: 0.74rem; color: var(--muted); }
   .nw-split .a { margin-top: 4px; font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -162,55 +197,92 @@
       <a class="ghost" href="admin.html">&larr; Shop accounts</a>
       <button class="ghost" id="signout" type="button">Sign out</button>
     </div>
+    <nav class="tabs" id="tabs" aria-label="Sections">
+      <div class="tabs-inner">
+        <button type="button" class="tab" data-tab="dash">Dashboard</button>
+        <button type="button" class="tab" data-tab="stocks">Stocks</button>
+        <button type="button" class="tab" data-tab="mf">Mutual funds</button>
+        <button type="button" class="tab" data-tab="business">Business</button>
+        <button type="button" class="tab" data-tab="bank">Bank</button>
+        <button type="button" class="tab" data-tab="ppf">PPF</button>
+        <button type="button" class="tab" data-tab="epf">EPF</button>
+        <button type="button" class="tab" data-tab="gold">Gold</button>
+        <button type="button" class="tab" data-tab="loans">Loans &amp; advances</button>
+        <button type="button" class="tab" data-tab="insurance">Insurance</button>
+        <button type="button" class="tab" data-tab="trading">Trading balance</button>
+        <button type="button" class="tab" data-tab="expenses">Expenses</button>
+      </div>
+    </nav>
   </header>
 
+
   <main class="wrap">
-    <section class="card nw-card" aria-label="Net worth">
-      <div class="head">
-        <div>
-          <div class="k">Net worth</div>
-          <div class="v" id="nw-total">–</div>
-          <div class="s" id="nw-s">Bank + mutual funds + stocks</div>
+    <!-- ===== Dashboard ===== -->
+    <section class="pane" id="pane-dash">
+      <section class="card nw-card" aria-label="Net worth">
+        <div class="head">
+          <div>
+            <div class="k">Net worth</div>
+            <div class="v" id="nw-total">–</div>
+            <div class="s" id="nw-s"></div>
+          </div>
+          <div class="spacer"></div>
+          <button class="ghost" id="px-refresh" type="button">Update prices now</button>
         </div>
-        <div class="spacer"></div>
-        <button class="ghost" id="px-refresh" type="button">Update prices now</button>
+        <div class="nw-split" id="nw-split"></div>
+        <div class="alloc" id="nw-alloc"></div>
+      </section>
+      <div class="dash-grid" id="dash-grid"></div>
+      <div class="dash-two">
+        <section class="card" aria-label="Expenses this month">
+          <div class="list-h"><h2 id="dx-title">Expenses this month</h2><button class="icon-btn" type="button" data-go="expenses">Open</button></div>
+          <div id="dx-body"></div>
+        </section>
+        <section class="card" aria-label="Insurance premiums due">
+          <div class="list-h"><h2>Premiums due in the next 60 days</h2><button class="icon-btn" type="button" data-go="insurance">Open</button></div>
+          <div id="dp-body"></div>
+        </section>
       </div>
-      <div class="nw-split" id="nw-split"></div>
     </section>
 
-    <section class="sec card" aria-label="Bank accounts">
+    <!-- ===== Stocks ===== -->
+    <section class="pane" id="pane-stocks" hidden>
+    <section class="card" aria-label="Stocks">
       <div class="head">
         <div>
-          <div class="k">Personal bank balance</div>
-          <div class="v" id="total">–</div>
-          <div class="s" id="total-s">HDFC + ICICI + SBI</div>
+          <div class="k">Stocks &amp; ETFs</div>
+          <div class="v" id="st-total">–</div>
+          <div class="s" id="st-total-s"></div>
         </div>
         <div class="spacer"></div>
-        <button class="ghost" id="tr-open" type="button">Transfer money</button>
-        <button class="ghost" id="ob-open" type="button">Opening balances</button>
+        <button class="ghost" id="st-add" type="button">Add trade</button>
       </div>
-      <div class="tiles" id="tiles"></div>
 
-      <form class="form" id="tr-form" hidden>
-        <h3 id="tr-title">Transfer money</h3>
-        <label>Date <input type="date" id="tr-date" required></label>
-        <label>From <select id="tr-from"></select></label>
-        <label>To <select id="tr-to"></select></label>
-        <label>Amount (₹) <input type="number" id="tr-amount" step="0.01" min="0" inputmode="decimal" required></label>
-        <label>Note (optional) <input type="text" id="tr-note" autocomplete="off"></label>
-        <div class="actions"><button class="primary" type="submit" id="tr-save">Save transfer</button><button class="ghost" type="button" id="tr-cancel">Cancel</button></div>
+      <form class="form" id="st-form" hidden>
+        <h3 id="st-form-title">Add trade</h3>
+        <label>Type <select id="st-type"><option value="buy">Buy</option><option value="sell">Sell</option><option value="bonus">Bonus / free shares</option></select></label>
+        <label>Symbol (NSE) <input type="text" id="st-sym" list="st-syms" autocomplete="off" autocapitalize="characters" placeholder="e.g. RELIANCE" required></label>
+        <label>Broker <select id="st-broker"><option>Zerodha</option><option>Angel</option><option>5 Paisa</option></select></label>
+        <label>Date <input type="date" id="st-date" required></label>
+        <label>Price (₹) <input type="number" id="st-price" step="0.01" min="0" inputmode="decimal" required></label>
+        <label>Quantity <input type="number" id="st-qty" step="1" min="1" inputmode="numeric" required></label>
+        <label>Amount (₹) <input type="number" id="st-amt" step="0.01" min="0" inputmode="decimal"></label>
+        <div class="hint">Amount fills in from price × quantity; change it if you want to include brokerage. For a bonus or split, add the free shares at price 0.</div>
+        <div class="actions"><button class="primary" type="submit" id="st-save">Save</button><button class="ghost" type="button" id="st-cancel">Cancel</button></div>
       </form>
+      <datalist id="st-syms"></datalist>
 
-      <form class="form" id="ob-form" hidden>
-        <h3>Opening balances</h3>
-        <div id="ob-fields" style="display:contents"></div>
-        <div class="actions"><button class="primary" type="submit">Save balances</button><button class="ghost" type="button" id="ob-cancel">Cancel</button></div>
-      </form>
-
-      <div class="stmt" id="stmt" hidden></div>
+      <div class="mf-kpis" id="st-kpis"></div>
+      <div class="table-wrap" style="margin-top:14px"><table id="st-table"></table></div>
+      <button class="ghost exited-btn" id="st-exited-btn" type="button" hidden></button>
+      <div class="table-wrap" id="st-exited" hidden style="margin-top:10px"><table id="st-exited-table"></table></div>
+      <div class="mf-note" id="st-note"></div>
+    </section>
     </section>
 
-    <section class="sec card" aria-label="Mutual funds">
+    <!-- ===== Mutual funds ===== -->
+    <section class="pane" id="pane-mf" hidden>
+    <section class="card" aria-label="Mutual funds">
       <div class="head">
         <div>
           <div class="k">Mutual funds</div>
@@ -245,42 +317,202 @@
       <div class="table-wrap" id="mf-exited" hidden style="margin-top:10px"><table id="mf-exited-table"></table></div>
       <div class="mf-note" id="mf-note"></div>
     </section>
-
-    <section class="sec card" aria-label="Stocks">
-      <div class="head">
-        <div>
-          <div class="k">Stocks &amp; ETFs</div>
-          <div class="v" id="st-total">–</div>
-          <div class="s" id="st-total-s"></div>
-        </div>
-        <div class="spacer"></div>
-        <button class="ghost" id="st-add" type="button">Add trade</button>
-      </div>
-
-      <form class="form" id="st-form" hidden>
-        <h3 id="st-form-title">Add trade</h3>
-        <label>Type <select id="st-type"><option value="buy">Buy</option><option value="sell">Sell</option><option value="bonus">Bonus / free shares</option></select></label>
-        <label>Symbol (NSE) <input type="text" id="st-sym" list="st-syms" autocomplete="off" autocapitalize="characters" placeholder="e.g. RELIANCE" required></label>
-        <label>Broker <select id="st-broker"><option>Zerodha</option><option>Angel</option><option>5 Paisa</option></select></label>
-        <label>Date <input type="date" id="st-date" required></label>
-        <label>Price (₹) <input type="number" id="st-price" step="0.01" min="0" inputmode="decimal" required></label>
-        <label>Quantity <input type="number" id="st-qty" step="1" min="1" inputmode="numeric" required></label>
-        <label>Amount (₹) <input type="number" id="st-amt" step="0.01" min="0" inputmode="decimal"></label>
-        <div class="hint">Amount fills in from price × quantity; change it if you want to include brokerage. For a bonus or split, add the free shares at price 0.</div>
-        <div class="actions"><button class="primary" type="submit" id="st-save">Save</button><button class="ghost" type="button" id="st-cancel">Cancel</button></div>
-      </form>
-      <datalist id="st-syms"></datalist>
-
-      <div class="mf-kpis" id="st-kpis"></div>
-      <div class="table-wrap" style="margin-top:14px"><table id="st-table"></table></div>
-      <button class="ghost exited-btn" id="st-exited-btn" type="button" hidden></button>
-      <div class="table-wrap" id="st-exited" hidden style="margin-top:10px"><table id="st-exited-table"></table></div>
-      <div class="mf-note" id="st-note"></div>
     </section>
 
+    <!-- ===== Business capital ===== -->
+    <section class="pane" id="pane-business" hidden>
+      <section class="card">
+        <div class="head">
+          <div>
+            <div class="k">Business capital · Nalagola CS Shop</div>
+            <div class="v" id="biz-total">–</div>
+            <div class="s" id="biz-total-s"></div>
+          </div>
+          <div class="spacer"></div>
+          <a class="ghost" href="admin.html">Open shop accounts</a>
+        </div>
+        <div class="tiles" id="biz-parts"></div>
+        <h3 class="sub-h">How it has moved</h3>
+        <div class="table-wrap"><table id="biz-table"></table></div>
+        <div class="mf-note">This is read from the shop accounts. It refreshes each time the shop accounts page is opened.</div>
+      </section>
+    </section>
+
+    <!-- ===== Bank ===== -->
+    <section class="pane" id="pane-bank" hidden>
+    <section class="card" aria-label="Bank accounts">
+      <div class="head">
+        <div>
+          <div class="k">Personal bank balance</div>
+          <div class="v" id="total">–</div>
+          <div class="s" id="total-s">HDFC + ICICI + SBI</div>
+        </div>
+        <div class="spacer"></div>
+        <button class="ghost" id="tr-open" type="button">Transfer money</button>
+        <button class="ghost" id="ob-open" type="button">Opening balances</button>
+      </div>
+      <div class="tiles" id="tiles"></div>
+
+      <form class="form" id="tr-form" hidden>
+        <h3 id="tr-title">Transfer money</h3>
+        <label>Date <input type="date" id="tr-date" required></label>
+        <label>From <select id="tr-from"></select></label>
+        <label>To <select id="tr-to"></select></label>
+        <label>Amount (₹) <input type="number" id="tr-amount" step="0.01" min="0" inputmode="decimal" required></label>
+        <label>Note (optional) <input type="text" id="tr-note" autocomplete="off"></label>
+        <div class="actions"><button class="primary" type="submit" id="tr-save">Save transfer</button><button class="ghost" type="button" id="tr-cancel">Cancel</button></div>
+      </form>
+
+      <form class="form" id="ob-form" hidden>
+        <h3>Opening balances</h3>
+        <div id="ob-fields" style="display:contents"></div>
+        <div class="actions"><button class="primary" type="submit">Save balances</button><button class="ghost" type="button" id="ob-cancel">Cancel</button></div>
+      </form>
+
+      <div class="stmt" id="stmt" hidden></div>
+    </section>
     <section class="sec card" aria-label="Transfers">
       <h2>Transfers with the shop</h2>
       <div class="table-wrap"><table id="tr-table"></table></div>
+    </section>
+    </section>
+
+    <section class="pane" id="pane-ppf" hidden>
+      <section class="card">
+        <div class="head">
+          <div>
+            <div class="k">PPF</div>
+            <div class="v" id="ppf-total">–</div>
+            <div class="s" id="ppf-total-s">Public Provident Fund accounts</div>
+          </div>
+          <div class="spacer"></div>
+          <button class="ghost" type="button" data-itemadd="ppf">Add PPF account</button>
+        </div>
+        <form class="form" id="ppf-form" data-itemform="ppf" hidden></form>
+        <div class="mf-kpis" id="ppf-kpis"></div>
+        <div class="table-wrap" style="margin-top:14px"><table id="ppf-table"></table></div>
+        <div class="mf-note" id="ppf-note"></div>
+      </section>
+    </section>
+
+    <section class="pane" id="pane-epf" hidden>
+      <section class="card">
+        <div class="head">
+          <div>
+            <div class="k">EPF</div>
+            <div class="v" id="epf-total">–</div>
+            <div class="s" id="epf-total-s">Employees' Provident Fund</div>
+          </div>
+          <div class="spacer"></div>
+          <button class="ghost" type="button" data-itemadd="epf">Add EPF account</button>
+        </div>
+        <form class="form" id="epf-form" data-itemform="epf" hidden></form>
+        <div class="mf-kpis" id="epf-kpis"></div>
+        <div class="table-wrap" style="margin-top:14px"><table id="epf-table"></table></div>
+        <div class="mf-note" id="epf-note"></div>
+      </section>
+    </section>
+
+    <section class="pane" id="pane-gold" hidden>
+      <section class="card">
+        <div class="head">
+          <div>
+            <div class="k">Gold</div>
+            <div class="v" id="gold-total">–</div>
+            <div class="s" id="gold-total-s">Valued at today's gold rate</div>
+          </div>
+          <div class="spacer"></div>
+          <button class="ghost" type="button" data-itemadd="gold">Add gold</button>
+        </div>
+        <form class="form" id="gold-form" data-itemform="gold" hidden></form>
+        <div class="mf-kpis" id="gold-kpis"></div>
+        <div class="table-wrap" style="margin-top:14px"><table id="gold-table"></table></div>
+        <div class="mf-note" id="gold-note"></div>
+      </section>
+    </section>
+
+    <section class="pane" id="pane-loans" hidden>
+      <section class="card">
+        <div class="head">
+          <div>
+            <div class="k">Loans &amp; advances</div>
+            <div class="v" id="loans-total">–</div>
+            <div class="s" id="loans-total-s">Money you have lent, less money you owe</div>
+          </div>
+          <div class="spacer"></div>
+          <button class="ghost" type="button" data-itemadd="loans">Add loan</button>
+        </div>
+        <form class="form" id="loans-form" data-itemform="loans" hidden></form>
+        <div class="mf-kpis" id="loans-kpis"></div>
+        <div class="table-wrap" style="margin-top:14px"><table id="loans-table"></table></div>
+        <div class="mf-note" id="loans-note"></div>
+      </section>
+    </section>
+
+    <section class="pane" id="pane-insurance" hidden>
+      <section class="card">
+        <div class="head">
+          <div>
+            <div class="k">Insurance</div>
+            <div class="v" id="insurance-total">–</div>
+            <div class="s" id="insurance-total-s">Policies and their current value</div>
+          </div>
+          <div class="spacer"></div>
+          <button class="ghost" type="button" data-itemadd="insurance">Add policy</button>
+        </div>
+        <form class="form" id="insurance-form" data-itemform="insurance" hidden></form>
+        <div class="mf-kpis" id="insurance-kpis"></div>
+        <div class="table-wrap" style="margin-top:14px"><table id="insurance-table"></table></div>
+        <div class="mf-note" id="insurance-note"></div>
+      </section>
+    </section>
+
+    <section class="pane" id="pane-trading" hidden>
+      <section class="card">
+        <div class="head">
+          <div>
+            <div class="k">Trading balance</div>
+            <div class="v" id="trading-total">–</div>
+            <div class="s" id="trading-total-s">Cash lying with your brokers</div>
+          </div>
+          <div class="spacer"></div>
+          <button class="ghost" type="button" data-itemadd="trading">Add broker balance</button>
+        </div>
+        <form class="form" id="trading-form" data-itemform="trading" hidden></form>
+        <div class="mf-kpis" id="trading-kpis"></div>
+        <div class="table-wrap" style="margin-top:14px"><table id="trading-table"></table></div>
+        <div class="mf-note" id="trading-note"></div>
+      </section>
+    </section>
+
+    <!-- ===== Expenses ===== -->
+    <section class="pane" id="pane-expenses" hidden>
+      <section class="card">
+        <div class="head">
+          <div>
+            <div class="k" id="ex-title">Expenses</div>
+            <div class="v" id="ex-total">–</div>
+            <div class="s" id="ex-total-s"></div>
+          </div>
+          <div class="spacer"></div>
+          <label class="month-pick">Month <input type="month" id="ex-month"></label>
+          <button class="ghost" id="ex-add" type="button">Add expense</button>
+        </div>
+        <form class="form" id="ex-form" hidden>
+          <h3 id="ex-form-title">Add expense</h3>
+          <label>Date <input type="date" id="ex-date" required></label>
+          <label>Category <input type="text" id="ex-cat" list="ex-cats" autocomplete="off" required></label>
+          <label>Amount (₹) <input type="number" id="ex-amt" step="0.01" min="0" inputmode="decimal" required></label>
+          <label>Paid from <select id="ex-from"></select></label>
+          <label style="grid-column: span 2">Note (optional) <input type="text" id="ex-note" autocomplete="off"></label>
+          <div class="hint">Expenses paid from a bank account come off that account's balance in the Bank tab. Cash and card spends are only recorded here.</div>
+          <div class="actions"><button class="primary" type="submit" id="ex-save">Save</button><button class="ghost" type="button" id="ex-cancel">Cancel</button></div>
+        </form>
+        <datalist id="ex-cats"></datalist>
+        <div class="mf-kpis" id="ex-kpis"></div>
+        <div id="ex-cats-bars" style="margin-top:14px"></div>
+        <div class="table-wrap" style="margin-top:14px"><table id="ex-table"></table></div>
+      </section>
     </section>
   </main>
 </div>
@@ -336,7 +568,7 @@
     state.transfers = (q[1].data || []).filter(function (t) { return isPersonal(t.from_account) || isPersonal(t.to_account); });
     fillSelects();
     render();
-    await Promise.all([loadMF(), loadStocks()]);
+    await Promise.all([loadMF(), loadStocks(), loadOthers()]);
     renderNetWorth();
   }
 
@@ -350,6 +582,11 @@
       if (t.from_account === code) m.push({ date: t.transfer_date, desc: "To " + acctName(t.to_account) + note, amt: -amt, id: t.id });
       if (t.to_account === code) m.push({ date: t.transfer_date, desc: "From " + acctName(t.from_account) + note, amt: amt, id: t.id });
     });
+    ((typeof ex !== "undefined" && ex.list) || []).forEach(function (x) {
+      if (x.paid_from !== code || x.exp_date < a.opening_date) return;
+      m.push({ date: x.exp_date, desc: "Expense · " + x.category + (x.note ? " · " + x.note : ""), amt: -Number(x.amount) });
+    });
+    var head = m.shift(); m.sort(function (x, y) { return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; }); m.unshift(head);
     return m;
   }
   function balance(code) { return movements(code).reduce(function (s, x) { return s + x.amt; }, 0); }
@@ -540,7 +777,7 @@
     if (T.val > 0) allFlows.push([todayISO(), T.val]);
     var X = xirr(allFlows), gain = T.val - T.inv;
     var navDate = held.reduce(function (d, r) { return r.f.nav_date && r.f.nav_date > d ? r.f.nav_date : d; }, "");
-    mf.total = T.val; mf.invested = T.inv;
+    mf.total = T.val; mf.invested = T.inv; mf.count = held.length;
 
     $("mf-total").textContent = inr.format(T.val);
     $("mf-total-s").textContent = held.length + " funds held" + (navDate ? " · NAV as of " + fmtDate(navDate) : "") + "";
@@ -726,7 +963,7 @@
     all.sort(function (a, b) { return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0; }); if (T.val > 0) all.push([todayISO(), T.val]);
     var X = xirr(all), gain = T.val - T.inv;
     var pdate = held.reduce(function (d, r) { return r.pdate && r.pdate > d ? r.pdate : d; }, "");
-    st.total = T.val; st.invested = T.inv; st.day = T.day; st.pdate = pdate;
+    st.total = T.val; st.invested = T.inv; st.day = T.day; st.pdate = pdate; st.count = held.length;
     $("st-total").textContent = inr.format(T.val);
     $("st-total-s").textContent = held.length + " stocks held" + (pdate ? " · closing prices of " + fmtDate(pdate) : "");
     var k = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + (d || "") + "</div></div>"; };
@@ -828,16 +1065,348 @@
   }
 
   // ---------- Net worth ----------
-  function renderNetWorth() {
-    if (!$("nw-total")) return;
-    var bank = state.accounts.reduce(function (x, a) { return x + balance(a.code); }, 0), m = mf.total || 0, s2 = st.total || 0, tot = bank + m + s2;
-    $("nw-total").textContent = inr.format(tot);
-    var share = function (v) { return tot ? (100 * v / tot).toFixed(1) + "% of net worth" : ""; };
-    $("nw-split").innerHTML = '<div><div class="l">Bank accounts</div><div class="a">' + inr.format(bank) + '</div><div class="d">' + share(bank) + "</div></div>" +
-      '<div><div class="l">Mutual funds</div><div class="a">' + inr.format(m) + '</div><div class="d">' + share(m) + "</div></div>" +
-      '<div><div class="l">Stocks &amp; ETFs</div><div class="a">' + inr.format(s2) + '</div><div class="d">' + share(s2) + (st.day ? ' · today <span class="' + (st.day >= 0 ? "pos" : "neg") + '">' + (st.day >= 0 ? "+" : "") + inr.format(st.day) + "</span>" : "") + "</div></div>";
-    $("nw-s").textContent = "Bank + mutual funds + stocks, as of " + fmtDate(todayISO());
+  // ---------- Dashboard ----------
+  var COMP = [
+    { k: "stocks", l: "Share holdings", c: "#d9b26f" }, { k: "mf", l: "Mutual funds", c: "#7fcf9a" },
+    { k: "business", l: "Business capital", c: "#c99a5b" }, { k: "bank", l: "Bank balance", c: "#8fa8e0" },
+    { k: "ppf", l: "PPF", c: "#5fb3b3" }, { k: "epf", l: "EPF", c: "#4f9a9a" }, { k: "gold", l: "Gold", c: "#e8c27a" },
+    { k: "loans", l: "Loans & advances", c: "#b48ee0" }, { k: "insurance", l: "Insurance", c: "#e08fb4" }, { k: "trading", l: "Trading balance", c: "#9a9a9a" }
+  ];
+  function compValues() {
+    var bank = state.accounts.reduce(function (x, a) { return x + balance(a.code); }, 0);
+    var it = function (kind) { return itemsOf(kind).reduce(function (x, i) { return x + itemValue(i); }, 0); };
+    var given = it("loan_given"), taken = it("loan_taken");
+    return { stocks: st.total || 0, mf: mf.total || 0, business: biz.latest ? Number(biz.latest.total) : 0, bank: bank, ppf: it("ppf"), epf: it("epf"),
+      gold: it("gold"), loans: given - taken, given: given, taken: taken, insurance: it("insurance"), trading: it("trading") };
   }
+  function renderNetWorth() {
+    if (!$("nw-total") || !oth.loaded) return;
+    var v = compValues(), assets = 0;
+    COMP.forEach(function (c) { if (c.k === "loans") assets += v.given; else assets += Math.max(0, v[c.k]); });
+    var liab = v.taken + COMP.reduce(function (x, c) { return x + (c.k !== "loans" && v[c.k] < 0 ? -v[c.k] : 0); }, 0);
+    var nw = assets - liab;
+    $("nw-total").textContent = inr.format(nw);
+    $("nw-s").textContent = "Everything you own minus what you owe, as of " + fmtDate(todayISO());
+    var sd = st.day || 0;
+    $("nw-split").innerHTML = '<div><div class="l">Assets</div><div class="a">' + inr.format(assets) + '</div><div class="d">' + COMP.filter(function (c) { return (c.k === "loans" ? v.given : v[c.k]) > 0; }).length + " components</div></div>" +
+      '<div><div class="l">Liabilities</div><div class="a ' + (liab ? "neg" : "") + '">' + inr.format(liab) + '</div><div class="d">Loans you owe</div></div>' +
+      '<div><div class="l">Market move today</div><div class="a ' + (sd >= 0 ? "pos" : "neg") + '">' + (sd >= 0 ? "+" : "") + inr.format(sd) + '</div><div class="d">Shares, at the last close</div></div>';
+    // Allocation of assets
+    var parts = COMP.map(function (c) { return { c: c, a: c.k === "loans" ? v.given : Math.max(0, v[c.k]) }; }).filter(function (x) { return x.a > 0; }).sort(function (x, y) { return y.a - x.a; });
+    $("nw-alloc").innerHTML = assets ? '<div class="alloc-bar">' + parts.map(function (x) { return '<span title="' + esc(x.c.l) + '" style="width:' + (100 * x.a / assets).toFixed(2) + "%;background:" + x.c.c + '"></span>'; }).join("") +
+      '</div><div class="alloc-key">' + parts.map(function (x) { return '<span><i style="background:' + x.c.c + '"></i>' + esc(x.c.l) + " <b>" + (100 * x.a / assets).toFixed(1) + "%</b></span>"; }).join("") + "</div>" : "";
+    // Tiles
+    var sub = {
+      stocks: (st.count || 0) + " stocks · " + (st.invested ? '<span class="' + (st.total >= st.invested ? "pos" : "neg") + '">' + pct((st.total - st.invested) / st.invested) + "</span> on cost" : "") + (sd ? ' · today <span class="' + (sd >= 0 ? "pos" : "neg") + '">' + (sd >= 0 ? "+" : "") + inr.format(sd) + "</span>" : ""),
+      mf: (mf.count || 0) + " funds · " + (mf.invested ? '<span class="' + (mf.total >= mf.invested ? "pos" : "neg") + '">' + pct((mf.total - mf.invested) / mf.invested) + "</span> on cost" : ""),
+      business: biz.latest ? "Shop capital as of " + fmtDate(biz.latest.as_of) : "Open the shop accounts once to bring this in",
+      bank: state.accounts.map(function (a) { return esc(a.name) + " " + inr.format(balance(a.code)); }).join(" · "),
+      ppf: countLine("ppf", "account"), epf: countLine("epf", "account"),
+      gold: goldGrams() ? num3.format(goldGrams()) + " g · rate " + (oth.gold ? inr.format(oth.gold.value) + "/g (24k)" : "not loaded") : "No gold added yet",
+      loans: "Lent " + inr.format(v.given) + " · owe " + inr.format(v.taken),
+      insurance: itemsOf("insurance").length ? itemsOf("insurance").length + (itemsOf("insurance").length > 1 ? " policies" : " policy") + " · cover " + inr.format(itemsOf("insurance").reduce(function (x, i) { return x + toNum((i.details || {}).sum_assured); }, 0)) : "No policies added yet",
+      trading: countLine("trading", "broker")
+    };
+    $("dash-grid").innerHTML = COMP.map(function (c) {
+      var val = v[c.k];
+      return '<button type="button" class="dtile' + (val < 0 ? " liab" : "") + '" data-go="' + c.k + '"><div class="l"><i style="background:' + c.c + '"></i>' + esc(c.l) + '</div><div class="a' + (val < 0 ? " neg" : "") + '">' + inr.format(val) +
+        '</div><div class="d">' + sub[c.k] + "</div></button>";
+    }).join("") +
+      '<button type="button" class="dtile" data-go="expenses"><div class="l"><i style="background:#ef8f8f"></i>Expenses this month</div><div class="a">' + inr.format(exMonthTotal(todayISO().slice(0, 7))) + '</div><div class="d">Not part of net worth · ' + exCompare() + "</div></button>";
+    renderDashExpenses(); renderDashPremiums();
+  }
+  function countLine(kind, word) {
+    var n = itemsOf(kind).length; if (!n) return "None added yet";
+    var d = itemsOf(kind).reduce(function (x, i) { return i.as_of > x ? i.as_of : x; }, "");
+    return n + " " + word + (n > 1 ? "s" : "") + " · updated " + fmtDate(d);
+  }
+
+
+  // ---------- Tabs ----------
+  var TABS = ["dash", "stocks", "mf", "business", "bank", "ppf", "epf", "gold", "loans", "insurance", "trading", "expenses"];
+  function showTab(t, push) {
+    if (TABS.indexOf(t) < 0) t = "dash";
+    TABS.forEach(function (x) { $("pane-" + x).hidden = x !== t; });
+    document.querySelectorAll("#tabs .tab").forEach(function (b) { b.setAttribute("aria-selected", b.dataset.tab === t ? "true" : "false"); if (b.dataset.tab === t) b.scrollIntoView({ block: "nearest", inline: "nearest" }); });
+    if (push && location.hash !== "#" + t) history.replaceState(null, "", t === "dash" ? location.pathname : "#" + t);
+    window.scrollTo(0, 0);
+  }
+  $("tabs").addEventListener("click", function (e) { var b = e.target.closest("[data-tab]"); if (b) showTab(b.dataset.tab, true); });
+  document.addEventListener("click", function (e) { var g = e.target.closest("[data-go]"); if (g) showTab(g.dataset.go, true); });
+  window.addEventListener("hashchange", function () { showTab(location.hash.slice(1), false); });
+  showTab(location.hash.slice(1), false);
+
+  // ---------- PPF, EPF, gold, loans, insurance, trading ----------
+  var oth = { items: [], gold: null, loaded: false };
+  var biz = { list: [], latest: null };
+  var ex = { list: [], month: todayISO().slice(0, 7), editing: null };
+  async function loadOthers() {
+    var q = await Promise.all([
+      sb.from("nw_items").select("*").order("created_at"),
+      sb.from("market_rates").select("*"),
+      sb.from("business_capital").select("*").order("as_of", { ascending: false }).limit(90),
+      sb.from("household_expenses").select("*").order("exp_date").order("created_at")
+    ]);
+    if (q.some(function (x) { return x.error; })) toast("Some sections couldn't load. Try reloading the page.");
+    oth.items = q[0].data || []; oth.gold = (q[1].data || []).find(function (r) { return r.key === "gold_24k_per_gram"; }) || null;
+    biz.list = q[2].data || []; biz.latest = biz.list[0] || null;
+    ex.list = q[3].data || [];
+    oth.loaded = true;
+    ITEM_TABS.forEach(renderItems); renderBusiness(); renderExpenses(); render();
+  }
+  function itemsOf(kind) { return oth.items.filter(function (i) { return i.kind === kind && !i.closed; }); }
+  function goldGrams() { return itemsOf("gold").reduce(function (x, i) { return x + toNum((i.details || {}).grams); }, 0); }
+  // Gold is valued live: grams × today's 24k rate × purity; anything else uses the value you entered
+  function itemValue(i) {
+    if (i.kind === "gold") {
+      var d = i.details || {}, g = toNum(d.grams), k = toNum(d.karat) || 24;
+      if (g > 0 && oth.gold) return g * Number(oth.gold.value) * k / 24;
+    }
+    return Number(i.value) || 0;
+  }
+
+  // One table and form per tab. Fields: [key, label, type, where ("value"/"invested"/"name"/"institution"/"as_of"/details key), options]
+  var ITEM_CFG = {
+    ppf: { kinds: ["ppf"], word: "account", fields: [["name", "Account", "text", "e.g. PPF – SBI"], ["institution", "Bank / post office", "text"], ["value", "Balance (₹)", "money"], ["as_of", "Balance as of", "date"],
+      ["opened", "Opened on", "date", "d"], ["maturity", "Matures on", "date", "d"], ["yearly", "Yearly deposit (₹)", "money", "d"], ["rate", "Interest rate (%)", "num", "d"]],
+      cols: [["Account", function (i) { return esc(i.name) + "<small>" + esc(i.institution || "") + "</small>"; }], ["Opened", function (i) { return dt(i.details.opened); }], ["Matures", function (i) { return dt(i.details.maturity); }],
+        ["Yearly deposit", function (i) { return money(i.details.yearly); }, 1], ["Rate", function (i) { return i.details.rate ? i.details.rate + "%" : "–"; }, 1], ["Balance", function (i) { return inr.format(itemValue(i)); }, 1], ["As of", function (i) { return fmtDate(i.as_of); }]] },
+    epf: { kinds: ["epf"], word: "account", fields: [["name", "Account / UAN", "text", "e.g. UAN ending 4521"], ["institution", "Employer", "text"], ["value", "Balance (₹)", "money"], ["as_of", "Balance as of", "date"],
+      ["employee", "Employee share (₹)", "money", "d"], ["employer", "Employer share (₹)", "money", "d"], ["monthly", "Monthly contribution (₹)", "money", "d"], ["rate", "Interest rate (%)", "num", "d"]],
+      cols: [["Account", function (i) { return esc(i.name) + "<small>" + esc(i.institution || "") + "</small>"; }], ["Employee share", function (i) { return money(i.details.employee); }, 1], ["Employer share", function (i) { return money(i.details.employer); }, 1],
+        ["Monthly", function (i) { return money(i.details.monthly); }, 1], ["Balance", function (i) { return inr.format(itemValue(i)); }, 1], ["As of", function (i) { return fmtDate(i.as_of); }]] },
+    gold: { kinds: ["gold"], word: "item", fields: [["name", "Item", "text", "e.g. Bangles, 10 g coin"], ["institution", "Form", "select", ["Jewellery", "Coins & bars", "Sovereign Gold Bond", "Digital gold", "Other"]],
+      ["grams", "Weight (grams)", "num", "d"], ["karat", "Purity", "select", ["24", "22", "18"], "d"], ["invested", "Bought for (₹, optional)", "money"], ["bought", "Bought on", "date", "d"], ["as_of", "Last checked", "date"]],
+      cols: [["Item", function (i) { return esc(i.name) + "<small>" + esc(i.institution || "") + "</small>"; }], ["Weight", function (i) { return num3.format(toNum(i.details.grams)) + " g"; }, 1], ["Purity", function (i) { return (i.details.karat || 24) + "k"; }, 1],
+        ["Bought for", function (i) { return i.invested ? inr.format(i.invested) : "–"; }, 1], ["Value today", function (i) { return inr.format(itemValue(i)); }, 1],
+        ["Gain", function (i) { if (!i.invested) return "–"; var g = itemValue(i) - i.invested; return '<span class="' + (g >= 0 ? "pos" : "neg") + '">' + inr.format(g) + "</span>"; }, 1]] },
+    loans: { kinds: ["loan_given", "loan_taken"], word: "loan", fields: [["kind", "Type", "kind", [["loan_given", "Money I lent (asset)"], ["loan_taken", "Money I owe (liability)"]]], ["name", "Person / lender", "text"], ["institution", "Purpose", "text"],
+      ["invested", "Original amount (₹)", "money"], ["value", "Outstanding now (₹)", "money"], ["as_of", "Outstanding as of", "date"], ["start", "Given / taken on", "date", "d"], ["rate", "Interest rate (%)", "num", "d"], ["emi", "EMI / instalment (₹)", "money", "d"], ["due", "Due by", "date", "d"]],
+      cols: [["Type", function (i) { return i.kind === "loan_given" ? '<span class="pos">Lent</span>' : '<span class="neg">Owe</span>'; }], ["Person / lender", function (i) { return esc(i.name) + "<small>" + esc(i.institution || "") + "</small>"; }],
+        ["Original", function (i) { return i.invested ? inr.format(i.invested) : "–"; }, 1], ["Rate", function (i) { return i.details.rate ? i.details.rate + "%" : "–"; }, 1], ["EMI", function (i) { return money(i.details.emi); }, 1],
+        ["Due by", function (i) { return dt(i.details.due); }], ["Outstanding", function (i) { return '<b class="' + (i.kind === "loan_taken" ? "neg" : "") + '">' + inr.format(itemValue(i)) + "</b>"; }, 1]] },
+    insurance: { kinds: ["insurance"], word: "policy", fields: [["name", "Policy", "text", "e.g. Term plan"], ["institution", "Insurer", "text"], ["type", "Type", "select", ["Term", "Health", "Endowment / money-back", "ULIP", "Vehicle", "Other"], "d"],
+      ["sum_assured", "Cover / sum assured (₹)", "money", "d"], ["premium", "Premium (₹)", "money", "d"], ["freq", "Paid", "select", ["Yearly", "Half-yearly", "Quarterly", "Monthly", "Single"], "d"], ["next_due", "Next premium due", "date", "d"],
+      ["maturity", "Ends / matures on", "date", "d"], ["value", "Current value (₹, 0 for term/health)", "money"], ["as_of", "Value as of", "date"]],
+      cols: [["Policy", function (i) { return esc(i.name) + "<small>" + esc([i.institution, i.details.type].filter(Boolean).join(" · ")) + "</small>"; }], ["Cover", function (i) { return money(i.details.sum_assured); }, 1],
+        ["Premium", function (i) { return i.details.premium ? inr.format(toNum(i.details.premium)) + "<small>" + esc(i.details.freq || "") + "</small>" : "–"; }, 1], ["Next due", function (i) { return dueTag(i.details.next_due); }],
+        ["Ends", function (i) { return dt(i.details.maturity); }], ["Value", function (i) { return inr.format(itemValue(i)); }, 1]] },
+    trading: { kinds: ["trading"], word: "broker", fields: [["name", "Broker", "select", ["Zerodha", "Angel One", "5 Paisa", "Upstox", "Groww", "Other"]], ["institution", "Account / client ID (optional)", "text"], ["value", "Cash balance (₹)", "money"], ["as_of", "Balance as of", "date"], ["margin", "Margin used (₹, optional)", "money", "d"]],
+      cols: [["Broker", function (i) { return esc(i.name) + "<small>" + esc(i.institution || "") + "</small>"; }], ["Margin used", function (i) { return money(i.details.margin); }, 1], ["Cash balance", function (i) { return inr.format(itemValue(i)); }, 1], ["As of", function (i) { return fmtDate(i.as_of); }]] }
+  };
+  var ITEM_TABS = Object.keys(ITEM_CFG);
+  var dt = function (d) { return d ? fmtDate(d) : "–"; };
+  var money = function (v) { return v === undefined || v === null || v === "" ? "–" : inr.format(toNum(v)); };
+  function daysTo(d) { return Math.round((Date.parse(d) - Date.parse(todayISO())) / dayMs); }
+  function dueTag(d) {
+    if (!d) return "–"; var n = daysTo(d);
+    return fmtDate(d) + (n < 0 ? ' <span class="pill over">overdue</span>' : n <= 30 ? ' <span class="pill due">in ' + n + " days</span>" : "");
+  }
+  oth.editing = {};
+  function renderItems(tab) {
+    var c = ITEM_CFG[tab], list = oth.items.filter(function (i) { return c.kinds.indexOf(i.kind) >= 0 && !i.closed; });
+    list.forEach(function (i) { i.details = i.details || {}; });
+    var tot = 0; list.forEach(function (i) { tot += (i.kind === "loan_taken" ? -1 : 1) * itemValue(i); });
+    $(tab + "-total").textContent = inr.format(tot);
+    var k = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + (d || "") + "</div></div>"; };
+    var kp = "";
+    if (tab === "gold") {
+      var inv = list.reduce(function (x, i) { return x + (Number(i.invested) || 0); }, 0);
+      $(tab + "-total-s").textContent = num3.format(goldGrams()) + " grams" + (oth.gold ? " · valued at " + inr.format(oth.gold.value) + "/g for 24k, NSE close of " + fmtDate(oth.gold.as_of) : "");
+      kp = k("Weight", num3.format(goldGrams()) + " g", list.length + " items") + k("Gold rate (24k)", oth.gold ? inr.format(oth.gold.value) + "/g" : "–", oth.gold ? "Updated daily from SGB prices" : "Loads with tonight's price update") +
+        k("Bought for", inr.format(inv), "Where entered") + k("Value today", inr.format(tot), "") ;
+    } else if (tab === "loans") {
+      var g = list.filter(function (i) { return i.kind === "loan_given"; }).reduce(function (x, i) { return x + itemValue(i); }, 0), t = list.filter(function (i) { return i.kind === "loan_taken"; }).reduce(function (x, i) { return x + itemValue(i); }, 0);
+      $(tab + "-total-s").textContent = "Net: money owed to you minus money you owe";
+      kp = k("Money I lent", inr.format(g), "Counted as an asset", "pos") + k("Money I owe", inr.format(t), "Counted as a liability", t ? "neg" : "") + k("Net", inr.format(g - t), "", g - t >= 0 ? "pos" : "neg");
+    } else if (tab === "insurance") {
+      var cover = list.reduce(function (x, i) { return x + toNum(i.details.sum_assured); }, 0), yearly = list.reduce(function (x, i) { return x + annualPremium(i); }, 0);
+      $(tab + "-total-s").textContent = "Current value counts towards net worth; cover does not";
+      kp = k("Total cover", inr.format(cover), list.length + " policies") + k("Premiums a year", inr.format(yearly), "All policies") + k("Current value", inr.format(tot), "Surrender / fund value");
+    } else {
+      var latest = list.reduce(function (x, i) { return i.as_of > x ? i.as_of : x; }, "");
+      $(tab + "-total-s").textContent = list.length ? list.length + " " + c.word + (list.length > 1 ? "s" : "") + " · latest balance " + fmtDate(latest) : "Nothing added yet";
+    }
+    $(tab + "-kpis").innerHTML = kp; $(tab + "-kpis").hidden = !kp;
+    $(tab + "-table").innerHTML = list.length ? "<thead><tr>" + c.cols.map(function (x) { return "<th" + (x[2] ? ' class="num"' : "") + ">" + x[0] + "</th>"; }).join("") + "<th></th></tr></thead><tbody>" +
+      list.map(function (i) {
+        return "<tr>" + c.cols.map(function (x) { return "<td" + (x[2] ? ' class="num"' : ' class="fn"') + ">" + x[1](i) + "</td>"; }).join("") +
+          '<td class="actions-c"><button class="icon-btn" type="button" data-itemedit="' + i.id + '">Edit</button><button class="icon-btn del" type="button" data-itemdel="' + i.id + '">Delete</button></td></tr>' +
+          (i.notes ? '<tr class="bf"><td colspan="' + (c.cols.length + 1) + '">' + esc(i.notes) + "</td></tr>" : "");
+      }).join("") + "</tbody>" : '<tbody><tr><td class="empty">Nothing added yet. Use the button above to add one.</td></tr></tbody>';
+    $(tab + "-note").textContent = tab === "gold" ? "Gold value moves with the 24k rate every day; 22k is counted at 22/24 and 18k at 18/24 of it." :
+      tab === "trading" ? "Update these balances from your broker's funds page when they change." : "Update the balance whenever you get a new statement.";
+  }
+  function annualPremium(i) { var p = toNum(i.details.premium), f = i.details.freq; return f === "Monthly" ? p * 12 : f === "Quarterly" ? p * 4 : f === "Half-yearly" ? p * 2 : f === "Single" ? 0 : p; }
+  function openItemForm(tab, item) {
+    var c = ITEM_CFG[tab], f = $(tab + "-form"); oth.editing[tab] = item ? item.id : null;
+    var d = item ? item.details || {} : {};
+    f.innerHTML = "<h3>" + (item ? "Edit " : "Add ") + c.word + "</h3>" + c.fields.map(function (fd) {
+      var key = fd[0], lab = fd[1], typ = fd[2], isD = fd[fd.length - 1] === "d";
+      var val = item ? (isD ? d[key] : item[key]) : (key === "as_of" ? todayISO() : "");
+      if (val === undefined || val === null) val = "";
+      var nm = 'data-f="' + key + '"' + (isD ? ' data-d="1"' : "");
+      if (typ === "select") return "<label>" + lab + " <select " + nm + ">" + fd[3].map(function (o) { return "<option" + (String(val) === o ? " selected" : "") + ">" + esc(o) + "</option>"; }).join("") + "</select></label>";
+      if (typ === "kind") return "<label>" + lab + " <select " + nm + ">" + fd[3].map(function (o) { return '<option value="' + o[0] + '"' + (val === o[0] ? " selected" : "") + ">" + esc(o[1]) + "</option>"; }).join("") + "</select></label>";
+      var t = typ === "date" ? "date" : typ === "text" ? "text" : "number";
+      return "<label>" + lab + ' <input type="' + t + '" ' + nm + (t === "number" ? ' step="any" inputmode="decimal"' : "") + (typeof fd[3] === "string" && typ === "text" ? ' placeholder="' + esc(fd[3]) + '"' : "") +
+        ' value="' + esc(val) + '"' + (key === "name" ? " required" : "") + "></label>";
+    }).join("") + '<label style="grid-column: 1 / -1">Notes (optional) <input type="text" data-f="notes" value="' + esc(item ? item.notes || "" : "") + '"></label>' +
+      '<div class="actions"><button class="primary" type="submit">Save</button><button class="ghost" type="button" data-itemcancel="' + tab + '">Cancel</button></div>';
+    f.hidden = false; f.scrollIntoView({ behavior: "smooth", block: "center" });
+    var first = f.querySelector("input, select"); if (first) first.focus();
+  }
+  document.addEventListener("click", function (e) {
+    var a = e.target.getAttribute("data-itemadd"); if (a) { var f = $(a + "-form"); if (!f.hidden && !oth.editing[a]) { f.hidden = true; return; } openItemForm(a, null); return; }
+    var cn = e.target.getAttribute("data-itemcancel"); if (cn) { $(cn + "-form").hidden = true; oth.editing[cn] = null; return; }
+    var ed = e.target.getAttribute("data-itemedit");
+    if (ed) { var it = oth.items.find(function (x) { return x.id === ed; }); if (it) openItemForm(tabOfKind(it.kind), it); return; }
+    var dl = e.target.getAttribute("data-itemdel"); if (dl) delItem(dl);
+  });
+  function tabOfKind(k) { return ITEM_TABS.find(function (t) { return ITEM_CFG[t].kinds.indexOf(k) >= 0; }); }
+  document.addEventListener("submit", async function (e) {
+    var tab = e.target.getAttribute("data-itemform"); if (!tab) return;
+    e.preventDefault();
+    var c = ITEM_CFG[tab], row = { kind: c.kinds[0], details: {}, updated_at: new Date().toISOString() }, f = e.target;
+    var old = oth.editing[tab] ? oth.items.find(function (x) { return x.id === oth.editing[tab]; }) : null;
+    if (old) row.details = Object.assign({}, old.details || {});
+    f.querySelectorAll("[data-f]").forEach(function (el) {
+      var key = el.dataset.f, v = el.value.trim(), numeric = el.type === "number";
+      var val = numeric ? (v === "" ? null : toNum(v)) : v || null;
+      if (el.dataset.d) { if (val === null) delete row.details[key]; else row.details[key] = val; }
+      else row[key] = val;
+    });
+    if (!row.name) { toast("Enter a name."); return; }
+    if (row.value === null || row.value === undefined) row.value = 0;
+    if (!row.as_of) row.as_of = todayISO();
+    if (tab === "gold") {
+      if (!(toNum(row.details.grams) > 0)) { toast("Enter the weight in grams."); return; }
+      row.value = oth.gold ? toNum(row.details.grams) * Number(oth.gold.value) * (toNum(row.details.karat) || 24) / 24 : (row.invested || 0);
+    }
+    var btn = f.querySelector(".primary"); btn.disabled = true;
+    var r = old ? await sb.from("nw_items").update(row).eq("id", old.id).select().single() : await sb.from("nw_items").insert(row).select().single();
+    btn.disabled = false;
+    if (r.error) { toast("Couldn't save: " + r.error.message); return; }
+    if (old) Object.assign(old, r.data); else oth.items.push(r.data);
+    f.hidden = true; oth.editing[tab] = null; toast("Saved");
+    renderItems(tab); renderNetWorth();
+  });
+  async function delItem(id) {
+    var it = oth.items.find(function (x) { return x.id === id; }); if (!it) return;
+    if (!confirm("Delete " + it.name + "?")) return;
+    var r = await sb.from("nw_items").delete().eq("id", id);
+    if (r.error) { toast("Couldn't delete: " + r.error.message); return; }
+    oth.items = oth.items.filter(function (x) { return x.id !== id; }); toast("Deleted");
+    renderItems(tabOfKind(it.kind)); renderNetWorth();
+  }
+  function renderDashPremiums() {
+    var due = itemsOf("insurance").filter(function (i) { var d = (i.details || {}).next_due; return d && daysTo(d) <= 60; })
+      .sort(function (a, b) { return a.details.next_due < b.details.next_due ? -1 : 1; });
+    $("dp-body").innerHTML = due.length ? '<div class="table-wrap"><table><tbody>' + due.map(function (i) {
+      return '<tr><td class="fn">' + esc(i.name) + '<small style="display:block;color:var(--muted);font-size:.72rem">' + esc(i.institution || "") + "</small></td><td>" + dueTag(i.details.next_due) + '</td><td class="num">' + money(i.details.premium) + "</td></tr>";
+    }).join("") + "</tbody></table></div>" : '<div class="empty">' + (itemsOf("insurance").length ? "Nothing due in the next 60 days." : "Add your policies in the Insurance tab to see premiums due here.") + "</div>";
+  }
+
+  // ---------- Business capital (saved by the shop accounts page) ----------
+  function renderBusiness() {
+    var l = biz.latest;
+    $("biz-total").textContent = l ? inr.format(l.total) : "–";
+    $("biz-total-s").textContent = l ? "As of " + fmtDate(l.as_of) + " · read from the shop accounts" : "Open the shop accounts page once and this fills in.";
+    $("biz-parts").innerHTML = l ? (l.parts || []).map(function (p) {
+      return '<div class="tile" style="cursor:default"><div class="l">' + esc(p.l) + '</div><div class="a' + (p.a < 0 ? " neg" : "") + '">' + (p.a < -0.5 ? "− " + inr.format(-p.a) : inr.format(p.a)) + '</div><div class="d">' + esc(p.d || "") + "</div></div>";
+    }).join("") : "";
+    var rows = biz.list.slice(0, 31);
+    $("biz-table").innerHTML = rows.length ? '<thead><tr><th>Date</th><th class="num">Business capital</th><th class="num">Change</th></tr></thead><tbody>' + rows.map(function (r, ix) {
+      var prev = biz.list[ix + 1], ch = prev ? Number(r.total) - Number(prev.total) : null;
+      return "<tr><td>" + fmtDate(r.as_of) + '</td><td class="num">' + inr.format(r.total) + '</td><td class="num ' + (ch === null ? "" : ch >= 0 ? "pos" : "neg") + '">' + (ch === null ? "–" : (ch >= 0 ? "+" : "") + inr.format(ch)) + "</td></tr>";
+    }).join("") + "</tbody>" : '<tbody><tr><td class="empty">No history yet.</td></tr></tbody>';
+  }
+
+  // ---------- Expenses ----------
+  var EX_CATS = ["Groceries", "Rent", "Electricity", "Mobile & internet", "Fuel", "Transport", "Eating out", "Medical", "Education", "Household help", "Shopping", "Travel", "EMI", "Insurance premium", "Gifts", "Other"];
+  $("ex-month").value = ex.month;
+  $("ex-month").addEventListener("change", function () { if (this.value) { ex.month = this.value; renderExpenses(); } });
+  function exMonthTotal(m) { return ex.list.filter(function (x) { return x.exp_date.slice(0, 7) === m; }).reduce(function (a, x) { return a + Number(x.amount); }, 0); }
+  function prevMonth(m) { var p = m.split("-"), d = new Date(+p[0], +p[1] - 2, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
+  function monthName(m) { var p = m.split("-"); return new Date(+p[0], +p[1] - 1, 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" }); }
+  function exCompare() {
+    var m = todayISO().slice(0, 7), a = exMonthTotal(m), b = exMonthTotal(prevMonth(m));
+    return b ? "last month " + inr.format(b) : "nothing last month";
+  }
+  function exByCat(m) {
+    var c = {}; ex.list.forEach(function (x) { if (x.exp_date.slice(0, 7) === m) c[x.category] = (c[x.category] || 0) + Number(x.amount); });
+    return Object.keys(c).map(function (k) { return [k, c[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
+  }
+  function barsHtml(rows, empty) {
+    if (!rows.length) return '<div class="empty">' + empty + "</div>";
+    var max = rows[0][1] || 1;
+    return rows.map(function (r) { return '<div class="bar-row"><span>' + esc(r[0]) + '</span><div class="bar"><span style="width:' + Math.max(2, 100 * r[1] / max).toFixed(1) + '%"></span></div><span class="amt">' + inr.format(r[1]) + "</span></div>"; }).join("");
+  }
+  function payName(k) { return k === "cash" ? "Cash" : k === "card" ? "Credit card" : k === "upi_other" ? "UPI / other" : acctName(k); }
+  function fillExFrom() {
+    $("ex-from").innerHTML = state.accounts.map(function (a) { return '<option value="' + esc(a.code) + '">' + esc(a.name) + "</option>"; }).join("") +
+      '<option value="cash">Cash</option><option value="card">Credit card</option><option value="upi_other">UPI / other</option>';
+    var cats = EX_CATS.slice(); ex.list.forEach(function (x) { if (cats.indexOf(x.category) < 0) cats.push(x.category); });
+    $("ex-cats").innerHTML = cats.map(function (c) { return '<option value="' + esc(c) + '">'; }).join("");
+  }
+  function renderExpenses() {
+    var m = ex.month, list = ex.list.filter(function (x) { return x.exp_date.slice(0, 7) === m; }).slice().reverse();
+    var tot = exMonthTotal(m), prev = exMonthTotal(prevMonth(m)), cats = exByCat(m);
+    var days = m === todayISO().slice(0, 7) ? Number(todayISO().slice(8, 10)) : new Date(+m.slice(0, 4), +m.slice(5, 7), 0).getDate();
+    $("ex-title").textContent = "Expenses · " + monthName(m);
+    $("ex-total").textContent = inr.format(tot);
+    $("ex-total-s").textContent = list.length + " entries · not part of net worth";
+    var k = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + (d || "") + "</div></div>"; };
+    var fromBank = list.filter(function (x) { return /^p_/.test(x.paid_from); }).reduce(function (a, x) { return a + Number(x.amount); }, 0);
+    $("ex-kpis").innerHTML = k("This month", inr.format(tot), list.length + " entries") +
+      k("Last month", inr.format(prev), prev ? (tot >= prev ? "up " : "down ") + inr.format(Math.abs(tot - prev)) : "", "") +
+      k("Per day", inr.format(days ? tot / days : 0), "average over " + days + " days") + k("Biggest category", cats.length ? esc(cats[0][0]) : "–", cats.length ? inr.format(cats[0][1]) : "") +
+      k("Paid from bank", inr.format(fromBank), "The rest by cash, card or UPI");
+    $("ex-cats-bars").innerHTML = barsHtml(cats, "No expenses for this month yet.");
+    $("ex-table").innerHTML = list.length ? '<thead><tr><th>Date</th><th>Category</th><th>Note</th><th>Paid from</th><th class="num">Amount</th><th></th></tr></thead><tbody>' + list.map(function (x) {
+      return "<tr><td>" + fmtDate(x.exp_date) + "</td><td>" + esc(x.category) + "</td><td>" + esc(x.note || "") + "</td><td>" + esc(payName(x.paid_from)) + '</td><td class="num">' + inr2.format(x.amount) +
+        '</td><td class="actions-c"><button class="icon-btn" type="button" data-exedit="' + x.id + '">Edit</button><button class="icon-btn del" type="button" data-exdel="' + x.id + '">Delete</button></td></tr>';
+    }).join("") + '</tbody><tfoot><tr><td>Total</td><td></td><td></td><td></td><td class="num">' + inr2.format(tot) + "</td><td></td></tr></tfoot>" : "";
+    fillExFrom();
+  }
+  function renderDashExpenses() {
+    var m = todayISO().slice(0, 7);
+    $("dx-title").textContent = "Expenses, " + monthName(m) + " · " + inr.format(exMonthTotal(m));
+    $("dx-body").innerHTML = barsHtml(exByCat(m).slice(0, 6), "No expenses recorded this month yet.");
+  }
+  function openExForm(x) {
+    ex.editing = x ? x.id : null; fillExFrom(); $("ex-form").hidden = false;
+    $("ex-form-title").textContent = x ? "Edit expense" : "Add expense";
+    $("ex-date").value = x ? x.exp_date : (ex.month === todayISO().slice(0, 7) ? todayISO() : ex.month + "-01");
+    $("ex-cat").value = x ? x.category : ""; $("ex-amt").value = x ? x.amount : ""; $("ex-note").value = x ? x.note || "" : "";
+    $("ex-from").value = x ? x.paid_from : (state.accounts[0] ? state.accounts[0].code : "cash");
+    $("ex-form").scrollIntoView({ behavior: "smooth", block: "center" }); $(x ? "ex-amt" : "ex-cat").focus();
+  }
+  $("ex-add").addEventListener("click", function () { if (!$("ex-form").hidden && !ex.editing) { $("ex-form").hidden = true; return; } openExForm(null); });
+  $("ex-cancel").addEventListener("click", function () { $("ex-form").hidden = true; ex.editing = null; });
+  $("ex-table").addEventListener("click", async function (e) {
+    var ed = e.target.getAttribute("data-exedit"); if (ed) { openExForm(ex.list.find(function (x) { return x.id === ed; })); return; }
+    var dl = e.target.getAttribute("data-exdel"); if (!dl) return;
+    var x = ex.list.find(function (y) { return y.id === dl; }); if (!x || !confirm("Delete " + x.category + " " + inr.format(x.amount) + " on " + fmtDate(x.exp_date) + "?")) return;
+    var r = await sb.from("household_expenses").delete().eq("id", dl);
+    if (r.error) { toast("Couldn't delete: " + r.error.message); return; }
+    ex.list = ex.list.filter(function (y) { return y.id !== dl; }); toast("Deleted"); renderExpenses(); render();
+  });
+  $("ex-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var row = { exp_date: $("ex-date").value, category: $("ex-cat").value.trim().replace(/\s+/g, " "), amount: toNum($("ex-amt").value), paid_from: $("ex-from").value, note: $("ex-note").value.trim() || null };
+    if (!row.category) { toast("Enter a category."); return; }
+    if (!(row.amount > 0)) { toast("Enter an amount above zero."); return; }
+    var btn = $("ex-save"); btn.disabled = true;
+    var r = ex.editing ? await sb.from("household_expenses").update(row).eq("id", ex.editing).select().single() : await sb.from("household_expenses").insert(row).select().single();
+    btn.disabled = false;
+    if (r.error) { toast("Couldn't save: " + r.error.message); return; }
+    if (ex.editing) { var o = ex.list.find(function (y) { return y.id === ex.editing; }); Object.assign(o, r.data); } else ex.list.push(r.data);
+    ex.list.sort(function (a, b) { return a.exp_date < b.exp_date ? -1 : a.exp_date > b.exp_date ? 1 : 0; });
+    $("ex-form").hidden = true; toast(ex.editing ? "Expense updated" : inr.format(row.amount) + " for " + row.category + " saved"); ex.editing = null;
+    ex.month = row.exp_date.slice(0, 7); $("ex-month").value = ex.month;
+    renderExpenses(); render();
+  });
 
   // ---------- Prices: updated on the server every day; this button runs the same update now ----------
   $("px-refresh").addEventListener("click", async function () {
@@ -850,7 +1419,7 @@
       if (d.stocks && !d.stocks.error) msg.push("stocks to " + fmtDate(d.stocks.date));
       if (d.mf && !d.mf.error) msg.push("fund NAVs to " + fmtDate(d.mf.latest));
       toast(msg.length ? "Prices updated: " + msg.join(", ") : "Couldn't reach the price sources. Try again later.");
-      await Promise.all([loadMF(), loadStocks()]);
+      await Promise.all([loadMF(), loadStocks(), loadOthers()]);
     } catch (e) { toast("Couldn't update prices: " + (e.message || e)); }
     b.disabled = false; b.textContent = "Update prices now";
   });
