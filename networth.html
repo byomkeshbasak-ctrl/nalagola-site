@@ -89,6 +89,21 @@
 
   .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: 10px; padding: 10px 16px; font-size: 0.88rem; z-index: 20; max-width: calc(100% - 32px); }
 
+  /* ---------- Net worth + stocks ---------- */
+  .nw-split { margin-top: 14px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .nw-split div { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 11px 13px; }
+  .nw-split .l { font-size: 0.74rem; color: var(--muted); }
+  .nw-split .a { margin-top: 4px; font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .nw-split .d { margin-top: 2px; font-size: 0.72rem; color: var(--muted); }
+  @media (max-width: 620px) { .nw-split { grid-template-columns: 1fr; } }
+  #st-table tr.fund, #st-exited-table tr.fund { cursor: pointer; }
+  #st-table tr.fund:hover td, #st-exited-table tr.fund:hover td { background: var(--panel-2); }
+  #st-table td.fn, #st-exited-table td.fn { white-space: normal; min-width: 170px; }
+  #st-table td.fn b, #st-exited-table td.fn b { font-weight: 600; }
+  #st-table td.fn small, #st-exited-table td.fn small { display: block; font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+  #st-table tr.tx > td, #st-exited-table tr.tx > td { padding: 0 0 12px 18px; background: var(--bg); }
+  td small.dc { display: block; font-size: 0.72rem; }
+
   /* ---------- Mutual funds ---------- */
   .mf-kpis { margin-top: 14px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
   .mf-kpis div { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 11px 13px; }
@@ -150,7 +165,20 @@
   </header>
 
   <main class="wrap">
-    <section class="card" aria-label="Bank accounts">
+    <section class="card nw-card" aria-label="Net worth">
+      <div class="head">
+        <div>
+          <div class="k">Net worth</div>
+          <div class="v" id="nw-total">–</div>
+          <div class="s" id="nw-s">Bank + mutual funds + stocks</div>
+        </div>
+        <div class="spacer"></div>
+        <button class="ghost" id="px-refresh" type="button">Update prices now</button>
+      </div>
+      <div class="nw-split" id="nw-split"></div>
+    </section>
+
+    <section class="sec card" aria-label="Bank accounts">
       <div class="head">
         <div>
           <div class="k">Personal bank balance</div>
@@ -191,7 +219,6 @@
         </div>
         <div class="spacer"></div>
         <button class="ghost" id="mf-add" type="button">Add transaction</button>
-        <button class="ghost" id="mf-refresh" type="button">Refresh NAVs</button>
       </div>
 
       <form class="form" id="mf-form" hidden>
@@ -217,6 +244,38 @@
       <button class="ghost exited-btn" id="mf-exited-btn" type="button" hidden></button>
       <div class="table-wrap" id="mf-exited" hidden style="margin-top:10px"><table id="mf-exited-table"></table></div>
       <div class="mf-note" id="mf-note"></div>
+    </section>
+
+    <section class="sec card" aria-label="Stocks">
+      <div class="head">
+        <div>
+          <div class="k">Stocks &amp; ETFs</div>
+          <div class="v" id="st-total">–</div>
+          <div class="s" id="st-total-s"></div>
+        </div>
+        <div class="spacer"></div>
+        <button class="ghost" id="st-add" type="button">Add trade</button>
+      </div>
+
+      <form class="form" id="st-form" hidden>
+        <h3 id="st-form-title">Add trade</h3>
+        <label>Type <select id="st-type"><option value="buy">Buy</option><option value="sell">Sell</option><option value="bonus">Bonus / free shares</option></select></label>
+        <label>Symbol (NSE) <input type="text" id="st-sym" list="st-syms" autocomplete="off" autocapitalize="characters" placeholder="e.g. RELIANCE" required></label>
+        <label>Broker <select id="st-broker"><option>Zerodha</option><option>Angel</option><option>5 Paisa</option></select></label>
+        <label>Date <input type="date" id="st-date" required></label>
+        <label>Price (₹) <input type="number" id="st-price" step="0.01" min="0" inputmode="decimal" required></label>
+        <label>Quantity <input type="number" id="st-qty" step="1" min="1" inputmode="numeric" required></label>
+        <label>Amount (₹) <input type="number" id="st-amt" step="0.01" min="0" inputmode="decimal"></label>
+        <div class="hint">Amount fills in from price × quantity; change it if you want to include brokerage. For a bonus or split, add the free shares at price 0.</div>
+        <div class="actions"><button class="primary" type="submit" id="st-save">Save</button><button class="ghost" type="button" id="st-cancel">Cancel</button></div>
+      </form>
+      <datalist id="st-syms"></datalist>
+
+      <div class="mf-kpis" id="st-kpis"></div>
+      <div class="table-wrap" style="margin-top:14px"><table id="st-table"></table></div>
+      <button class="ghost exited-btn" id="st-exited-btn" type="button" hidden></button>
+      <div class="table-wrap" id="st-exited" hidden style="margin-top:10px"><table id="st-exited-table"></table></div>
+      <div class="mf-note" id="st-note"></div>
     </section>
 
     <section class="sec card" aria-label="Transfers">
@@ -277,7 +336,8 @@
     state.transfers = (q[1].data || []).filter(function (t) { return isPersonal(t.from_account) || isPersonal(t.to_account); });
     fillSelects();
     render();
-    await loadMF();
+    await Promise.all([loadMF(), loadStocks()]);
+    renderNetWorth();
   }
 
   // Balance = opening balance + transfers in − transfers out, from the opening date
@@ -306,6 +366,7 @@
     $("total-s").textContent = state.accounts.map(function (a) { return a.name; }).join(" + ") + ", as of " + fmtDate(todayISO());
     renderStatement();
     renderTransfers();
+    if (typeof renderNetWorth === "function") renderNetWorth();
   }
 
   function renderStatement() {
@@ -421,7 +482,7 @@
 
   // ---------- Mutual funds ----------
   // Every buy and redemption is kept. Holdings use FIFO: a redemption takes units from the oldest purchase first,
-  // which is also how the tax rules count them. Live NAVs come from mfapi.in (AMFI data) using each fund's scheme code.
+  // which is also how the tax rules count them. NAVs are refreshed every day on the server from AMFI (see updatePrices).
   var mf = { funds: [], txns: [], open: {}, showExited: false, editing: null, live: {} };
   var CAT_COL = { "Large cap": "#d9b26f", "Large & mid cap": "#c99a5b", "Mid cap": "#7fcf9a", "Small cap": "#5fb3b3", "Flexi / multi cap": "#8fa8e0",
     "Value / contra": "#b48ee0", "International": "#e08fb4", "Arbitrage": "#9a9a9a", "Debt": "#cfc59a", "Other": "#777" };
@@ -434,35 +495,7 @@
     if (q[0].error || q[1].error) { $("mf-total-s").textContent = "Couldn't load the funds."; return; }
     mf.funds = q[0].data || []; mf.txns = q[1].data || [];
     renderMF();
-    refreshNav(false);
   }
-
-  // Fetch the latest NAV for every fund that has a scheme code; save it when it's newer than what's stored
-  async function refreshNav(loud) {
-    var withCode = mf.funds.filter(function (f) { return f.scheme_code && fundCalc(f).units > 0.0005; });
-    if (!withCode.length) return;
-    $("mf-refresh").disabled = true;
-    var got = 0, saves = [];
-    await Promise.all(withCode.map(async function (f) {
-      try {
-        var ctl = new AbortController(), t = setTimeout(function () { ctl.abort(); }, 8000);
-        var r = await fetch("https://api.mfapi.in/mf/" + f.scheme_code + "/latest", { signal: ctl.signal }); clearTimeout(t);
-        var j = await r.json(), d = j && j.data && j.data[0]; if (!d) return;
-        var p = d.date.split("-"), iso = p[2] + "-" + p[1] + "-" + p[0], v = Number(d.nav);
-        if (!(v > 0)) return;
-        got++;
-        if (!f.nav_date || iso > f.nav_date || (iso === f.nav_date && v !== Number(f.nav))) {
-          f.nav = v; f.nav_date = iso;
-          saves.push(sb.from("mf_funds").update({ nav: v, nav_date: iso }).eq("name", f.name));
-        }
-      } catch (e) { /* keep the stored NAV */ }
-    }));
-    await Promise.all(saves);
-    $("mf-refresh").disabled = false;
-    renderMF();
-    if (loud) toast(got ? "NAVs updated for " + got + " fund" + (got > 1 ? "s" : "") : "Couldn't reach the NAV service. Showing the last saved NAVs.");
-  }
-  $("mf-refresh").addEventListener("click", function () { refreshNav(true); });
 
   // FIFO lots, realised gain and XIRR for one fund
   function fundCalc(f) {
@@ -507,10 +540,10 @@
     if (T.val > 0) allFlows.push([todayISO(), T.val]);
     var X = xirr(allFlows), gain = T.val - T.inv;
     var navDate = held.reduce(function (d, r) { return r.f.nav_date && r.f.nav_date > d ? r.f.nav_date : d; }, "");
-    var bank = state.accounts.reduce(function (s, a) { return s + balance(a.code); }, 0);
+    mf.total = T.val; mf.invested = T.inv;
 
     $("mf-total").textContent = inr.format(T.val);
-    $("mf-total-s").textContent = held.length + " funds held" + (navDate ? " · NAV as of " + fmtDate(navDate) : "") + " · bank + mutual funds " + inr.format(bank + T.val);
+    $("mf-total-s").textContent = held.length + " funds held" + (navDate ? " · NAV as of " + fmtDate(navDate) : "") + "";
     var k = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + (d || "") + "</div></div>"; };
     $("mf-kpis").innerHTML = k("Invested", inr.format(T.inv), "Cost of units still held") + k("Current value", inr.format(T.val), "") +
       k("Unrealised gain", inr.format(gain), pct(T.inv ? gain / T.inv : NaN), gain >= 0 ? "pos" : "neg") +
@@ -542,7 +575,8 @@
           '</td><td class="num ' + (r.realised >= 0 ? "pos" : "neg") + '">' + inr.format(r.realised) + '</td><td class="num">' + (isFinite(r.xirr) ? (r.xirr * 100).toFixed(1) + "%" : "–") + "</td><td>" + fmtDate(last) +
           '</td><td><span class="tog">' + (open ? "Hide ▴" : "Show ▾") + "</span></td></tr>" + (open ? txRows(r, 7) : "");
       }).join("") + "</tbody>";
-    $("mf-note").textContent = "Live NAVs from AMFI via mfapi.in. Gains are before tax; redemptions use the oldest units first (FIFO).";
+    $("mf-note").textContent = "NAVs update automatically every night from AMFI. Gains are before tax; redemptions use the oldest units first (FIFO).";
+    renderNetWorth();
     fillFundSelect();
   }
   function fundRow(r, tot) {
@@ -641,6 +675,185 @@
     if (r.error) { toast("Couldn't delete: " + r.error.message); return; }
     toast("Deleted"); await loadMF();
   }
+
+
+  // ---------- Stocks & ETFs ----------
+  // FIFO per stock and broker (each demat account is matched on its own, as for tax). Closing prices come from the
+  // NSE bhavcopy every weekday evening on the server.
+  var st = { txns: [], prices: {}, open: {}, showExited: false, editing: null, total: 0 };
+  async function loadStocks() {
+    var q = await Promise.all([sb.from("stock_txns").select("*").order("txn_date").order("created_at"), sb.from("stock_prices").select("*")]);
+    if (q[0].error || q[1].error) { $("st-total-s").textContent = "Couldn't load the stocks."; return; }
+    st.txns = q[0].data || []; st.prices = {};
+    (q[1].data || []).forEach(function (p) { st.prices[p.symbol] = p; });
+    renderStocks();
+  }
+  function stockCalc(sym) {
+    var tx = st.txns.filter(function (t) { return t.symbol === sym; })
+      .sort(function (a, b) { return a.txn_date < b.txn_date ? -1 : a.txn_date > b.txn_date ? 1 : (Number(b.qty) > 0) - (Number(a.qty) > 0); });
+    var books = {}, realised = 0, flows = [], buys = 0, sells = 0, short = 0;
+    tx.forEach(function (t) {
+      var q = Number(t.qty), a = Number(t.amount), bk = t.broker || "–", lots = books[bk] || (books[bk] = []);
+      flows.push([t.txn_date, -a]);
+      if (q > 0) { lots.push({ date: t.txn_date, qty: q, cost: a }); buys += a; return; }
+      var need = -q, used = 0; sells += -a;
+      while (need > 0 && lots.length) {
+        var l = lots[0], take = Math.min(need, l.qty), c = l.cost * take / l.qty;
+        l.qty -= take; l.cost -= c; used += c; need -= take;
+        if (l.qty <= 0) lots.shift();
+      }
+      if (need > 0) short += need;
+      realised += -a - used;
+    });
+    var qty = 0, inv = 0, brokers = [], since = null;
+    Object.keys(books).forEach(function (k) {
+      var q2 = books[k].reduce(function (x, l) { return x + l.qty; }, 0);
+      if (q2 > 0) { brokers.push(k + " " + q2); qty += q2; inv += books[k].reduce(function (x, l) { return x + l.cost; }, 0);
+        books[k].forEach(function (l) { if (!since || l.date < since) since = l.date; }); }
+    });
+    var p = st.prices[sym] || {}, price = Number(p.price) || 0, prev = Number(p.prev_close) || price, value = qty * price;
+    var xf = flows.slice().sort(function (a, b) { return a[0] < b[0] ? -1 : 1; }); if (value > 0) xf.push([todayISO(), value]);
+    return { sym: sym, name: p.name || "", tx: tx, qty: qty, invested: inv, price: price, prev: prev, value: value, day: qty * (price - prev),
+      gain: value - inv, realised: realised, buys: buys, sells: sells, flows: flows, xirr: xirr(xf), brokers: brokers, since: since, short: short, pdate: p.price_date };
+  }
+  function renderStocks() {
+    var syms = []; st.txns.forEach(function (t) { if (syms.indexOf(t.symbol) < 0) syms.push(t.symbol); });
+    var rows = syms.map(stockCalc);
+    var held = rows.filter(function (r) { return r.qty > 0; }).sort(function (a, b) { return b.value - a.value; });
+    var exited = rows.filter(function (r) { return !r.qty; });
+    var T = { inv: 0, val: 0, real: 0, day: 0 }, all = [];
+    rows.forEach(function (r) { T.inv += r.invested; T.val += r.value; T.real += r.realised; T.day += r.day; all = all.concat(r.flows); });
+    all.sort(function (a, b) { return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0; }); if (T.val > 0) all.push([todayISO(), T.val]);
+    var X = xirr(all), gain = T.val - T.inv;
+    var pdate = held.reduce(function (d, r) { return r.pdate && r.pdate > d ? r.pdate : d; }, "");
+    st.total = T.val; st.invested = T.inv; st.day = T.day; st.pdate = pdate;
+    $("st-total").textContent = inr.format(T.val);
+    $("st-total-s").textContent = held.length + " stocks held" + (pdate ? " · closing prices of " + fmtDate(pdate) : "");
+    var k = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + (d || "") + "</div></div>"; };
+    $("st-kpis").innerHTML = k("Invested", inr.format(T.inv), "Cost of shares still held") +
+      k("Day's change", inr.format(T.day), pct(T.val - T.day ? T.day / (T.val - T.day) : NaN), T.day >= 0 ? "pos" : "neg") +
+      k("Unrealised gain", inr.format(gain), pct(T.inv ? gain / T.inv : NaN), gain >= 0 ? "pos" : "neg") +
+      k("Realised gain", inr.format(T.real), "From sales (FIFO)", T.real >= 0 ? "pos" : "neg") +
+      k("XIRR", isFinite(X) ? (X * 100).toFixed(1) + "%" : "–", "All trades, since first buy", X >= 0 ? "pos" : "neg");
+    $("st-table").innerHTML = '<thead><tr><th>Stock</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Invested</th><th class="num">Price</th><th class="num">Current value</th><th class="num">Gain</th><th class="num">XIRR</th><th class="num">Weight</th><th></th></tr></thead><tbody>' +
+      (held.length ? held.map(function (r) {
+        var w = T.val ? r.value / T.val : 0, open = st.open[r.sym], dc = r.price - r.prev;
+        return '<tr class="fund" data-stsym="' + esc(r.sym) + '"><td class="fn"><b>' + esc(r.sym) + "</b><small>" + esc(r.name) + " · " + esc(r.brokers.join(", ")) + '</small></td><td class="num">' + num3.format(r.qty) +
+          '</td><td class="num">' + inr2.format(r.invested / r.qty) + '</td><td class="num">' + inr.format(r.invested) + '</td><td class="num">' + inr2.format(r.price) +
+          '<small class="dc ' + (dc >= 0 ? "pos" : "neg") + '">' + (dc >= 0 ? "+" : "") + dc.toFixed(2) + " (" + pct(r.prev ? dc / r.prev : NaN) + ')</small></td><td class="num">' + inr.format(r.value) +
+          '</td><td class="num ' + (r.gain >= 0 ? "pos" : "neg") + '">' + inr.format(r.gain) + "<br><small>" + pct(r.invested ? r.gain / r.invested : NaN) + '</small></td><td class="num">' + (isFinite(r.xirr) ? (r.xirr * 100).toFixed(1) + "%" : "–") +
+          '</td><td class="num">' + (w * 100).toFixed(1) + '%<span class="wt"><span style="width:' + (w * 100).toFixed(1) + '%"></span></span></td><td><span class="tog">' + (open ? "Hide ▴" : "Show ▾") + "</span></td></tr>" + (open ? stTxRows(r, 10) : "");
+      }).join("") : '<tr><td class="empty" colspan="10">No stocks held.</td></tr>') +
+      '</tbody><tfoot><tr><td>Total</td><td></td><td></td><td class="num">' + inr.format(T.inv) + '</td><td></td><td class="num">' + inr.format(T.val) + '</td><td class="num ' + (gain >= 0 ? "pos" : "neg") + '">' + inr.format(gain) +
+      '</td><td class="num">' + (isFinite(X) ? (X * 100).toFixed(1) + "%" : "–") + '</td><td class="num">100%</td><td></td></tr></tfoot>';
+    var eb = $("st-exited-btn"), er = exited.reduce(function (x, r) { return x + r.realised; }, 0);
+    eb.hidden = !exited.length;
+    eb.textContent = (st.showExited ? "Hide" : "Show") + " sold stocks (" + exited.length + ") · realised " + inr.format(er);
+    $("st-exited").hidden = !st.showExited || !exited.length;
+    $("st-exited-table").innerHTML = '<thead><tr><th>Stock</th><th class="num">Bought</th><th class="num">Sold</th><th class="num">Realised gain</th><th class="num">XIRR</th><th>Last sold</th><th></th></tr></thead><tbody>' +
+      exited.sort(function (a, b) { return b.realised - a.realised; }).map(function (r) {
+        var open = st.open[r.sym], last = r.tx.length ? r.tx[r.tx.length - 1].txn_date : "";
+        return '<tr class="fund" data-stsym="' + esc(r.sym) + '"><td class="fn"><b>' + esc(r.sym) + "</b><small>" + esc(r.name) + '</small></td><td class="num">' + inr.format(r.buys) + '</td><td class="num">' + inr.format(r.sells) +
+          '</td><td class="num ' + (r.realised >= 0 ? "pos" : "neg") + '">' + inr.format(r.realised) + '</td><td class="num">' + (isFinite(r.xirr) ? (r.xirr * 100).toFixed(1) + "%" : "–") + "</td><td>" + (last ? fmtDate(last) : "") +
+          '</td><td><span class="tog">' + (open ? "Hide ▴" : "Show ▾") + "</span></td></tr>" + (open ? stTxRows(r, 7) : "");
+      }).join("") + "</tbody>";
+    $("st-note").textContent = "Closing prices update automatically every weekday evening from NSE. Each broker account is matched FIFO on its own; gains are before tax and charges.";
+    $("st-syms").innerHTML = syms.sort().map(function (x) { return '<option value="' + esc(x) + '">'; }).join("");
+    renderNetWorth();
+  }
+  function stTxRows(r, span) {
+    return '<tr class="tx"><td colspan="' + span + '"><table class="tx-inner"><thead><tr><th>Date</th><th>Type</th><th>Broker</th><th class="num">Price</th><th class="num">Qty</th><th class="num">Amount</th><th></th></tr></thead><tbody>' +
+      r.tx.slice().reverse().map(function (t) {
+        var q = Number(t.qty), typ = q < 0 ? "Sell" : Number(t.price) === 0 ? "Bonus" : "Buy";
+        return "<tr><td>" + fmtDate(t.txn_date) + '</td><td class="' + (q < 0 ? "neg" : "") + '">' + typ + "</td><td>" + esc(t.broker || "") + '</td><td class="num">' + inr2.format(t.price) + '</td><td class="num">' + num3.format(Math.abs(q)) +
+          '</td><td class="num">' + inr2.format(Math.abs(t.amount)) + '</td><td class="actions-c"><button class="icon-btn" type="button" data-stedit="' + t.id + '">Edit</button><button class="icon-btn del" type="button" data-stdel="' + t.id + '">Delete</button></td></tr>';
+      }).join("") + "</tbody></table></td></tr>";
+  }
+  function onStClick(e) {
+    var ed = e.target.getAttribute("data-stedit"); if (ed) { openStForm(st.txns.find(function (t) { return t.id === ed; })); return; }
+    var dl = e.target.getAttribute("data-stdel"); if (dl) { delSt(dl); return; }
+    var row = e.target.closest("[data-stsym]"); if (!row || e.target.closest("button")) return;
+    var n = row.dataset.stsym; st.open[n] = !st.open[n]; renderStocks();
+  }
+  $("st-table").addEventListener("click", onStClick);
+  $("st-exited-table").addEventListener("click", onStClick);
+  $("st-exited-btn").addEventListener("click", function () { st.showExited = !st.showExited; renderStocks(); });
+
+  function openStForm(t) {
+    var f = $("st-form"); st.editing = t ? t.id : null; f.hidden = false;
+    $("st-form-title").textContent = t ? "Edit trade" : "Add trade";
+    $("st-type").value = t ? (Number(t.qty) < 0 ? "sell" : Number(t.price) === 0 ? "bonus" : "buy") : "buy";
+    $("st-sym").value = t ? t.symbol : ""; $("st-broker").value = t && t.broker ? t.broker : "Zerodha";
+    $("st-date").value = t ? t.txn_date : todayISO(); $("st-price").value = t ? t.price : "";
+    $("st-qty").value = t ? Math.abs(t.qty) : ""; $("st-amt").value = t ? Math.abs(t.amount) : "";
+    syncStType(); f.scrollIntoView({ behavior: "smooth", block: "center" }); (t ? $("st-price") : $("st-sym")).focus();
+  }
+  function syncStType() { var b = $("st-type").value === "bonus"; $("st-price").disabled = b; $("st-amt").disabled = b; if (b) { $("st-price").value = 0; $("st-amt").value = 0; } }
+  $("st-type").addEventListener("change", syncStType);
+  $("st-add").addEventListener("click", function () { if (!$("st-form").hidden && !st.editing) { $("st-form").hidden = true; return; } openStForm(null); });
+  $("st-cancel").addEventListener("click", function () { $("st-form").hidden = true; st.editing = null; });
+  $("st-sym").addEventListener("change", function () {
+    this.value = this.value.trim().toUpperCase();
+    var p = st.prices[this.value]; if (p && !$("st-price").value && $("st-type").value !== "bonus") $("st-price").value = p.price;
+  });
+  function stAmt() { var p = toNum($("st-price").value), q = toNum($("st-qty").value); if (p >= 0 && q > 0) $("st-amt").value = (p * q).toFixed(2); }
+  $("st-price").addEventListener("input", stAmt); $("st-qty").addEventListener("input", stAmt);
+  $("st-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var typ = $("st-type").value, sym = $("st-sym").value.trim().toUpperCase(), broker = $("st-broker").value;
+    var price = typ === "bonus" ? 0 : toNum($("st-price").value), qty = Math.round(toNum($("st-qty").value)), amt = typ === "bonus" ? 0 : toNum($("st-amt").value) || price * qty;
+    if (!/^[A-Z0-9&\-]+$/.test(sym)) { toast("Enter the NSE symbol, for example RELIANCE."); return; }
+    if (!(qty > 0)) { toast("Enter the quantity."); return; }
+    if (typ !== "bonus" && !(price > 0)) { toast("Enter the price."); return; }
+    if (typ === "sell") {
+      var have = st.txns.filter(function (t) { return t.symbol === sym && t.broker === broker && t.id !== st.editing; }).reduce(function (x, t) { return x + Number(t.qty); }, 0);
+      if (qty > have) { toast("You hold only " + have + " " + sym + " with " + broker + "."); return; }
+    }
+    var btn = $("st-save"); btn.disabled = true;
+    var row = { symbol: sym, exchange: "NSE", txn_date: $("st-date").value, price: price, qty: typ === "sell" ? -qty : qty, amount: typ === "sell" ? -amt : amt, broker: broker };
+    var r = st.editing ? await sb.from("stock_txns").update(row).eq("id", st.editing) : await sb.from("stock_txns").insert(row);
+    // A new symbol gets a starting price until tonight's update
+    if (!r.error && !st.prices[sym] && price > 0) await sb.from("stock_prices").insert({ symbol: sym, price: price, prev_close: price, price_date: row.txn_date });
+    btn.disabled = false;
+    if (r.error) { toast("Couldn't save: " + r.error.message); return; }
+    $("st-form").hidden = true; toast(st.editing ? "Trade updated" : (typ === "sell" ? "Sale" : typ === "bonus" ? "Bonus shares" : "Purchase") + " of " + sym + " saved");
+    st.editing = null; st.open[sym] = true; await loadStocks();
+  });
+  async function delSt(id) {
+    var t = st.txns.find(function (x) { return x.id === id; }); if (!t) return;
+    if (!confirm("Delete this " + (Number(t.qty) < 0 ? "sale" : "purchase") + " of " + Math.abs(t.qty) + " " + t.symbol + " on " + fmtDate(t.txn_date) + "?")) return;
+    var r = await sb.from("stock_txns").delete().eq("id", id);
+    if (r.error) { toast("Couldn't delete: " + r.error.message); return; }
+    toast("Deleted"); await loadStocks();
+  }
+
+  // ---------- Net worth ----------
+  function renderNetWorth() {
+    if (!$("nw-total")) return;
+    var bank = state.accounts.reduce(function (x, a) { return x + balance(a.code); }, 0), m = mf.total || 0, s2 = st.total || 0, tot = bank + m + s2;
+    $("nw-total").textContent = inr.format(tot);
+    var share = function (v) { return tot ? (100 * v / tot).toFixed(1) + "% of net worth" : ""; };
+    $("nw-split").innerHTML = '<div><div class="l">Bank accounts</div><div class="a">' + inr.format(bank) + '</div><div class="d">' + share(bank) + "</div></div>" +
+      '<div><div class="l">Mutual funds</div><div class="a">' + inr.format(m) + '</div><div class="d">' + share(m) + "</div></div>" +
+      '<div><div class="l">Stocks &amp; ETFs</div><div class="a">' + inr.format(s2) + '</div><div class="d">' + share(s2) + (st.day ? ' · today <span class="' + (st.day >= 0 ? "pos" : "neg") + '">' + (st.day >= 0 ? "+" : "") + inr.format(st.day) + "</span>" : "") + "</div></div>";
+    $("nw-s").textContent = "Bank + mutual funds + stocks, as of " + fmtDate(todayISO());
+  }
+
+  // ---------- Prices: updated on the server every day; this button runs the same update now ----------
+  $("px-refresh").addEventListener("click", async function () {
+    var b = this; b.disabled = true; b.textContent = "Updating…";
+    try {
+      var r = await sb.functions.invoke("update-prices", { body: {} });
+      var d = r.data || {};
+      if (r.error && !d.mf) throw r.error;
+      var msg = [];
+      if (d.stocks && !d.stocks.error) msg.push("stocks to " + fmtDate(d.stocks.date));
+      if (d.mf && !d.mf.error) msg.push("fund NAVs to " + fmtDate(d.mf.latest));
+      toast(msg.length ? "Prices updated: " + msg.join(", ") : "Couldn't reach the price sources. Try again later.");
+      await Promise.all([loadMF(), loadStocks()]);
+    } catch (e) { toast("Couldn't update prices: " + (e.message || e)); }
+    b.disabled = false; b.textContent = "Update prices now";
+  });
 
   $("signout").addEventListener("click", async function () { await sb.auth.signOut(); location.href = "admin.html"; });
 
