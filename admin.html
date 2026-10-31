@@ -377,10 +377,10 @@
   .bk-totals { font-size: 0.86rem; color: var(--muted); }
   .bk-totals b { color: var(--text); font-variant-numeric: tabular-nums; }
   .bk-h3 { margin: 18px 0 8px; font-size: 0.9rem; color: var(--gold); }
-  #goods-table tr.gd-day { cursor: pointer; }
-  #goods-table tr.gd-day:hover td { background: var(--panel-2); }
+  #goods-table tr.gd-day, #bar-table tr.gd-day { cursor: pointer; }
+  #goods-table tr.gd-day:hover td, #bar-table tr.gd-day:hover td { background: var(--panel-2); }
   .gd-tog { font-size: 0.78rem; color: var(--gold); white-space: nowrap; }
-  #goods-table tr.gd-detail > td { padding: 0 0 10px 18px; background: var(--bg); }
+  #goods-table tr.gd-detail > td, #bar-table tr.gd-detail > td { padding: 0 0 10px 18px; background: var(--bg); }
   .gd-inner { font-size: 0.8rem; }
   .gd-inner th { position: static; background: var(--bg); }
   .top-row { display: grid; grid-template-columns: 22px minmax(120px, 190px) 1fr 120px; gap: 10px; align-items: center; padding: 7px 0; border-bottom: 1px solid rgba(217,178,111,0.08); font-size: 0.86rem; }
@@ -1447,24 +1447,36 @@
     if (!keys.length) { tbl.innerHTML = '<tr><td class="empty">Nothing for the bar counter this month yet.</td></tr>'; return; }
     var run = 0;
     var rows = keys.slice().reverse().map(function (k) { run += days[k].inn - days[k].out; return { k: k, run: run }; }).reverse();
-    tbl.innerHTML = '<thead><tr><th>Date</th><th class="num">Collection</th><th class="num">Paid to vendors</th><th>Details</th><th class="num">Net cash</th><th class="num">Month so far</th><th></th></tr></thead><tbody>' +
+    var openD = state.barOpen || (state.barOpen = {});
+    tbl.innerHTML = '<thead><tr><th>Date</th><th class="num">Collection</th><th class="num">Paid to vendors</th><th class="num">Net cash</th><th class="num">Month so far</th><th></th></tr></thead><tbody>' +
       rows.map(function (row) {
-        var o = days[row.k], net = o.inn - o.out;
-        var det = o.online.map(function (x) { return '<span class="pos">Online in</span> ' + esc((x.description ? x.description + " " : "") + "(" + PAID[x.received_into] + ") " + inr.format(x.amount)); })
-          .concat(o.items.map(function (x) { return esc((vendName(x.vendor_id) || x.description || "Bar goods") + " (" + PAID[x.paid_from] + ") " + inr.format(x.amount)) + (x.vendor_id || !state.bk.ok ? "" : ' <span class="tag">September invoice</span>'); }));
-        return "<tr><td>" + fmtDate(row.k) + '</td><td class="num">' + (o.inn ? inr.format(o.inn) : "–") +
+        var o = days[row.k], net = o.inn - o.out, has = o.online.length || o.items.length || o.cash, isOpen = has && openD[row.k];
+        var head = '<tr class="gd-day" data-bday="' + row.k + '"><td>' + fmtDate(row.k) + '</td><td class="num">' + (o.inn ? inr.format(o.inn) : "–") +
           (o.onl && o.cash ? '<span class="on-split">Cash ' + inr.format(o.cash) + " · Online " + inr.format(o.onl) + "</span>" : o.onl ? '<span class="on-split">Online</span>' : "") +
-          '</td><td class="num">' + (o.out ? inr.format(o.out) : "–") + "</td><td>" + det.join("<br>") +
-          '</td><td class="num ' + (net < 0 ? "neg" : "pos") + '">' + inr.format(net) + '</td><td class="num">' + inr.format(row.run) + '</td><td class="actions">' +
-          o.online.map(function (x) { return '<button class="icon-btn" data-editbaron="' + x.id + '">Edit</button><button class="icon-btn del" data-delbaron="' + x.id + '">Delete</button>'; })
-            .concat(o.items.map(function (x) { return '<button class="icon-btn" data-editbar="' + x.id + '">Edit</button><button class="icon-btn del" data-delbar="' + x.id + '">Delete</button>'; })).join("<br>") + "</td></tr>";
-      }).join("") + '</tbody><tfoot><tr><td>Total</td><td class="num">' + inr.format(tin) + '</td><td class="num">' + inr.format(tout) + '</td><td></td><td class="num ' + (tin - tout >= 0 ? "pos" : "neg") + '">' + inr.format(tin - tout) + "</td><td></td><td></td></tr></tfoot>";
+          '</td><td class="num">' + (o.out ? inr.format(o.out) : "–") + '</td><td class="num ' + (net < 0 ? "neg" : "pos") + '">' + inr.format(net) +
+          '</td><td class="num">' + inr.format(row.run) + '</td><td class="actions">' + (has ? '<span class="gd-tog">' + (isOpen ? "Hide ▴" : "Show ▾") + "</span>" : "") + "</td></tr>";
+        if (!isOpen) return head;
+        var lines = [];
+        if (o.cash) lines.push('<tr><td class="pos">Cash in</td><td>Daily ledger</td><td>Shop cash</td><td class="num">' + inr.format(o.cash) + '</td><td class="actions"></td></tr>');
+        o.online.forEach(function (x) {
+          lines.push('<tr><td class="pos">Online in</td><td>' + esc(x.description || "Bar collection") + "</td><td>" + esc(PAID[x.received_into]) + '</td><td class="num">' + inr.format(x.amount) +
+            '</td><td class="actions"><button class="icon-btn" data-editbaron="' + x.id + '">Edit</button><button class="icon-btn del" data-delbaron="' + x.id + '">Delete</button></td></tr>');
+        });
+        o.items.forEach(function (x) {
+          lines.push('<tr><td class="neg">Paid out</td><td>' + esc(vendName(x.vendor_id) || x.description || "Bar goods") + (x.vendor_id || !state.bk.ok ? "" : ' <span class="tag">September invoice</span>') +
+            "</td><td>" + esc(PAID[x.paid_from]) + '</td><td class="num">' + inr.format(x.amount) +
+            '</td><td class="actions"><button class="icon-btn" data-editbar="' + x.id + '">Edit</button><button class="icon-btn del" data-delbar="' + x.id + '">Delete</button></td></tr>');
+        });
+        return head + '<tr class="gd-detail"><td colspan="6"><table class="gd-inner"><thead><tr><th>Type</th><th>Details</th><th>Account</th><th class="num">Amount</th><th></th></tr></thead><tbody>' + lines.join("") + "</tbody></table></td></tr>";
+      }).join("") + '</tbody><tfoot><tr><td>Total</td><td class="num">' + inr.format(tin) + '</td><td class="num">' + inr.format(tout) + '</td><td class="num ' + (tin - tout >= 0 ? "pos" : "neg") + '">' + inr.format(tin - tout) + "</td><td></td><td></td></tr></tfoot>";
   }
   $("bar-table").addEventListener("click", function (e) {
     var eb = e.target.getAttribute("data-editbar"); if (eb) { editBarExpense(eb); return; }
     var db = e.target.getAttribute("data-delbar"); if (db) { deleteBarExpense(db); return; }
     var eo = e.target.getAttribute("data-editbaron"); if (eo) { editBarOnline(eo); return; }
-    var dn = e.target.getAttribute("data-delbaron"); if (dn) deleteBarOnline(dn);
+    var dn = e.target.getAttribute("data-delbaron"); if (dn) { deleteBarOnline(dn); return; }
+    var dr = e.target.closest("[data-bday]");
+    if (dr && !e.target.closest("button") && dr.querySelector(".gd-tog")) { var k = dr.dataset.bday; state.barOpen[k] = !state.barOpen[k]; renderBar(); }
   });
   // Online bar collections (UPI etc.) go straight to the bank or the cash credit, not through the shop cash
   $("bar-online-add").addEventListener("click", function () {
