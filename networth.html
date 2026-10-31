@@ -90,6 +90,41 @@
   .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: 10px; padding: 10px 16px; font-size: 0.88rem; z-index: 20; max-width: calc(100% - 32px); }
 
 
+
+  /* ---------- Charts ---------- */
+  .charts { margin-top: 14px; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 12px; }
+  @media (max-width: 820px) { .charts { grid-template-columns: 1fr; } }
+  .chart-card { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; }
+  .chart-h { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .chart-h h3 { flex: 1; font-size: 0.86rem; font-weight: 600; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+  .seg button { background: none; border: 0; padding: 4px 10px; font-size: 0.74rem; color: var(--muted); cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--gold); color: #1b0d12; }
+  .pie-wrap { display: grid; grid-template-columns: 170px 1fr; gap: 14px; align-items: center; }
+  @media (max-width: 420px) { .pie-wrap { grid-template-columns: 1fr; justify-items: center; } }
+  .pie-wrap svg { width: 170px; height: 170px; display: block; }
+  .pie-wrap svg path { stroke: var(--bg); stroke-width: 1.5; cursor: pointer; transition: opacity .15s; }
+  .pie-wrap svg path:hover, .pie-wrap svg path.on { opacity: 0.8; }
+  .pie-c1 { font-size: 15px; font-weight: 600; fill: var(--text); }
+  .pie-c2 { font-size: 9.5px; fill: var(--muted); }
+  .pie-key { display: grid; gap: 5px; font-size: 0.78rem; min-width: 0; }
+  .pie-key div { display: grid; grid-template-columns: 10px 1fr auto auto; gap: 7px; align-items: center; }
+  .pie-key i { width: 10px; height: 10px; border-radius: 2px; }
+  .pie-key span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pie-key b { font-weight: 500; font-variant-numeric: tabular-nums; }
+  .pie-key em { font-style: normal; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; min-width: 70px; }
+  .pl { display: grid; gap: 4px; font-size: 0.78rem; }
+  .pl-row { display: grid; grid-template-columns: minmax(80px, 150px) 1fr 1fr 78px; align-items: center; gap: 0; }
+  .pl-row .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 8px; }
+  .pl-row .neg-side { display: flex; justify-content: flex-end; border-right: 1px solid var(--line-strong); height: 14px; }
+  .pl-row .pos-side { display: flex; justify-content: flex-start; height: 14px; }
+  .pl-row .neg-side span { background: var(--red); border-radius: 3px 0 0 3px; height: 100%; }
+  .pl-row .pos-side span { background: var(--green); border-radius: 0 3px 3px 0; height: 100%; }
+  .pl-row .amt { text-align: right; font-variant-numeric: tabular-nums; }
+  .pl-row.sold .nm { color: var(--muted); }
+  .pl-foot { margin-top: 8px; font-size: 0.72rem; color: var(--muted); }
+  .sec-link { background: none; border: 0; padding: 0; color: var(--muted); font-size: 0.72rem; text-decoration: underline dotted; cursor: pointer; }
+  .sec-link:hover { color: var(--gold); }
   /* ---------- Tabs, dashboard ---------- */
   .tabs { border-top: 1px solid var(--line); }
   .tabs-inner { max-width: 1100px; margin: 0 auto; padding: 0 16px; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
@@ -204,8 +239,7 @@
         <button type="button" class="tab" data-tab="mf">Mutual funds</button>
         <button type="button" class="tab" data-tab="business">Business</button>
         <button type="button" class="tab" data-tab="bank">Bank</button>
-        <button type="button" class="tab" data-tab="ppf">PPF</button>
-        <button type="button" class="tab" data-tab="epf">EPF</button>
+        <button type="button" class="tab" data-tab="epf">PF / EPF</button>
         <button type="button" class="tab" data-tab="gold">Gold</button>
         <button type="button" class="tab" data-tab="loans">Loans &amp; advances</button>
         <button type="button" class="tab" data-tab="insurance">Insurance</button>
@@ -262,6 +296,7 @@
         <h3 id="st-form-title">Add trade</h3>
         <label>Type <select id="st-type"><option value="buy">Buy</option><option value="sell">Sell</option><option value="bonus">Bonus / free shares</option></select></label>
         <label>Symbol (NSE) <input type="text" id="st-sym" list="st-syms" autocomplete="off" autocapitalize="characters" placeholder="e.g. RELIANCE" required></label>
+        <label>Sector <input type="text" id="st-sector" list="st-sectors" autocomplete="off" placeholder="e.g. Banks"></label>
         <label>Broker <select id="st-broker"><option>Zerodha</option><option>Angel</option><option>5 Paisa</option></select></label>
         <label>Date <input type="date" id="st-date" required></label>
         <label>Price (₹) <input type="number" id="st-price" step="0.01" min="0" inputmode="decimal" required></label>
@@ -271,8 +306,21 @@
         <div class="actions"><button class="primary" type="submit" id="st-save">Save</button><button class="ghost" type="button" id="st-cancel">Cancel</button></div>
       </form>
       <datalist id="st-syms"></datalist>
+      <datalist id="st-sectors"></datalist>
 
       <div class="mf-kpis" id="st-kpis"></div>
+      <div class="charts">
+        <div class="chart-card">
+          <div class="chart-h"><h3>By sector</h3></div>
+          <div id="st-pie"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-h"><h3>Profit / loss by stock</h3>
+            <div class="seg" id="st-pl-mode"><button type="button" data-mode="open" aria-pressed="true">Holdings</button><button type="button" data-mode="all" aria-pressed="false">Incl. sold</button></div>
+          </div>
+          <div id="st-pl"></div>
+        </div>
+      </div>
       <div class="table-wrap" style="margin-top:14px"><table id="st-table"></table></div>
       <button class="ghost exited-btn" id="st-exited-btn" type="button" hidden></button>
       <div class="table-wrap" id="st-exited" hidden style="margin-top:10px"><table id="st-exited-table"></table></div>
@@ -311,7 +359,19 @@
       </form>
 
       <div class="mf-kpis" id="mf-kpis"></div>
-      <div class="alloc" id="mf-alloc"></div>
+      <div class="alloc" id="mf-alloc" hidden></div>
+      <div class="charts">
+        <div class="chart-card">
+          <div class="chart-h"><h3>By fund category</h3></div>
+          <div id="mf-pie"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-h"><h3>Profit / loss by fund</h3>
+            <div class="seg" id="mf-pl-mode"><button type="button" data-mode="open" aria-pressed="true">Holdings</button><button type="button" data-mode="all" aria-pressed="false">Incl. sold</button></div>
+          </div>
+          <div id="mf-pl"></div>
+        </div>
+      </div>
       <div class="table-wrap" style="margin-top:14px"><table id="mf-table"></table></div>
       <button class="ghost exited-btn" id="mf-exited-btn" type="button" hidden></button>
       <div class="table-wrap" id="mf-exited" hidden style="margin-top:10px"><table id="mf-exited-table"></table></div>
@@ -377,34 +437,16 @@
     </section>
     </section>
 
-    <section class="pane" id="pane-ppf" hidden>
-      <section class="card">
-        <div class="head">
-          <div>
-            <div class="k">PPF</div>
-            <div class="v" id="ppf-total">–</div>
-            <div class="s" id="ppf-total-s">Public Provident Fund accounts</div>
-          </div>
-          <div class="spacer"></div>
-          <button class="ghost" type="button" data-itemadd="ppf">Add PPF account</button>
-        </div>
-        <form class="form" id="ppf-form" data-itemform="ppf" hidden></form>
-        <div class="mf-kpis" id="ppf-kpis"></div>
-        <div class="table-wrap" style="margin-top:14px"><table id="ppf-table"></table></div>
-        <div class="mf-note" id="ppf-note"></div>
-      </section>
-    </section>
-
     <section class="pane" id="pane-epf" hidden>
       <section class="card">
         <div class="head">
           <div>
-            <div class="k">EPF</div>
+            <div class="k">PF / EPF</div>
             <div class="v" id="epf-total">–</div>
-            <div class="s" id="epf-total-s">Employees' Provident Fund</div>
+            <div class="s" id="epf-total-s">Provident Fund balance</div>
           </div>
           <div class="spacer"></div>
-          <button class="ghost" type="button" data-itemadd="epf">Add EPF account</button>
+          <button class="ghost" type="button" data-itemadd="epf">Add PF account</button>
         </div>
         <form class="form" id="epf-form" data-itemform="epf" hidden></form>
         <div class="mf-kpis" id="epf-kpis"></div>
@@ -793,6 +835,14 @@
     $("mf-alloc").innerHTML = T.val ? '<div class="alloc-bar">' + ck.map(function (c) { return '<span title="' + esc(c) + '" style="width:' + (100 * cats[c] / T.val).toFixed(2) + "%;background:" + (CAT_COL[c] || "#777") + '"></span>'; }).join("") +
       '</div><div class="alloc-key">' + ck.map(function (c) { return '<span><i style="background:' + (CAT_COL[c] || "#777") + '"></i>' + esc(c) + " <b>" + (100 * cats[c] / T.val).toFixed(1) + "%</b> · " + inr.format(cats[c]) + "</span>"; }).join("") + "</div>" : "";
 
+    // Category pie and profit/loss bars
+    donut("mf-pie", ck.map(function (c) { return { l: c, v: cats[c], c: CAT_COL[c] }; }), [inr.format(T.val).replace("₹", "₹ "), ck.length + " categories"]);
+    var mrows = (plMode.mf === "all" ? rows.filter(function (r) { return r.tx.length; }) : held).map(function (r) {
+      var v = (plMode.mf === "all" ? r.realised : 0) + r.gain; return { l: shortFund(r.f.name), v: v, sold: !r.units, t: r.units ? pct(r.invested ? r.gain / r.invested : NaN) + " on cost" : "exited" }; })
+      .filter(function (x) { return Math.abs(x.v) >= 1; });
+    var mTot = mrows.reduce(function (x, y) { return x + y.v; }, 0);
+    plBars("mf-pl", mrows, (plMode.mf === "all" ? "Realised + unrealised, all funds ever held" : "Unrealised gain on units held now") + " · net " + (mTot >= 0 ? "+" : "−") + inr.format(Math.abs(mTot)));
+
     // Holdings
     $("mf-table").innerHTML = '<thead><tr><th>Fund</th><th class="num">Units</th><th class="num">Avg NAV</th><th class="num">Invested</th><th class="num">NAV</th><th class="num">Current value</th><th class="num">Gain</th><th class="num">XIRR</th><th class="num">Weight</th><th></th></tr></thead><tbody>' +
       (held.length ? held.map(function (r) { return fundRow(r, T.val); }).join("") : '<tr><td class="empty" colspan="10">No funds held.</td></tr>') +
@@ -914,6 +964,53 @@
   }
 
 
+
+  // ---------- Charts: donut by category and profit/loss bars ----------
+  var PALETTE = ["#d9b26f", "#7fcf9a", "#8fa8e0", "#e08fb4", "#5fb3b3", "#b48ee0", "#e8c27a", "#c99a5b", "#9fd36b", "#ef8f8f", "#6fc1e0", "#cfa0e8", "#a0a0a0"];
+  function donut(id, parts, centre) {
+    var el = $(id), tot = parts.reduce(function (x, p) { return x + p.v; }, 0);
+    if (!tot) { el.innerHTML = '<div class="empty">Nothing to show yet.</div>'; return; }
+    parts = parts.slice().sort(function (a, b) { return b.v - a.v; });
+    parts.forEach(function (p, i) { p.c = p.c || PALETTE[i % PALETTE.length]; });
+    var R = 80, r = 50, cx = 85, cy = 85, a0 = -Math.PI / 2, paths = "";
+    parts.forEach(function (p, i) {
+      var f = p.v / tot, a1 = a0 + f * 2 * Math.PI;
+      if (f >= 0.9999) { paths += '<path data-i="' + i + '" d="M' + cx + " " + (cy - R) + " A" + R + " " + R + " 0 1 1 " + (cx - 0.01) + " " + (cy - R) + " L" + (cx - 0.01) + " " + (cy - r) + " A" + r + " " + r + " 0 1 0 " + cx + " " + (cy - r) + 'Z" fill="' + p.c + '"><title>' + esc(p.l) + "</title></path>"; return; }
+      var big = a1 - a0 > Math.PI ? 1 : 0, pt = function (rad, a) { return (cx + rad * Math.cos(a)).toFixed(2) + " " + (cy + rad * Math.sin(a)).toFixed(2); };
+      paths += '<path data-i="' + i + '" d="M' + pt(R, a0) + " A" + R + " " + R + " 0 " + big + " 1 " + pt(R, a1) + " L" + pt(r, a1) + " A" + r + " " + r + " 0 " + big + " 0 " + pt(r, a0) + 'Z" fill="' + p.c + '"><title>' + esc(p.l) + ": " + inr.format(p.v) + " (" + (100 * f).toFixed(1) + "%)</title></path>";
+      a0 = a1;
+    });
+    el.innerHTML = '<div class="pie-wrap"><svg viewBox="0 0 170 170" role="img" aria-label="' + esc(centre[1]) + '">' + paths +
+      '<text class="pie-c1" x="85" y="84" text-anchor="middle">' + esc(centre[0]) + '</text><text class="pie-c2" x="85" y="99" text-anchor="middle">' + esc(centre[1]) + "</text></svg>" +
+      '<div class="pie-key">' + parts.map(function (p, i) { return '<div data-i="' + i + '"><i style="background:' + p.c + '"></i><span title="' + esc(p.l) + '">' + esc(p.l) + "</span><b>" + (100 * p.v / tot).toFixed(1) + "%</b><em>" + inr.format(p.v) + "</em></div>"; }).join("") + "</div></div>";
+    // Hover a slice or a legend row to highlight both
+    var hi = function (i) { el.querySelectorAll("path").forEach(function (x) { x.classList.toggle("on", x.dataset.i === i); }); el.querySelectorAll(".pie-key div").forEach(function (x) { x.style.color = x.dataset.i === i ? "var(--gold)" : ""; }); };
+    el.onmouseover = function (e) { var t = e.target.closest("[data-i]"); hi(t ? t.dataset.i : null); };
+    el.onmouseleave = function () { hi(null); };
+  }
+  function plBars(id, rows, foot) {
+    var el = $(id);
+    if (!rows.length) { el.innerHTML = '<div class="empty">Nothing to show yet.</div>'; return; }
+    rows = rows.slice().sort(function (a, b) { return b.v - a.v; });
+    var max = Math.max.apply(null, rows.map(function (x) { return Math.abs(x.v); })) || 1;
+    el.innerHTML = '<div class="pl">' + rows.map(function (x) {
+      var w = (100 * Math.abs(x.v) / max).toFixed(1) + "%";
+      return '<div class="pl-row' + (x.sold ? " sold" : "") + '" title="' + esc(x.l + ": " + inr.format(x.v) + (x.t ? " · " + x.t : "")) + '"><span class="nm">' + esc(x.l) + '</span><div class="neg-side">' + (x.v < 0 ? '<span style="width:' + w + '"></span>' : "") +
+        '</div><div class="pos-side">' + (x.v > 0 ? '<span style="width:' + w + '"></span>' : "") + '</div><span class="amt ' + (x.v >= 0 ? "pos" : "neg") + '">' + (x.v >= 0 ? "+" : "−") + inr.format(Math.abs(x.v)).replace("-", "") + "</span></div>";
+    }).join("") + '</div><div class="pl-foot">' + foot + "</div>";
+  }
+  function segToggle(id, onChange) {
+    $(id).addEventListener("click", function (e) {
+      var b = e.target.closest("[data-mode]"); if (!b) return;
+      this.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+      onChange(b.dataset.mode);
+    });
+  }
+  var plMode = { st: "open", mf: "open" };
+  segToggle("st-pl-mode", function (m) { plMode.st = m; renderStocks(); });
+  segToggle("mf-pl-mode", function (m) { plMode.mf = m; renderMF(); });
+  var shortFund = function (n) { return n.replace(/\s*[-–]?\s*(Direct|Dir)\b.*$/i, "").replace(/\bFunds? of Funds?\b/gi, "FoF").replace(/\bFund\b/gi, "").replace(/\s+/g, " ").trim(); };
+
   // ---------- Stocks & ETFs ----------
   // FIFO per stock and broker (each demat account is matched on its own, as for tax). Closing prices come from the
   // NSE bhavcopy every weekday evening on the server.
@@ -975,7 +1072,7 @@
     $("st-table").innerHTML = '<thead><tr><th>Stock</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Invested</th><th class="num">Price</th><th class="num">Current value</th><th class="num">Gain</th><th class="num">XIRR</th><th class="num">Weight</th><th></th></tr></thead><tbody>' +
       (held.length ? held.map(function (r) {
         var w = T.val ? r.value / T.val : 0, open = st.open[r.sym], dc = r.price - r.prev;
-        return '<tr class="fund" data-stsym="' + esc(r.sym) + '"><td class="fn"><b>' + esc(r.sym) + "</b><small>" + esc(r.name) + " · " + esc(r.brokers.join(", ")) + '</small></td><td class="num">' + num3.format(r.qty) +
+        return '<tr class="fund" data-stsym="' + esc(r.sym) + '"><td class="fn"><b>' + esc(r.sym) + "</b><small>" + esc(r.name) + " · " + esc(r.brokers.join(", ")) + ' · <button type="button" class="sec-link" data-stsector="' + esc(r.sym) + '" title="Change sector">' + esc(sectorOf(r.sym)) + '</button></small></td><td class="num">' + num3.format(r.qty) +
           '</td><td class="num">' + inr2.format(r.invested / r.qty) + '</td><td class="num">' + inr.format(r.invested) + '</td><td class="num">' + inr2.format(r.price) +
           '<small class="dc ' + (dc >= 0 ? "pos" : "neg") + '">' + (dc >= 0 ? "+" : "") + dc.toFixed(2) + " (" + pct(r.prev ? dc / r.prev : NaN) + ')</small></td><td class="num">' + inr.format(r.value) +
           '</td><td class="num ' + (r.gain >= 0 ? "pos" : "neg") + '">' + inr.format(r.gain) + "<br><small>" + pct(r.invested ? r.gain / r.invested : NaN) + '</small></td><td class="num">' + (isFinite(r.xirr) ? (r.xirr * 100).toFixed(1) + "%" : "–") +
@@ -996,6 +1093,15 @@
       }).join("") + "</tbody>";
     $("st-note").textContent = "Closing prices update automatically every weekday evening from NSE. Each broker account is matched FIFO on its own; gains are before tax and charges.";
     $("st-syms").innerHTML = syms.sort().map(function (x) { return '<option value="' + esc(x) + '">'; }).join("");
+    // Sector pie and profit/loss bars
+    var sec = {}; held.forEach(function (r) { var k2 = sectorOf(r.sym); sec[k2] = (sec[k2] || 0) + r.value; });
+    donut("st-pie", Object.keys(sec).map(function (k2) { return { l: k2, v: sec[k2] }; }), [inr.format(T.val).replace("₹", "₹ "), Object.keys(sec).length + " sectors"]);
+    var plRows = (plMode.st === "all" ? rows : held).map(function (r) { var v = (plMode.st === "all" ? r.realised : 0) + r.gain; return { l: r.sym, v: v, sold: !r.qty, t: r.qty ? pct(r.invested ? r.gain / r.invested : NaN) + " on cost" : "sold" }; })
+      .filter(function (x) { return Math.abs(x.v) >= 1; });
+    var plTot = plRows.reduce(function (x, y) { return x + y.v; }, 0);
+    plBars("st-pl", plRows, (plMode.st === "all" ? "Realised + unrealised, all stocks ever held" : "Unrealised gain on shares held now") + " · net " + (plTot >= 0 ? "+" : "−") + inr.format(Math.abs(plTot)));
+    var secs = {}; Object.keys(st.prices).forEach(function (k2) { if (st.prices[k2].sector) secs[st.prices[k2].sector] = 1; });
+    $("st-sectors").innerHTML = Object.keys(secs).sort().map(function (x) { return '<option value="' + esc(x) + '">'; }).join("");
     renderNetWorth();
   }
   function stTxRows(r, span) {
@@ -1006,7 +1112,16 @@
           '</td><td class="num">' + inr2.format(Math.abs(t.amount)) + '</td><td class="actions-c"><button class="icon-btn" type="button" data-stedit="' + t.id + '">Edit</button><button class="icon-btn del" type="button" data-stdel="' + t.id + '">Delete</button></td></tr>';
       }).join("") + "</tbody></table></td></tr>";
   }
+  function sectorOf(sym) { var p = st.prices[sym]; return (p && p.sector) || "Unclassified"; }
+  async function setSector(sym, sector) {
+    sector = (sector || "").trim(); if (!sector) return;
+    var r = st.prices[sym] ? await sb.from("stock_prices").update({ sector: sector }).eq("symbol", sym) : { error: null };
+    if (r.error) { toast("Couldn't save the sector: " + r.error.message); return; }
+    if (st.prices[sym]) st.prices[sym].sector = sector;
+  }
   function onStClick(e) {
+    var sc = e.target.getAttribute("data-stsector");
+    if (sc) { var v = prompt("Sector for " + sc, sectorOf(sc) === "Unclassified" ? "" : sectorOf(sc)); if (v != null && v.trim()) setSector(sc, v).then(function () { toast(sc + " moved to " + v.trim()); renderStocks(); }); return; }
     var ed = e.target.getAttribute("data-stedit"); if (ed) { openStForm(st.txns.find(function (t) { return t.id === ed; })); return; }
     var dl = e.target.getAttribute("data-stdel"); if (dl) { delSt(dl); return; }
     var row = e.target.closest("[data-stsym]"); if (!row || e.target.closest("button")) return;
@@ -1021,6 +1136,7 @@
     $("st-form-title").textContent = t ? "Edit trade" : "Add trade";
     $("st-type").value = t ? (Number(t.qty) < 0 ? "sell" : Number(t.price) === 0 ? "bonus" : "buy") : "buy";
     $("st-sym").value = t ? t.symbol : ""; $("st-broker").value = t && t.broker ? t.broker : "Zerodha";
+    $("st-sector").value = t && st.prices[t.symbol] ? st.prices[t.symbol].sector || "" : "";
     $("st-date").value = t ? t.txn_date : todayISO(); $("st-price").value = t ? t.price : "";
     $("st-qty").value = t ? Math.abs(t.qty) : ""; $("st-amt").value = t ? Math.abs(t.amount) : "";
     syncStType(); f.scrollIntoView({ behavior: "smooth", block: "center" }); (t ? $("st-price") : $("st-sym")).focus();
@@ -1032,6 +1148,7 @@
   $("st-sym").addEventListener("change", function () {
     this.value = this.value.trim().toUpperCase();
     var p = st.prices[this.value]; if (p && !$("st-price").value && $("st-type").value !== "bonus") $("st-price").value = p.price;
+    if (p && p.sector && !$("st-sector").value) $("st-sector").value = p.sector;
   });
   function stAmt() { var p = toNum($("st-price").value), q = toNum($("st-qty").value); if (p >= 0 && q > 0) $("st-amt").value = (p * q).toFixed(2); }
   $("st-price").addEventListener("input", stAmt); $("st-qty").addEventListener("input", stAmt);
@@ -1050,7 +1167,9 @@
     var row = { symbol: sym, exchange: "NSE", txn_date: $("st-date").value, price: price, qty: typ === "sell" ? -qty : qty, amount: typ === "sell" ? -amt : amt, broker: broker };
     var r = st.editing ? await sb.from("stock_txns").update(row).eq("id", st.editing) : await sb.from("stock_txns").insert(row);
     // A new symbol gets a starting price until tonight's update
-    if (!r.error && !st.prices[sym] && price > 0) await sb.from("stock_prices").insert({ symbol: sym, price: price, prev_close: price, price_date: row.txn_date });
+    var sector = $("st-sector").value.trim();
+    if (!r.error && !st.prices[sym]) await sb.from("stock_prices").insert({ symbol: sym, price: price || null, prev_close: price || null, price_date: row.txn_date, sector: sector || null });
+    else if (!r.error && sector && sector !== st.prices[sym].sector) await setSector(sym, sector);
     btn.disabled = false;
     if (r.error) { toast("Couldn't save: " + r.error.message); return; }
     $("st-form").hidden = true; toast(st.editing ? "Trade updated" : (typ === "sell" ? "Sale" : typ === "bonus" ? "Bonus shares" : "Purchase") + " of " + sym + " saved");
@@ -1069,14 +1188,14 @@
   var COMP = [
     { k: "stocks", l: "Share holdings", c: "#d9b26f" }, { k: "mf", l: "Mutual funds", c: "#7fcf9a" },
     { k: "business", l: "Business capital", c: "#c99a5b" }, { k: "bank", l: "Bank balance", c: "#8fa8e0" },
-    { k: "ppf", l: "PPF", c: "#5fb3b3" }, { k: "epf", l: "EPF", c: "#4f9a9a" }, { k: "gold", l: "Gold", c: "#e8c27a" },
+    { k: "epf", l: "PF / EPF", c: "#5fb3b3" }, { k: "gold", l: "Gold", c: "#e8c27a" },
     { k: "loans", l: "Loans & advances", c: "#b48ee0" }, { k: "insurance", l: "Insurance", c: "#e08fb4" }, { k: "trading", l: "Trading balance", c: "#9a9a9a" }
   ];
   function compValues() {
     var bank = state.accounts.reduce(function (x, a) { return x + balance(a.code); }, 0);
     var it = function (kind) { return itemsOf(kind).reduce(function (x, i) { return x + itemValue(i); }, 0); };
     var given = it("loan_given"), taken = it("loan_taken");
-    return { stocks: st.total || 0, mf: mf.total || 0, business: biz.latest ? Number(biz.latest.total) : 0, bank: bank, ppf: it("ppf"), epf: it("epf"),
+    return { stocks: st.total || 0, mf: mf.total || 0, business: biz.latest ? Number(biz.latest.total) : 0, bank: bank, epf: it("epf"),
       gold: it("gold"), loans: given - taken, given: given, taken: taken, insurance: it("insurance"), trading: it("trading") };
   }
   function renderNetWorth() {
@@ -1101,7 +1220,7 @@
       mf: (mf.count || 0) + " funds · " + (mf.invested ? '<span class="' + (mf.total >= mf.invested ? "pos" : "neg") + '">' + pct((mf.total - mf.invested) / mf.invested) + "</span> on cost" : ""),
       business: biz.latest ? "Shop capital as of " + fmtDate(biz.latest.as_of) : "Open the shop accounts once to bring this in",
       bank: state.accounts.map(function (a) { return esc(a.name) + " " + inr.format(balance(a.code)); }).join(" · "),
-      ppf: countLine("ppf", "account"), epf: countLine("epf", "account"),
+      epf: countLine("epf", "account"),
       gold: goldGrams() ? num3.format(goldGrams()) + " g · rate " + (oth.gold ? inr.format(oth.gold.value) + "/g (24k)" : "not loaded") : "No gold added yet",
       loans: "Lent " + inr.format(v.given) + " · owe " + inr.format(v.taken),
       insurance: itemsOf("insurance").length ? itemsOf("insurance").length + (itemsOf("insurance").length > 1 ? " policies" : " policy") + " · cover " + inr.format(itemsOf("insurance").reduce(function (x, i) { return x + toNum((i.details || {}).sum_assured); }, 0)) : "No policies added yet",
@@ -1123,7 +1242,7 @@
 
 
   // ---------- Tabs ----------
-  var TABS = ["dash", "stocks", "mf", "business", "bank", "ppf", "epf", "gold", "loans", "insurance", "trading", "expenses"];
+  var TABS = ["dash", "stocks", "mf", "business", "bank", "epf", "gold", "loans", "insurance", "trading", "expenses"];
   function showTab(t, push) {
     if (TABS.indexOf(t) < 0) t = "dash";
     TABS.forEach(function (x) { $("pane-" + x).hidden = x !== t; });
@@ -1167,11 +1286,7 @@
 
   // One table and form per tab. Fields: [key, label, type, where ("value"/"invested"/"name"/"institution"/"as_of"/details key), options]
   var ITEM_CFG = {
-    ppf: { kinds: ["ppf"], word: "account", fields: [["name", "Account", "text", "e.g. PPF – SBI"], ["institution", "Bank / post office", "text"], ["value", "Balance (₹)", "money"], ["as_of", "Balance as of", "date"],
-      ["opened", "Opened on", "date", "d"], ["maturity", "Matures on", "date", "d"], ["yearly", "Yearly deposit (₹)", "money", "d"], ["rate", "Interest rate (%)", "num", "d"]],
-      cols: [["Account", function (i) { return esc(i.name) + "<small>" + esc(i.institution || "") + "</small>"; }], ["Opened", function (i) { return dt(i.details.opened); }], ["Matures", function (i) { return dt(i.details.maturity); }],
-        ["Yearly deposit", function (i) { return money(i.details.yearly); }, 1], ["Rate", function (i) { return i.details.rate ? i.details.rate + "%" : "–"; }, 1], ["Balance", function (i) { return inr.format(itemValue(i)); }, 1], ["As of", function (i) { return fmtDate(i.as_of); }]] },
-    epf: { kinds: ["epf"], word: "account", fields: [["name", "Account / UAN", "text", "e.g. UAN ending 4521"], ["institution", "Employer", "text"], ["value", "Balance (₹)", "money"], ["as_of", "Balance as of", "date"],
+    epf: { kinds: ["epf"], word: "account", fields: [["name", "Account / UAN", "text", "e.g. UAN ending 4521"], ["institution", "Employer / office", "text"], ["value", "Balance (₹)", "money"], ["as_of", "Balance as of", "date"],
       ["employee", "Employee share (₹)", "money", "d"], ["employer", "Employer share (₹)", "money", "d"], ["monthly", "Monthly contribution (₹)", "money", "d"], ["rate", "Interest rate (%)", "num", "d"]],
       cols: [["Account", function (i) { return esc(i.name) + "<small>" + esc(i.institution || "") + "</small>"; }], ["Employee share", function (i) { return money(i.details.employee); }, 1], ["Employer share", function (i) { return money(i.details.employer); }, 1],
         ["Monthly", function (i) { return money(i.details.monthly); }, 1], ["Balance", function (i) { return inr.format(itemValue(i)); }, 1], ["As of", function (i) { return fmtDate(i.as_of); }]] },
