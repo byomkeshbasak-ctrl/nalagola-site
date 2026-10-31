@@ -377,6 +377,12 @@
   .bk-totals { font-size: 0.86rem; color: var(--muted); }
   .bk-totals b { color: var(--text); font-variant-numeric: tabular-nums; }
   .bk-h3 { margin: 18px 0 8px; font-size: 0.9rem; color: var(--gold); }
+  #goods-table tr.gd-day { cursor: pointer; }
+  #goods-table tr.gd-day:hover td { background: var(--panel-2); }
+  .gd-tog { font-size: 0.78rem; color: var(--gold); white-space: nowrap; }
+  #goods-table tr.gd-detail > td { padding: 0 0 10px 18px; background: var(--bg); }
+  .gd-inner { font-size: 0.8rem; }
+  .gd-inner th { position: static; background: var(--bg); }
   .bk-assign { width: auto; display: inline-block; padding: 2px 6px; font-size: 0.75rem; margin-left: 6px; }
   .on-split { display: block; font-size: 0.68rem; color: var(--muted); margin-top: 2px; white-space: nowrap; }
   .on-edit { font-size: 0.68rem; padding: 0; }
@@ -1598,16 +1604,29 @@
       '</tbody><tfoot><tr><td>Total</td><td class="num">' + inr.format(vt.open) + '</td><td class="num">' + inr.format(vt.goods) + '</td><td class="num">' + inr.format(vt.paid + c.unassigned) +
       '</td><td class="num">' + inr.format(vt.owe - c.unassigned) + "</td><td></td></tr></tfoot>";
 
-    // Goods received this month
+    // Goods received this month: one row per day, click to see the items
     $("goods-title").textContent = "Goods received, " + monthName;
-    var gt = { c: 0, s: 0 };
-    $("goods-table").innerHTML = mg.length ? '<thead><tr><th>Date</th><th>Vendor</th><th>Item</th><th class="num">Qty</th><th class="num">Cost price</th><th class="num">Selling price</th><th class="num">Cost value</th><th class="num">Selling value</th><th></th></tr></thead><tbody>' +
-      mg.slice().reverse().map(function (g) {
-        var cv = g.qty * g.cost_price, sv = g.qty * g.sell_price; gt.c += cv; gt.s += sv;
-        return "<tr><td>" + fmtDate(g.goods_date) + "</td><td>" + esc(vendName(g.vendor_id)) + "</td><td>" + esc(g.item_name) + '</td><td class="num">' + num.format(g.qty) +
-          '</td><td class="num">' + inr2.format(g.cost_price) + '</td><td class="num">' + inr2.format(g.sell_price) + '</td><td class="num">' + inr2.format(cv) + '</td><td class="num">' + inr2.format(sv) +
-          '</td><td class="actions"><button class="icon-btn" data-gedit="' + g.id + '">Edit</button><button class="icon-btn del" data-gdel="' + g.id + '">Delete</button></td></tr>';
-      }).join("") + '</tbody><tfoot><tr><td>Total</td><td></td><td></td><td></td><td></td><td></td><td class="num">' + inr2.format(gt.c) + '</td><td class="num">' + inr2.format(gt.s) + "</td><td></td></tr></tfoot>"
+    var open = state.bk.openDays || (state.bk.openDays = {}), byDay = {}, gt = { c: 0, s: 0, n: 0 };
+    mg.forEach(function (g) { (byDay[g.goods_date] || (byDay[g.goods_date] = [])).push(g); });
+    var dayKeys = Object.keys(byDay).sort().reverse();
+    $("goods-table").innerHTML = dayKeys.length ? '<thead><tr><th>Date</th><th>Vendors</th><th class="num">Items</th><th class="num">Cost value</th><th class="num">Selling value</th><th class="num">Margin</th><th></th></tr></thead><tbody>' +
+      dayKeys.map(function (d) {
+        var list = byDay[d], cv = 0, sv = 0, vs = {};
+        list.forEach(function (g) { cv += g.qty * g.cost_price; sv += g.qty * g.sell_price; vs[vendName(g.vendor_id)] = 1; });
+        gt.c += cv; gt.s += sv; gt.n += list.length;
+        var isOpen = !!open[d];
+        var head = '<tr class="gd-day" data-gday="' + d + '"><td>' + fmtDate(d) + "</td><td>" + esc(Object.keys(vs).join(", ")) + '</td><td class="num">' + list.length +
+          '</td><td class="num">' + inr2.format(cv) + '</td><td class="num">' + inr2.format(sv) + '</td><td class="num ' + (sv - cv >= 0 ? "pos" : "neg") + '">' + inr2.format(sv - cv) +
+          '</td><td class="actions"><span class="gd-tog">' + (isOpen ? "Hide ▴" : "Show ▾") + "</span></td></tr>";
+        if (!isOpen) return head;
+        return head + '<tr class="gd-detail"><td colspan="7"><table class="gd-inner"><thead><tr><th>Vendor</th><th>Item</th><th class="num">Qty</th><th class="num">Cost price</th><th class="num">Selling price</th><th class="num">Cost value</th><th class="num">Selling value</th><th></th></tr></thead><tbody>' +
+          list.map(function (g) {
+            return "<tr><td>" + esc(vendName(g.vendor_id)) + "</td><td>" + esc(g.item_name) + '</td><td class="num">' + num.format(g.qty) +
+              '</td><td class="num">' + inr2.format(g.cost_price) + '</td><td class="num">' + inr2.format(g.sell_price) + '</td><td class="num">' + inr2.format(g.qty * g.cost_price) +
+              '</td><td class="num">' + inr2.format(g.qty * g.sell_price) + '</td><td class="actions"><button class="icon-btn" data-gedit="' + g.id + '">Edit</button><button class="icon-btn del" data-gdel="' + g.id + '">Delete</button></td></tr>';
+          }).join("") + "</tbody></table></td></tr>";
+      }).join("") + '</tbody><tfoot><tr><td>Total</td><td></td><td class="num">' + gt.n + '</td><td class="num">' + inr2.format(gt.c) + '</td><td class="num">' + inr2.format(gt.s) +
+      '</td><td class="num">' + inr2.format(gt.s - gt.c) + "</td><td></td></tr></tfoot>"
       : '<tbody><tr><td class="empty">No goods entered this month yet.</td></tr></tbody>';
   }
 
@@ -1747,6 +1766,8 @@
     state.bk.editGoods = null; loadMonth();
   });
   $("goods-table").addEventListener("click", async function (e) {
+    var day = e.target.closest("[data-gday]");
+    if (day && !e.target.closest("button")) { var k = day.dataset.gday; state.bk.openDays[k] = !state.bk.openDays[k]; renderBarBook(); return; }
     var ed = e.target.getAttribute("data-gedit"); if (ed) { var g = state.bk.goods.find(function (x) { return x.id === ed; }); if (g) openGoods(g); return; }
     var id = e.target.getAttribute("data-gdel"); if (!id) return;
     var x = state.bk.goods.find(function (y) { return y.id === id; }); if (!x) return;
