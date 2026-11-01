@@ -213,6 +213,19 @@
   .exited-btn { margin-top: 12px; }
   .wt { display: inline-block; width: 46px; height: 5px; border-radius: 3px; background: var(--bg); border: 1px solid var(--line); vertical-align: middle; margin-left: 6px; overflow: hidden; }
   .wt span { display: block; height: 100%; background: var(--gold); }
+  .pfs { border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  .pfs-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
+  .pfs-head > div:first-child { flex: 1; min-width: 200px; }
+  .pfs-head small { display: block; font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+  .pfs-bal { font-size: 1.25rem; font-weight: 600; color: var(--gold); font-variant-numeric: tabular-nums; }
+  .pfs-t td small { display: block; font-size: 0.72rem; color: var(--muted); margin-top: 2px; white-space: normal; }
+  .pfs-t tr.est td { font-style: italic; color: var(--muted); }
+  .pfs-t tr.pfs-open td { color: var(--muted); }
+  .pfs-t tr.pfs-x td { font-weight: 400; }
+  .pfs-t tr.pfs-add td { padding-top: 10px; }
+  .pfs-t tr.pfs-add input { width: 100%; min-width: 90px; padding: 5px 8px; font-size: 0.8rem; text-align: right; }
+  .pfs-t tr.pfs-add input[type=month] { text-align: left; min-width: 140px; }
+  .pfs-note { margin-top: 8px; font-size: 0.75rem; color: var(--muted); white-space: normal; line-height: 1.5; }
   .mf-note { margin-top: 10px; font-size: 0.75rem; color: var(--muted); }
   td:first-child { white-space: nowrap; }
   @media (max-width: 560px) { .head .v { font-size: 1.6rem; } .topbar .title { font-size: 1.15rem; } .who { display: none; } }
@@ -480,7 +493,7 @@
         </div>
         <form class="form" id="epf-form" data-itemform="epf" hidden></form>
         <div class="mf-kpis" id="epf-kpis"></div>
-        <div class="table-wrap" style="margin-top:14px"><table id="epf-table"></table></div>
+        <div id="epf-table" style="margin-top:14px"></div>
         <div class="mf-note" id="epf-note"></div>
       </section>
     </section>
@@ -1393,8 +1406,30 @@
     for (;;) { mo++; if (mo > 12) { mo = 1; y++; } var c = y + "-" + String(mo).padStart(2, "0") + "-20"; if (c > t) break; bal = bal * (1 + rate / 12) + m; n++; }
     return { value: bal, months: n };
   }
+  // PF accounts kept as a monthly statement: opening balance, then each month's contributions, interest and withdrawals.
+  // Months after the last statement row are estimated (credited on the 20th of the next month) until the real figures come in.
+  var monthName = function (m) { return new Date(m + "-01T00:00:00").toLocaleDateString("en-IN", { month: "short", year: "numeric" }); };
+  var nextMonth = function (m) { var y = +m.slice(0, 4), mo = +m.slice(5, 7) + 1; if (mo > 12) { mo = 1; y++; } return y + "-" + String(mo).padStart(2, "0"); };
+  function epfStatement(i) {
+    var st = (i.details || {}).stmt; if (!st) return null;
+    var emp = toNum(st.open_emp), er = toNum(st.open_er), rate = toNum((i.details || {}).rate) / 100, out = [], last = st.open_date.slice(0, 7);
+    (st.rows || []).slice().sort(function (a, b) { return a.m < b.m ? -1 : 1; }).forEach(function (r, ix) {
+      emp += toNum(r.emp) + toNum(r.int_emp) - toNum(r.wd_emp); er += toNum(r.er) + toNum(r.int_er) - toNum(r.wd_er);
+      out.push({ m: r.m, emp: toNum(r.emp), er: toNum(r.er), int: toNum(r.int_emp) + toNum(r.int_er), wd: toNum(r.wd_emp) + toNum(r.wd_er), note: r.note || "", bal: emp + er, real: true });
+      last = r.m;
+    });
+    var actual = emp + er, em = toNum(st.emp_m), rm = toNum(st.er_m), t = todayISO();
+    // the statement shows month m's contribution once it's credited, by the 20th of that month
+    if (em + rm > 0) for (var m = nextMonth(last); m + "-20" <= t; m = nextMonth(m)) {
+      var ie = emp * rate / 12, ir = er * rate / 12; emp += em + ie; er += rm + ir;
+      out.push({ m: m, emp: em, er: rm, int: ie + ir, wd: 0, bal: emp + er, real: false });
+    }
+    var extra = (st.extra || []).map(function (x) { return { label: x.label, amt: toNum(x.amt) }; });
+    var extraSum = extra.reduce(function (a, x) { return a + x.amt; }, 0);
+    return { open: toNum(st.open_emp) + toNum(st.open_er), openDate: st.open_date, rows: out, actual: actual, closing: emp + er, extra: extra, total: emp + er + extraSum, last: last, emp_m: em, er_m: rm };
+  }
   function itemValue(i) {
-    if (i.kind === "epf") return epfEstimate(i).value;
+    if (i.kind === "epf") { var ps = epfStatement(i); return ps ? ps.total : epfEstimate(i).value; }
     if (i.kind === "gold") {
       var d = i.details || {}, g = toNum(d.grams), k = toNum(d.karat) || 24;
       if (g > 0 && oth.gold) return g * Number(oth.gold.value) * k / 24;
@@ -1461,6 +1496,7 @@
       $(tab + "-total-s").textContent = list.length ? list.length + " " + c.word + (list.length > 1 ? "s" : "") + " · latest balance " + fmtDate(latest) : "Nothing added yet";
     }
     $(tab + "-kpis").innerHTML = kp; $(tab + "-kpis").hidden = !kp;
+    if (tab === "epf") { renderEpf(list); $("epf-note").textContent = "Months in italics are estimated: each month's contribution is added on the 20th of the next month, with interest at the PF rate. When the statement arrives, enter that month's real figures in the last line of the account and the estimate is replaced."; return; }
     $(tab + "-table").innerHTML = list.length ? "<thead><tr>" + c.cols.map(function (x) { return "<th" + (x[2] ? ' class="num"' : "") + ">" + x[0] + "</th>"; }).join("") + "<th></th></tr></thead><tbody>" +
       list.map(function (i) {
         return "<tr>" + c.cols.map(function (x) { return "<td" + (x[2] ? ' class="num"' : ' class="fn"') + ">" + x[1](i) + "</td>"; }).join("") +
@@ -1468,9 +1504,59 @@
           (i.notes ? '<tr class="bf"><td colspan="' + (c.cols.length + 1) + '">' + esc(i.notes) + "</td></tr>" : "");
       }).join("") + "</tbody>" : '<tbody><tr><td class="empty">Nothing added yet. Use the button above to add one.</td></tr></tbody>';
     $(tab + "-note").textContent = tab === "gold" ? "Gold value moves with the 24k rate every day; 22k is counted at 22/24 and 18k at 18/24 of it." :
-      tab === "epf" ? "Between statements, each month's contribution is added on the 20th of the next month, with interest at the PF rate. When a new statement arrives, enter its balance and date with Edit and the estimate restarts from there." :
+      tab === "epf" ? "Months in italics are estimated: each month's contribution is added on the 20th of the next month, with interest at the PF rate. When the statement arrives, enter that month's real figures in the last line and the estimate is replaced." :
       tab === "trading" ? "Update these balances from your broker's funds page when they change." : "Update the balance whenever you get a new statement.";
   }
+  function renderEpf(list) {
+    var f0 = function (n) { return n ? inr.format(n) : "–"; };
+    $("epf-table").innerHTML = list.length ? list.map(function (i) {
+      var ps = epfStatement(i), head = '<div class="pfs-head"><div><b>' + esc(i.name) + "</b><small>" + esc(i.institution || "") + '</small></div><div class="pfs-bal">' + inr.format(itemValue(i)) + "</div>" +
+        '<div class="pfs-act"><button class="icon-btn" type="button" data-itemedit="' + i.id + '">Edit</button><button class="icon-btn del" type="button" data-itemdel="' + i.id + '">Delete</button></div></div>';
+      if (!ps) return '<div class="pfs">' + head + '<div class="pfs-note">Balance ' + inr.format(Number(i.value) || 0) + " as of " + fmtDate(i.as_of) + ". Add the monthly statement to see it month by month.</div></div>";
+      var tc = { emp: 0, er: 0, int: 0, wd: 0 };
+      var rows = ps.rows.map(function (r) {
+        tc.emp += r.emp; tc.er += r.er; tc.int += r.int; tc.wd += r.wd;
+        return "<tr" + (r.real ? "" : ' class="est"') + "><td>" + monthName(r.m) + (r.real ? "" : ' <span class="pill due">estimated</span>') + (r.note ? "<small>" + esc(r.note) + "</small>" : "") +
+          '</td><td class="num">' + f0(r.emp) + '</td><td class="num">' + f0(r.er) + '</td><td class="num">' + f0(Math.round(r.int)) + '</td><td class="num">' + (r.wd ? '<span class="neg">− ' + inr.format(r.wd) + "</span>" : "–") +
+          '</td><td class="num"><b>' + inr.format(r.bal) + '</b></td><td class="actions-c">' + (r.real ? '<button class="icon-btn del" type="button" data-pfdel="' + i.id + "|" + r.m + '">Remove</button>' : "") + "</td></tr>";
+      }).join("");
+      var nm = nextMonth(ps.last);
+      var add = '<tr class="pfs-add"><td><input type="month" class="pf-m" value="' + nm + '" aria-label="Month"></td><td class="num"><input type="number" class="pf-emp" step="0.01" value="' + (ps.emp_m || "") + '" aria-label="Your share"></td>' +
+        '<td class="num"><input type="number" class="pf-er" step="0.01" value="' + (ps.er_m || "") + '" aria-label="Employer share"></td><td class="num"><input type="number" class="pf-int" step="0.01" placeholder="0" aria-label="Interest"></td>' +
+        '<td class="num"><input type="number" class="pf-wd" step="0.01" placeholder="0" aria-label="Withdrawal"></td><td class="num" colspan="2"><button class="icon-btn" type="button" data-pfadd="' + i.id + '">Add month from statement</button></td></tr>';
+      var extra = ps.extra.map(function (x) { return '<tr class="pfs-x"><td colspan="5">' + esc(x.label) + '</td><td class="num">+ ' + inr.format(x.amt) + "</td><td></td></tr>"; }).join("");
+      return '<div class="pfs">' + head + '<div class="table-wrap"><table class="pfs-t"><thead><tr><th>Month</th><th class="num">Your share</th><th class="num">Employer share</th><th class="num">Interest</th><th class="num">Withdrawals</th><th class="num">Balance</th><th></th></tr></thead><tbody>' +
+        '<tr class="pfs-open"><td>Opening balance · ' + fmtDate(ps.openDate) + '</td><td colspan="4"></td><td class="num"><b>' + inr.format(ps.open) + "</b></td><td></td></tr>" + rows +
+        '</tbody><tfoot><tr><td>Total</td><td class="num">' + inr.format(tc.emp) + '</td><td class="num">' + inr.format(tc.er) + '</td><td class="num">' + inr.format(Math.round(tc.int)) + '</td><td class="num">' + (tc.wd ? "− " + inr.format(tc.wd) : "–") +
+        '</td><td class="num">' + inr.format(ps.closing) + "</td><td></td></tr>" + extra +
+        (ps.extra.length ? '<tr class="pfs-x"><td colspan="5"><b>Counted in net worth</b></td><td class="num"><b>' + inr.format(ps.total) + "</b></td><td></td></tr>" : "") + (ps.emp_m + ps.er_m > 0 ? add : "") + "</tfoot></table></div>" +
+        (i.notes ? '<div class="pfs-note">' + esc(i.notes) + "</div>" : "") + "</div>";
+    }).join("") : '<div class="empty">Nothing added yet. Use the button above to add one.</div>';
+  }
+  document.addEventListener("click", async function (e) {
+    var a = e.target.getAttribute("data-pfadd"), d = e.target.getAttribute("data-pfdel"); if (!a && !d) return;
+    var id = a || d.split("|")[0], it = oth.items.find(function (x) { return x.id === id; }); if (!it) return;
+    var det = Object.assign({}, it.details || {}), st = Object.assign({}, det.stmt), rows = (st.rows || []).slice();
+    if (a) {
+      var tr = e.target.closest("tr"), m = tr.querySelector(".pf-m").value;
+      if (!m) { toast("Pick the month."); return; }
+      var row = { m: m, emp: toNum(tr.querySelector(".pf-emp").value), er: toNum(tr.querySelector(".pf-er").value), int_emp: toNum(tr.querySelector(".pf-int").value), int_er: 0, wd_emp: toNum(tr.querySelector(".pf-wd").value), wd_er: 0 };
+      rows = rows.filter(function (r) { return r.m !== m; }); rows.push(row);
+    } else {
+      var mm = d.split("|")[1]; if (!confirm("Remove " + monthName(mm) + " from this statement?")) return;
+      rows = rows.filter(function (r) { return r.m !== mm; });
+    }
+    st.rows = rows; det.stmt = st;
+    var tmp = Object.assign({}, it, { details: det }), ps = epfStatement(tmp);
+    var lastM = rows.reduce(function (x, r) { return r.m > x ? r.m : x; }, st.open_date.slice(0, 7));
+    var y = +lastM.slice(0, 4), mo = +lastM.slice(5, 7), endD = lastM + "-" + String(new Date(y, mo, 0).getDate()).padStart(2, "0");
+    var upd = { details: det, value: Math.round((ps.actual + ps.extra.reduce(function (x, q) { return x + q.amt; }, 0)) * 100) / 100, as_of: endD, updated_at: new Date().toISOString() };
+    e.target.disabled = true;
+    var r = await sb.from("nw_items").update(upd).eq("id", id).select().single();
+    e.target.disabled = false;
+    if (r.error) { toast("Couldn't save: " + r.error.message); return; }
+    Object.assign(it, r.data); toast(a ? monthName(m) + " saved" : "Removed"); renderItems("epf"); render();
+  });
   function annualPremium(i) { var p = toNum(i.details.premium), f = i.details.freq; return f === "Monthly" ? p * 12 : f === "Quarterly" ? p * 4 : f === "Half-yearly" ? p * 2 : f === "Single" ? 0 : p; }
   function openItemForm(tab, item) {
     var c = ITEM_CFG[tab], f = $(tab + "-form"); oth.editing[tab] = item ? item.id : null;
