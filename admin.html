@@ -424,10 +424,11 @@
   .bk-totals { font-size: 0.86rem; color: var(--muted); }
   .bk-totals b { color: var(--text); font-variant-numeric: tabular-nums; }
   .bk-h3 { margin: 18px 0 8px; font-size: 0.9rem; color: var(--gold); }
-  #goods-table tr.gd-day, #bar-table tr.gd-day { cursor: pointer; }
-  #goods-table tr.gd-day:hover td, #bar-table tr.gd-day:hover td { background: var(--panel-2); }
+  #goods-table tr.gd-day, #rep-table tr.gd-day { cursor: pointer; }
+  #bch-chart { margin-top: 4px; }
+  #goods-table tr.gd-day:hover td, #rep-table tr.gd-day:hover td { background: var(--panel-2); }
   .gd-tog { font-size: 0.78rem; color: var(--gold); white-space: nowrap; }
-  #goods-table tr.gd-detail > td, #bar-table tr.gd-detail > td { padding: 0 0 10px 18px; background: var(--bg); }
+  #goods-table tr.gd-detail > td, #rep-table tr.gd-detail > td { padding: 0 0 10px 18px; background: var(--bg); }
   .gd-inner { font-size: 0.8rem; }
   .gd-inner th { position: static; background: var(--bg); }
   .top-row { display: grid; grid-template-columns: 22px minmax(120px, 190px) 1fr 120px; gap: 10px; align-items: center; padding: 7px 0; border-bottom: 1px solid rgba(217,178,111,0.08); font-size: 0.86rem; }
@@ -809,23 +810,22 @@
       </section>
       <div id="bar-setup" class="msg warn" style="margin-top:14px" hidden>The bar accounts tables aren't set up yet. Run bar_accounts.sql once in Supabase (SQL Editor), then reload this page.</div>
 
-      <!-- Top selling goods -->
+      <!-- Revenue and net profit chart -->
       <div class="card sub-card">
         <div class="list-head">
-          <h2 id="top-title">Top 5 selling goods</h2>
-          <div class="seg" id="top-by">
-            <button type="button" data-by="sell" aria-pressed="true">Sales</button>
-            <button type="button" data-by="qty" aria-pressed="false">Quantity</button>
-            <button type="button" data-by="profit" aria-pressed="false">Profit</button>
-          </div>
+          <h2 id="bch-title">Revenue and net profit</h2>
+          <div class="seg" id="bch-mode"><button type="button" data-mode="month" aria-pressed="true">Month on month</button><button type="button" data-mode="day" aria-pressed="false">Day by day</button></div>
         </div>
-        <div id="top-list"></div>
+        <div class="perf-chart" id="bch-chart"></div>
+        <div class="perf-key"><span><i class="ln" style="background:var(--gold)"></i>Revenue (goods at selling price)</span><span><i class="ln" style="background:#7fcf9a"></i>Net profit (selling − cost)</span></div>
       </div>
 
       <!-- Representative account -->
       <div class="card sub-card">
         <div class="list-head">
           <h2 id="rep-title">Bar representative account</h2>
+          <button class="ghost" id="bar-online-add" type="button">Add online collection</button>
+          <button class="ghost" id="bar-add" type="button">Pay vendor</button>
           <button class="ghost" id="rep-open-btn" type="button">Opening balance</button>
         </div>
         <p class="hint">Balance he owes you = previous balance + goods received (at selling price) − collection (cash in the daily ledger plus online).</p>
@@ -872,8 +872,6 @@
       <div class="card sub-card">
         <div class="list-head">
           <h2 id="bar-title">Bar counter</h2>
-          <button class="ghost" id="bar-online-add" type="button">Add online collection</button>
-          <button class="ghost" id="bar-add" type="button">Pay vendor</button>
           <button class="ghost" id="bar-csv" type="button">Export CSV</button>
         </div>
         <div class="table-wrap"><table id="bar-table"></table></div>
@@ -1555,36 +1553,22 @@
     if (!keys.length) { tbl.innerHTML = '<tr><td class="empty">Nothing for the bar counter this month yet.</td></tr>'; return; }
     var run = 0;
     var rows = keys.slice().reverse().map(function (k) { run += days[k].inn - days[k].out; return { k: k, run: run }; }).reverse();
-    var openD = state.barOpen || (state.barOpen = {});
-    tbl.innerHTML = '<thead><tr><th>Date</th><th class="num">Collection</th><th class="num">Paid to vendors</th><th class="num">Net cash</th><th class="num">Month so far</th><th></th></tr></thead><tbody>' +
+    tbl.innerHTML = '<thead><tr><th>Date</th><th class="num">Collection</th><th class="num">Paid to vendors</th><th class="num">Net cash</th><th class="num">Month so far</th></tr></thead><tbody>' +
       rows.map(function (row) {
-        var o = days[row.k], net = o.inn - o.out, has = o.online.length || o.items.length || o.cash, isOpen = has && openD[row.k];
-        var head = '<tr class="gd-day" data-bday="' + row.k + '"><td>' + fmtDate(row.k) + '</td><td class="num">' + (o.inn ? inr.format(o.inn) : "–") +
+        var o = days[row.k], net = o.inn - o.out;
+        return "<tr><td>" + fmtDate(row.k) + '</td><td class="num">' + (o.inn ? inr.format(o.inn) : "–") +
           (o.onl && o.cash ? '<span class="on-split">Cash ' + inr.format(o.cash) + " · Online " + inr.format(o.onl) + "</span>" : o.onl ? '<span class="on-split">Online</span>' : "") +
           '</td><td class="num">' + (o.out ? inr.format(o.out) : "–") + '</td><td class="num ' + (net < 0 ? "neg" : "pos") + '">' + inr.format(net) +
-          '</td><td class="num">' + inr.format(row.run) + '</td><td class="actions">' + (has ? '<span class="gd-tog">' + (isOpen ? "Hide ▴" : "Show ▾") + "</span>" : "") + "</td></tr>";
-        if (!isOpen) return head;
-        var lines = [];
-        if (o.cash) lines.push('<tr><td class="pos">Cash in</td><td>Daily ledger</td><td>Shop cash</td><td class="num">' + inr.format(o.cash) + '</td><td class="actions"></td></tr>');
-        o.online.forEach(function (x) {
-          lines.push('<tr><td class="pos">Online in</td><td>' + esc(x.description || "Bar collection") + "</td><td>" + esc(PAID[x.received_into]) + '</td><td class="num">' + inr.format(x.amount) +
-            '</td><td class="actions"><button class="icon-btn" data-editbaron="' + x.id + '">Edit</button><button class="icon-btn del" data-delbaron="' + x.id + '">Delete</button></td></tr>');
-        });
-        o.items.forEach(function (x) {
-          lines.push('<tr><td class="neg">Paid out</td><td>' + esc(vendName(x.vendor_id) || x.description || "Bar goods") + (x.vendor_id || !state.bk.ok ? "" : ' <span class="tag">September invoice</span>') +
-            "</td><td>" + esc(PAID[x.paid_from]) + '</td><td class="num">' + inr.format(x.amount) +
-            '</td><td class="actions"><button class="icon-btn" data-editbar="' + x.id + '">Edit</button><button class="icon-btn del" data-delbar="' + x.id + '">Delete</button></td></tr>');
-        });
-        return head + '<tr class="gd-detail"><td colspan="6"><table class="gd-inner"><thead><tr><th>Type</th><th>Details</th><th>Account</th><th class="num">Amount</th><th></th></tr></thead><tbody>' + lines.join("") + "</tbody></table></td></tr>";
-      }).join("") + '</tbody><tfoot><tr><td>Total</td><td class="num">' + inr.format(tin) + '</td><td class="num">' + inr.format(tout) + '</td><td class="num ' + (tin - tout >= 0 ? "pos" : "neg") + '">' + inr.format(tin - tout) + "</td><td></td><td></td></tr></tfoot>";
+          '</td><td class="num">' + inr.format(row.run) + "</td></tr>";
+      }).join("") + '</tbody><tfoot><tr><td>Total</td><td class="num">' + inr.format(tin) + '</td><td class="num">' + inr.format(tout) + '</td><td class="num ' + (tin - tout >= 0 ? "pos" : "neg") + '">' + inr.format(tin - tout) + "</td><td></td></tr></tfoot>";
   }
-  $("bar-table").addEventListener("click", function (e) {
+  $("rep-table").addEventListener("click", function (e) {
     var eb = e.target.getAttribute("data-editbar"); if (eb) { editBarExpense(eb); return; }
     var db = e.target.getAttribute("data-delbar"); if (db) { deleteBarExpense(db); return; }
     var eo = e.target.getAttribute("data-editbaron"); if (eo) { editBarOnline(eo); return; }
     var dn = e.target.getAttribute("data-delbaron"); if (dn) { deleteBarOnline(dn); return; }
     var dr = e.target.closest("[data-bday]");
-    if (dr && !e.target.closest("button") && dr.querySelector(".gd-tog")) { var k = dr.dataset.bday; state.barOpen[k] = !state.barOpen[k]; renderBar(); }
+    if (dr && !e.target.closest("button") && dr.querySelector(".gd-tog")) { var k = dr.dataset.bday, o = state.barOpen || (state.barOpen = {}); o[k] = !o[k]; renderBarBook(); }
   });
   // Online bar collections (UPI etc.) go straight to the bank or the cash credit, not through the shop cash
   $("bar-online-add").addEventListener("click", function () {
@@ -1717,22 +1701,51 @@
     $("bar-owe").textContent = inr.format(owe); $("bar-owe-s").textContent = "Across all vendors";
     $("bar-margin").textContent = inr.format(gSell - gCost); $("bar-margin").className = "v " + (gSell - gCost >= 0 ? "pos" : "neg");
     $("bar-margin-s").textContent = gSell ? (100 * (gSell - gCost) / gSell).toFixed(1) + "% of sales, this month" : "Selling − cost of goods, this month";
-    renderTopGoods(mg);
+    renderBarChart();
 
     // Representative table: this month's days, newest first
     var mrows = c.rows.filter(function (x) { return x.date >= r[0]; });
     var monthName = new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
-    $("rep-title").textContent = "Bar representative account, " + monthName;
+    $("rep-title").textContent = "Bar representative account";
     var openM = mrows.length ? mrows[0].open : c.repNow;
     var tg = 0, tc = 0; mrows.forEach(function (x) { tg += x.goods; tc += x.coll; });
-    $("rep-table").innerHTML = '<thead><tr><th>Date</th><th class="num">Previous balance</th><th class="num">Goods received</th><th class="num">Collection</th><th class="num">Balance he owes</th></tr></thead><tbody>' +
-      (mrows.length ? mrows.slice().reverse().map(function (x) {
-        return "<tr><td>" + fmtDate(x.date) + '</td><td class="num">' + inr.format(x.open) + '</td><td class="num">' + (x.goods ? "+ " + inr.format(x.goods) : "–") +
+    // What happened each day: cash and online collection, and payments to vendors (shown when a day is opened)
+    var det = {}, dd = function (k) { return det[k] || (det[k] = { cash: 0, online: [], paid: [] }); };
+    state.allBook.forEach(function (b) { if (b.ledger_date >= r[0] && b.ledger_date <= r[1] && Number(b.bar_collection || 0)) dd(b.ledger_date).cash += Number(b.bar_collection); });
+    state.barOnline.forEach(function (x) { if (x.collection_date >= r[0] && x.collection_date <= r[1]) dd(x.collection_date).online.push(x); });
+    state.barExp.forEach(function (x) { if (x.expense_date >= r[0] && x.expense_date <= r[1]) dd(x.expense_date).paid.push(x); });
+    // Days with only a vendor payment still get a line, at the balance on that day
+    var shown = mrows.slice(), have = {}; mrows.forEach(function (x) { have[x.date] = 1; });
+    Object.keys(det).forEach(function (k) {
+      if (have[k]) return;
+      var prior = c.rows.filter(function (x) { return x.date <= k; }), bal = prior.length ? prior[prior.length - 1].close : state.bk.opening;
+      shown.push({ date: k, open: bal, goods: 0, coll: 0, cash: 0, onl: 0, close: bal });
+    });
+    shown.sort(function (a2, b2) { return a2.date < b2.date ? 1 : -1; });
+    var openD = state.barOpen || (state.barOpen = {});
+    $("rep-table").innerHTML = '<thead><tr><th>Date</th><th class="num">Previous balance</th><th class="num">Goods received</th><th class="num">Collection</th><th class="num">Balance he owes</th><th></th></tr></thead><tbody>' +
+      (shown.length ? shown.map(function (x) {
+        var o = det[x.date], has = o && (o.cash || o.online.length || o.paid.length), isOpen = has && openD[x.date];
+        var head = '<tr class="' + (has ? "gd-day" : "") + '" data-bday="' + x.date + '"><td>' + fmtDate(x.date) + (o && o.paid.length ? '<span class="on-split">Paid vendors ' + inr.format(o.paid.reduce(function (a2, y) { return a2 + Number(y.amount); }, 0)) + "</span>" : "") +
+          '</td><td class="num">' + inr.format(x.open) + '</td><td class="num">' + (x.goods ? "+ " + inr.format(x.goods) : "–") +
           '</td><td class="num">' + (x.coll ? "− " + inr.format(x.coll) + (x.onl && x.cash ? '<span class="on-split">Cash ' + inr.format(x.cash) + " · Online " + inr.format(x.onl) + "</span>" : x.onl ? '<span class="on-split">Online</span>' : "") : "–") +
-          '</td><td class="num"><b>' + inr.format(x.close) + "</b></td></tr>";
-      }).join("") : '<tr><td class="empty" colspan="5">Nothing this month yet.</td></tr>') +
+          '</td><td class="num"><b>' + inr.format(x.close) + '</b></td><td class="actions">' + (has ? '<span class="gd-tog">' + (isOpen ? "Hide ▴" : "Show ▾") + "</span>" : "") + "</td></tr>";
+        if (!isOpen) return head;
+        var lines = [];
+        if (o.cash) lines.push('<tr><td class="pos">Cash collection</td><td>Daily ledger</td><td>Shop cash</td><td class="num">' + inr.format(o.cash) + '</td><td class="actions"></td></tr>');
+        o.online.forEach(function (y) {
+          lines.push('<tr><td class="pos">Online collection</td><td>' + esc(y.description || "Bar collection") + "</td><td>" + esc(PAID[y.received_into]) + '</td><td class="num">' + inr.format(y.amount) +
+            '</td><td class="actions"><button class="icon-btn" data-editbaron="' + y.id + '">Edit</button><button class="icon-btn del" data-delbaron="' + y.id + '">Delete</button></td></tr>');
+        });
+        o.paid.forEach(function (y) {
+          lines.push('<tr><td class="neg">Paid to vendor</td><td>' + esc(vendName(y.vendor_id) || y.description || "Bar goods") + (y.vendor_id || !state.bk.ok ? "" : ' <span class="tag">September invoice</span>') +
+            "</td><td>" + esc(PAID[y.paid_from]) + '</td><td class="num">' + inr.format(y.amount) +
+            '</td><td class="actions"><button class="icon-btn" data-editbar="' + y.id + '">Edit</button><button class="icon-btn del" data-delbar="' + y.id + '">Delete</button></td></tr>');
+        });
+        return head + '<tr class="gd-detail"><td colspan="6"><table class="gd-inner"><thead><tr><th>Type</th><th>Details</th><th>Account</th><th class="num">Amount</th><th></th></tr></thead><tbody>' + lines.join("") + "</tbody></table></td></tr>";
+      }).join("") : '<tr><td class="empty" colspan="6">Nothing this month yet.</td></tr>') +
       '</tbody><tfoot><tr><td>Month</td><td class="num">' + inr.format(openM) + '</td><td class="num">+ ' + inr.format(tg) + '</td><td class="num">− ' + inr.format(tc) +
-      '</td><td class="num">' + inr.format(openM + tg - tc) + "</td></tr></tfoot>";
+      '</td><td class="num">' + inr.format(openM + tg - tc) + "</td><td></td></tr></tfoot>";
 
     // Vendor table: click a vendor to see its invoices and payments
     var vt = { open: 0, goods: 0, paid: 0, owe: 0 }, vo = state.bk.vendOpen || (state.bk.vendOpen = {});
@@ -1778,32 +1791,46 @@
       : '<tbody><tr><td class="empty">No goods entered this month yet.</td></tr></tbody>';
   }
 
-  // Top 5 goods for the month, by sales value, quantity or profit
-  state.bk.topBy = "sell";
-  function renderTopGoods(mg) {
-    var monthName = new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
-    $("top-title").textContent = "Top 5 selling goods, " + monthName;
-    var by = {}, key = state.bk.topBy;
-    mg.forEach(function (g) {
-      var k = g.vendor_id + "|" + g.item_name.toLowerCase(), x = by[k] || (by[k] = { name: g.item_name, vendor: vendName(g.vendor_id), qty: 0, sell: 0, cost: 0 });
-      x.qty += Number(g.qty); x.sell += g.qty * g.sell_price; x.cost += g.qty * g.cost_price;
+  // Bar counter revenue (goods given to the rep at selling price) and net profit (selling − cost), as lines
+  state.bk.chartMode = "month";
+  function renderBarChart() {
+    var day = state.bk.chartMode === "day", m = {}, t = todayISO();
+    var key = day ? function (d) { return d; } : function (d) { return d.slice(0, 7); };
+    (state.bk.goods || []).forEach(function (g) {
+      if (g.goods_date < START_DATE || (day && g.goods_date.slice(0, 7) !== state.month)) return;
+      var x = m[key(g.goods_date)] || (m[key(g.goods_date)] = { rev: 0, pro: 0 });
+      x.rev += Number(g.qty) * Number(g.sell_price); x.pro += Number(g.qty) * (Number(g.sell_price) - Number(g.cost_price));
     });
-    var rows = Object.keys(by).map(function (k) { var x = by[k]; x.profit = x.sell - x.cost; return x; })
-      .sort(function (a, b) { return b[key] - a[key] || b.sell - a.sell; }).slice(0, 5);
-    if (!rows.length) { $("top-list").innerHTML = '<div class="empty" style="padding:12px 0">No goods entered this month yet.</div>'; return; }
-    var max = Math.max.apply(null, rows.map(function (r) { return r[key]; })) || 1;
-    var fmt = function (r) { return key === "qty" ? num.format(r.qty) + " units" : inr.format(r[key]); };
-    var sub = function (r) { return key === "qty" ? inr.format(r.sell) + " sales" : key === "sell" ? num.format(r.qty) + " units · profit " + inr.format(r.profit) : inr.format(r.sell) + " sales · " + (r.sell ? (100 * r.profit / r.sell).toFixed(0) : 0) + "%"; };
-    $("top-list").innerHTML = rows.map(function (r, i) {
-      return '<div class="top-row"><span class="rk">' + (i + 1) + '</span><span class="nm">' + esc(r.name) + "<small>" + esc(r.vendor) + '</small></span><div class="bar"><span style="width:' +
-        Math.max(2, (Math.max(0, r[key]) / max) * 100).toFixed(1) + '%"></span></div><span class="amt">' + fmt(r) + "<small>" + sub(r) + "</small></span></div>";
-    }).join("");
+    var keys = [];
+    if (day) { var rr = monthRange(state.month), end = rr[1] < t ? rr[1] : t; for (var d = rr[0] < START_DATE ? START_DATE : rr[0]; d <= end; d = addDays(d, 1)) keys.push(d); }
+    else for (var k = START_DATE.slice(0, 7); k <= t.slice(0, 7); ) { keys.push(k); var y = +k.slice(0, 4), mo = +k.slice(5, 7) + 1; if (mo > 12) { mo = 1; y++; } k = y + "-" + String(mo).padStart(2, "0"); }
+    var monthName = new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    $("bch-title").textContent = day ? "Revenue and net profit, " + monthName : "Monthly revenue and net profit";
+    if (!keys.length) { $("bch-chart").innerHTML = '<div class="empty" style="padding:12px 0">Nothing to chart yet.</div>'; return; }
+    var pts = keys.map(function (k) { var x = m[k] || { rev: 0, pro: 0 }; return { k: k, rev: x.rev, pro: x.pro }; }), n = pts.length;
+    var W = 760, H = 240, L = 50, R = 16, T = 12, B = 24, iw = W - L - R, ih = H - T - B;
+    var X = function (i) { return n === 1 ? L + iw / 2 : L + iw * i / (n - 1); };
+    var hi = niceTop(Math.max.apply(null, pts.map(function (p) { return Math.max(p.rev, p.pro); }).concat([1])));
+    var lo = Math.min.apply(null, pts.map(function (p) { return p.pro; }).concat([0])); lo = lo < 0 ? -niceTop(-lo) : 0;
+    var Y = function (v) { return T + ih * (hi - v) / (hi - lo); };
+    var g = "";
+    for (var i = 0; i <= 4; i++) { var v = hi - (hi - lo) * i / 4, yy = Y(v); g += '<line class="' + (Math.abs(v) < 1e-9 ? "zl" : "gl") + '" x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '"/><text class="ax" x="' + (L - 6) + '" y="' + (yy + 3) + '" text-anchor="end">' + shortAmt(v) + "</text>"; }
+    var every = Math.max(1, Math.ceil(n / (day ? 12 : 12)));
+    var xl = pts.map(function (p, i) { return i % every === 0 || i === n - 1 ? '<text class="ax" x="' + X(i).toFixed(1) + '" y="' + (H - 7) + '" text-anchor="middle">' + perfLabel(p.k) + "</text>" : ""; }).join("");
+    var line = function (f, col) {
+      var dots = pts.map(function (p, i) { return '<circle cx="' + X(i).toFixed(1) + '" cy="' + Y(p[f]).toFixed(1) + '" r="' + (n > 20 ? 2 : 3.5) + '" fill="' + col + '"/>'; }).join("");
+      return (n > 1 ? '<path d="M' + pts.map(function (p, i) { return X(i).toFixed(1) + " " + Y(p[f]).toFixed(1); }).join(" L") + '" fill="none" stroke="' + col + '" stroke-width="2.2" stroke-linejoin="round"/>' : "") + dots;
+    };
+    $("bch-chart").innerHTML = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Bar counter revenue and net profit">' + g + line("rev", "var(--gold)") + line("pro", "#7fcf9a") + xl +
+      '<line class="hov" y1="' + T + '" y2="' + (T + ih) + '" x1="-10" x2="-10"/><rect class="hit" x="' + (L - 10) + '" y="' + T + '" width="' + (iw + 20) + '" height="' + ih + '" fill="transparent"/></svg><div class="perf-tip" hidden></div>';
+    perfHover($("bch-chart"), W, pts.map(function (p, i) { return X(i); }), function (i) { var p = pts[i];
+      return "<b>" + perfLabel(p.k, true) + "</b><div><span>Revenue</span><span>" + inr.format(p.rev) + "</span></div><div><span>Net profit</span><span>" + inr.format(p.pro) + "</span></div><div><span>Margin</span><span>" + (p.rev ? (100 * p.pro / p.rev).toFixed(1) + "%" : "–") + "</span></div>"; });
   }
-  $("top-by").addEventListener("click", function (e) {
-    var b = e.target.closest("[data-by]"); if (!b) return;
-    state.bk.topBy = b.dataset.by;
+  $("bch-mode").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-mode]"); if (!b) return;
+    state.bk.chartMode = b.dataset.mode;
     this.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
-    renderBarBook();
+    renderBarChart();
   });
 
   // Representative opening balance
