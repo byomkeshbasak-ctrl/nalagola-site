@@ -868,14 +868,6 @@
         <div class="table-wrap" id="goods-wrap" hidden><table id="goods-table"></table></div>
       </div>
 
-      <!-- Cash in and out (as before) -->
-      <div class="card sub-card">
-        <div class="list-head">
-          <h2 id="bar-title">Bar counter</h2>
-          <button class="ghost" id="bar-csv" type="button">Export CSV</button>
-        </div>
-        <div class="table-wrap"><table id="bar-table"></table></div>
-      </div>
     </section>
 
     <!-- ===== Daily ledger ===== -->
@@ -1548,19 +1540,6 @@
     $("bar-in").textContent = inr.format(tin);
     $("bar-in-s").textContent = "Cash " + inr.format(tcash) + " · Online " + inr.format(tonl) + (open ? " · avg " + inr.format(tin / open) + " a day" : "");
     renderBarBook();
-    $("bar-title").textContent = "Bar counter, " + new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
-    var tbl = $("bar-table");
-    if (!keys.length) { tbl.innerHTML = '<tr><td class="empty">Nothing for the bar counter this month yet.</td></tr>'; return; }
-    var run = 0;
-    var rows = keys.slice().reverse().map(function (k) { run += days[k].inn - days[k].out; return { k: k, run: run }; }).reverse();
-    tbl.innerHTML = '<thead><tr><th>Date</th><th class="num">Collection</th><th class="num">Paid to vendors</th><th class="num">Net cash</th><th class="num">Month so far</th></tr></thead><tbody>' +
-      rows.map(function (row) {
-        var o = days[row.k], net = o.inn - o.out;
-        return "<tr><td>" + fmtDate(row.k) + '</td><td class="num">' + (o.inn ? inr.format(o.inn) : "–") +
-          (o.onl && o.cash ? '<span class="on-split">Cash ' + inr.format(o.cash) + " · Online " + inr.format(o.onl) + "</span>" : o.onl ? '<span class="on-split">Online</span>' : "") +
-          '</td><td class="num">' + (o.out ? inr.format(o.out) : "–") + '</td><td class="num ' + (net < 0 ? "neg" : "pos") + '">' + inr.format(net) +
-          '</td><td class="num">' + inr.format(row.run) + "</td></tr>";
-      }).join("") + '</tbody><tfoot><tr><td>Total</td><td class="num">' + inr.format(tin) + '</td><td class="num">' + inr.format(tout) + '</td><td class="num ' + (tin - tout >= 0 ? "pos" : "neg") + '">' + inr.format(tin - tout) + "</td><td></td></tr></tfoot>";
   }
   $("rep-table").addEventListener("click", function (e) {
     var eb = e.target.getAttribute("data-editbar"); if (eb) { editBarExpense(eb); return; }
@@ -1605,15 +1584,6 @@
     toast("Bar collection deleted"); loadMonth();
   }
   $("bar-add").addEventListener("click", function () { openPayVendor(); });
-  $("bar-csv").addEventListener("click", function () {
-    var r = monthRange(state.month);
-    var rows = state.barExp.filter(function (x) { return x.expense_date >= r[0] && x.expense_date <= r[1]; }).map(function (x) { return [x.expense_date, "Expense", PAID[x.paid_from], x.description, -Number(x.amount)]; })
-      .concat(state.allBook.filter(function (b) { return b.ledger_date >= r[0] && b.ledger_date <= r[1] && Number(b.bar_collection || 0); }).map(function (b) { return [b.ledger_date, "Cash collection", "", "", Number(b.bar_collection)]; }))
-      .concat(state.barOnline.filter(function (x) { return x.collection_date >= r[0] && x.collection_date <= r[1]; }).map(function (x) { return [x.collection_date, "Online collection", PAID[x.received_into], x.description, Number(x.amount)]; }))
-      .sort(function (a, b) { return a[0] < b[0] ? -1 : 1; });
-    if (!rows.length) { toast("Nothing to export."); return; }
-    downloadCSV("nalagola-bar-" + state.month + ".csv", ["Date", "Type", "Paid from", "Details", "Amount"], rows);
-  });
   async function saveBarExpense(p2) {
     if (["bank", "cash_credit", "cash_hand"].indexOf(p2.from_account) < 0) { toast("Pay bar expenses from the bank, cash credit or cash not deposited."); return; }
     if (!(p2.amount > 0)) { toast("Enter an amount above zero."); return; }
@@ -1904,14 +1874,6 @@
     var r = await sb.from("bar_vendors").update({ opening_balance: n }).eq("id", id);
     if (r.error) { toast("Couldn't save: " + r.error.message); return; }
     v.opening_balance = n; toast("Opening balance saved"); renderBar();
-  });
-  // Older bar expenses without a vendor: pick one in the cash table
-  $("bar-table").addEventListener("change", async function (e) {
-    var id = e.target.getAttribute("data-assign"); if (!id || !e.target.value) return;
-    var r = await sb.from("bar_expenses").update({ vendor_id: e.target.value }).eq("id", id);
-    if (r.error) { toast("Couldn't save: " + r.error.message); return; }
-    var x = state.barExp.find(function (y) { return y.id === id; }); if (x) x.vendor_id = e.target.value;
-    toast("Payment linked to " + vendName(e.target.value)); renderBar();
   });
 
   // ----- Pay vendor (saved as a bar expense, so cash and bank balances follow) -----
