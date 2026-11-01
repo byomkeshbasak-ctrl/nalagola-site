@@ -390,6 +390,30 @@
   .top-row .amt { text-align: right; font-variant-numeric: tabular-nums; }
   .top-row .amt small { display: block; color: var(--muted); font-size: 0.72rem; }
   @media (max-width: 560px) { .top-row { grid-template-columns: 22px 1fr 100px; } .top-row .bar { grid-column: 2 / -1; grid-row: 2; } }
+
+  .vend-row td:first-child { white-space: normal; }
+  .vend-name { font-weight: 600; text-decoration: underline dotted; text-underline-offset: 3px; }
+  .vend-sub { display: block; font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+  .inv-tbl { width: 100%; font-size: 0.8rem; }
+  .inv-tbl td, .inv-tbl th { padding: 6px 10px; }
+  .inv-tbl tr.inv-items td { color: var(--muted); font-size: 0.74rem; padding-top: 0; border-top: 0; }
+  .st-pill { display: inline-block; font-size: 0.7rem; padding: 1px 8px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+  .st-pill.paid { color: var(--green); border-color: rgba(127, 207, 154, 0.5); }
+  .st-pill.part { color: var(--amber, #e3b14f); border-color: rgba(227, 177, 79, 0.55); }
+  .st-pill.unpaid { color: var(--red); border-color: rgba(239, 143, 143, 0.55); }
+  .inv-h { margin: 12px 0 4px; font-size: 0.78rem; font-weight: 600; color: var(--gold); }
+  .goods-sum { margin-top: 18px; width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; text-align: left; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; cursor: pointer; color: var(--text); font: inherit; }
+  .goods-sum:hover { border-color: var(--gold); }
+  .goods-sum .gs-t { font-weight: 600; color: var(--gold); }
+  .goods-sum .gs-s { flex: 1; font-size: 0.82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .goods-sum .gs-s b { font-weight: 600; }
+  #goods-wrap { margin-top: 8px; }
+  #vend-table tr.gd-detail > td { padding: 0 0 12px 18px; background: var(--bg); }
+  #vend-table tr.vend-row { cursor: pointer; }
+  #vend-table tr.vend-row:hover td { background: var(--panel-2); }
+  .sec-link { background: none; border: 0; padding: 0; color: var(--text); font: inherit; text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
+  .sec-link:hover { color: var(--gold); }
+  .muted-t { color: var(--muted); }
   .bk-assign { width: auto; display: inline-block; padding: 2px 6px; font-size: 0.75rem; margin-left: 6px; }
   .on-split { display: block; font-size: 0.68rem; color: var(--muted); margin-top: 2px; white-space: nowrap; }
   .on-edit { font-size: 0.68rem; padding: 0; }
@@ -748,6 +772,7 @@
           <div class="row">
             <label>Date <input type="date" id="bg-date" required></label>
             <label>Vendor <select id="bg-vendor"></select></label>
+            <label>Invoice / bill no. (optional) <input type="text" id="bg-inv" autocomplete="off"></label>
           </div>
           <div class="bk-lines" id="bg-lines"></div>
           <div><button class="link-btn" type="button" id="bg-addline" style="justify-self:start">+ Add another item</button></div>
@@ -764,11 +789,12 @@
             <label>Amount (₹) <input type="number" id="bp-amount" step="0.01" min="0" inputmode="decimal" required></label>
             <label>Note (optional) <input type="text" id="bp-note"></label>
           </div>
+          <div class="hint" id="bp-inv-note" hidden></div>
           <div class="form-actions"><button class="primary" type="submit">Save payment</button><button class="ghost" type="button" id="bp-cancel">Cancel</button></div>
         </form>
         <div class="table-wrap"><table id="vend-table"></table></div>
-        <h3 class="bk-h3" id="goods-title">Goods received this month</h3>
-        <div class="table-wrap"><table id="goods-table"></table></div>
+        <button type="button" class="goods-sum" id="goods-sum" aria-expanded="false"></button>
+        <div class="table-wrap" id="goods-wrap" hidden><table id="goods-table"></table></div>
       </div>
 
       <!-- Cash in and out (as before) -->
@@ -1636,19 +1662,26 @@
       '</tbody><tfoot><tr><td>Month</td><td class="num">' + inr.format(openM) + '</td><td class="num">+ ' + inr.format(tg) + '</td><td class="num">− ' + inr.format(tc) +
       '</td><td class="num">' + inr.format(openM + tg - tc) + "</td></tr></tfoot>";
 
-    // Vendor table
-    var vt = { open: 0, goods: 0, paid: 0, owe: 0 };
+    // Vendor table: click a vendor to see its invoices and payments
+    var vt = { open: 0, goods: 0, paid: 0, owe: 0 }, vo = state.bk.vendOpen || (state.bk.vendOpen = {});
     $("vend-table").innerHTML = '<thead><tr><th>Vendor</th><th class="num">Opening (1 Oct)</th><th class="num">Goods received (cost)</th><th class="num">Paid</th><th class="num">You owe</th><th></th></tr></thead><tbody>' +
       (c.vend.length ? c.vend.map(function (x) {
         vt.open += x.open; vt.goods += x.goods; vt.paid += x.paid; vt.owe += x.owe;
-        return "<tr><td>" + esc(x.v.name) + '</td><td class="num">' + inr.format(x.open) + '</td><td class="num">' + inr.format(x.goods) + '</td><td class="num">' + inr.format(x.paid) +
-          '</td><td class="num"><b>' + inr.format(x.owe) + '</b></td><td class="actions"><button class="icon-btn" data-vopen="' + x.v.id + '">Opening</button><button class="icon-btn" data-vpay="' + x.v.id + '">Pay</button></td></tr>';
+        var inv = vendorInvoices(x.v, r[1]), unpaid = inv.list.filter(function (i) { return i.due > 0.5; }).length, open = !!vo[x.v.id];
+        var head = '<tr class="gd-day vend-row" data-vrow="' + x.v.id + '"><td><span class="vend-name">' + esc(x.v.name) + "</span><small class=\"vend-sub\">" + inv.list.length + " invoice" + (inv.list.length === 1 ? "" : "s") +
+          (unpaid ? ' · <span class="neg">' + unpaid + " unpaid</span>" : inv.list.length ? ' · <span class="pos">all paid</span>' : "") + '</small></td><td class="num">' + inr.format(x.open) + '</td><td class="num">' + inr.format(x.goods) + '</td><td class="num">' + inr.format(x.paid) +
+          '</td><td class="num"><b>' + inr.format(x.owe) + '</b></td><td class="actions"><button class="icon-btn" data-vopen="' + x.v.id + '">Opening</button><button class="icon-btn" data-vpay="' + x.v.id + '">Pay</button><span class="gd-tog">' + (open ? "Hide ▴" : "Invoices ▾") + "</span></td></tr>";
+        return head + (open ? '<tr class="gd-detail"><td colspan="6">' + invoiceTable(x.v, inv) + "</td></tr>" : "");
       }).join("") : '<tr><td class="empty" colspan="6">No vendors yet.</td></tr>') +
       '</tbody><tfoot><tr><td>Total</td><td class="num">' + inr.format(vt.open) + '</td><td class="num">' + inr.format(vt.goods) + '</td><td class="num">' + inr.format(vt.paid) +
       '</td><td class="num">' + inr.format(vt.owe) + "</td><td></td></tr></tfoot>";
 
     // Goods received this month: one row per day, click to see the items
-    $("goods-title").textContent = "Goods received, " + monthName;
+    var gDays = {}; mg.forEach(function (g) { gDays[g.goods_date] = 1; });
+    $("goods-sum").setAttribute("aria-expanded", state.bk.goodsOpen ? "true" : "false");
+    $("goods-sum").innerHTML = '<span class="gs-t">Goods received, ' + esc(monthName) + '</span><span class="gs-s">' + Object.keys(gDays).length + " days · " + mg.length + " items · cost " + inr.format(gCost) +
+      " · selling " + inr.format(gSell) + ' · margin <b class="' + (gSell - gCost >= 0 ? "pos" : "neg") + '">' + inr.format(gSell - gCost) + '</b></span><span class="gd-tog">' + (state.bk.goodsOpen ? "Hide ▴" : "Show ▾") + "</span>";
+    $("goods-wrap").hidden = !state.bk.goodsOpen;
     var open = state.bk.openDays || (state.bk.openDays = {}), byDay = {}, gt = { c: 0, s: 0, n: 0 };
     mg.forEach(function (g) { (byDay[g.goods_date] || (byDay[g.goods_date] = [])).push(g); });
     var dayKeys = Object.keys(byDay).sort().reverse();
@@ -1711,9 +1744,60 @@
     state.bk.opening = n; toast("Opening balance saved"); renderBar();
   });
 
-  // Vendor table buttons: opening balance and pay
+
+  // ----- Invoices: goods received from a vendor on one date (and bill no.) make one invoice -----
+  // Payments marked against an invoice settle that invoice first; other payments clear the oldest bills first.
+  var invKey = function (date, no) { return date + "|" + (no || ""); };
+  function vendorInvoices(v, upto) {
+    var map = {};
+    state.bk.goods.forEach(function (g) {
+      if (g.vendor_id !== v.id || g.goods_date > upto) return;
+      var k = invKey(g.goods_date, g.invoice_no), x = map[k] || (map[k] = { key: k, date: g.goods_date, no: g.invoice_no || "", items: [], amt: 0, paid: 0 });
+      x.items.push(g); x.amt += Number(g.qty) * Number(g.cost_price);
+    });
+    var list = Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : a.no < b.no ? -1 : 1; });
+    var op = Number(v.opening_balance || 0);
+    if (op > 0) list.unshift({ key: "opening", date: START_DATE, no: "", opening: true, items: [], amt: op, paid: 0 });
+    var pays = state.barExp.filter(function (e) { return e.vendor_id === v.id && e.expense_date <= upto; }).sort(function (a, b) { return a.expense_date < b.expense_date ? -1 : 1; });
+    var pool = 0;
+    pays.forEach(function (p) {
+      var amt = Number(p.amount), t = p.invoice_key && list.find(function (i) { return i.key === p.invoice_key; });
+      if (t) { var use = Math.min(amt, Math.max(0, t.amt - t.paid)); t.paid += use; amt -= use; }
+      pool += amt;
+    });
+    list.forEach(function (i) { var use = Math.min(pool, Math.max(0, i.amt - i.paid)); i.paid += use; pool -= use; i.due = i.amt - i.paid; });
+    return { list: list, pays: pays, extra: pool };
+  }
+  function invStatus(i) { return i.due <= 0.5 ? '<span class="st-pill paid">Paid</span>' : i.paid > 0.5 ? '<span class="st-pill part">Part paid</span>' : '<span class="st-pill unpaid">Unpaid</span>'; }
+  function invTitle(i) { return i.opening ? "Opening balance" : fmtDate(i.date) + (i.no ? " · Bill " + esc(i.no) : ""); }
+  function invoiceTable(v, inv) {
+    var vo = state.bk.invOpen || (state.bk.invOpen = {});
+    var h = '<div class="inv-h">Invoices</div><table class="inv-tbl"><thead><tr><th>Invoice</th><th class="num">Items</th><th class="num">Amount</th><th class="num">Paid</th><th class="num">Balance</th><th>Status</th><th></th></tr></thead><tbody>';
+    h += inv.list.length ? inv.list.slice().reverse().map(function (i) {
+      var k = v.id + "#" + i.key, open = vo[k];
+      return '<tr><td><button type="button" class="sec-link" data-invitems="' + esc(k) + '">' + invTitle(i) + '</button></td><td class="num">' + (i.opening ? "–" : i.items.length) + '</td><td class="num">' + inr2.format(i.amt) +
+        '</td><td class="num">' + inr2.format(i.paid) + '</td><td class="num"><b>' + inr2.format(Math.max(0, i.due)) + "</b></td><td>" + invStatus(i) + '</td><td class="actions">' +
+        (i.due > 0.5 ? '<button class="icon-btn" data-invpay="' + v.id + '" data-invkey="' + esc(i.key) + '" data-invdue="' + i.due.toFixed(2) + '" data-invname="' + esc(i.opening ? "opening balance" : fmtDate(i.date) + (i.no ? " bill " + i.no : "")) + '">Pay</button>' : "") + "</td></tr>" +
+        (open && i.items.length ? '<tr class="inv-items"><td colspan="7">' + i.items.map(function (g) { return esc(g.item_name) + " × " + num.format(g.qty) + " @ " + inr2.format(g.cost_price); }).join(" · ") + "</td></tr>" : "");
+    }).join("") : '<tr><td class="empty" colspan="7">No goods received from this vendor yet.</td></tr>';
+    h += "</tbody></table>";
+    h += '<div class="inv-h">Payments</div><table class="inv-tbl"><thead><tr><th>Date</th><th>Paid from</th><th>Against</th><th class="num">Amount</th></tr></thead><tbody>' +
+      (inv.pays.length ? inv.pays.slice().reverse().map(function (p) {
+        var t = p.invoice_key ? inv.list.find(function (i) { return i.key === p.invoice_key; }) : null;
+        return "<tr><td>" + fmtDate(p.expense_date) + "</td><td>" + esc(PAID[p.paid_from] || p.paid_from) + "</td><td>" + (t ? invTitle(t) : '<span class="muted-t">Oldest bills first</span>') + '</td><td class="num">' + inr2.format(p.amount) + "</td></tr>";
+      }).join("") : '<tr><td class="empty" colspan="4">No payments yet.</td></tr>') + "</tbody></table>" +
+      (inv.extra > 0.5 ? '<div class="hint" style="margin-top:6px">' + inr.format(inv.extra) + " paid in advance, not yet matched to a bill.</div>" : "");
+    return h;
+  }
+  $("goods-sum").addEventListener("click", function () { state.bk.goodsOpen = !state.bk.goodsOpen; renderBarBook(); });
+  // Vendor table buttons: opening balance, pay, open invoices
   $("vend-table").addEventListener("click", async function (e) {
+    var ip = e.target.getAttribute("data-invpay");
+    if (ip) { openPayVendor(ip, { key: e.target.dataset.invkey, due: Number(e.target.dataset.invdue), name: e.target.dataset.invname }); return; }
+    var it = e.target.getAttribute("data-invitems"); if (it) { var io = state.bk.invOpen || (state.bk.invOpen = {}); io[it] = !io[it]; renderBarBook(); return; }
     var po = e.target.getAttribute("data-vpay"); if (po) { openPayVendor(po); return; }
+    var vr = e.target.closest("[data-vrow]");
+    if (vr && !e.target.closest("button")) { var vo = state.bk.vendOpen || (state.bk.vendOpen = {}); vo[vr.dataset.vrow] = !vo[vr.dataset.vrow]; renderBarBook(); return; }
     var id = e.target.getAttribute("data-vopen"); if (!id) return;
     var v = state.bk.vendors.find(function (x) { return x.id === id; }); if (!v) return;
     var val = prompt("What you owed " + v.name + " on " + fmtLong(START_DATE) + " (₹)", v.opening_balance || 0);
@@ -1732,26 +1816,31 @@
   });
 
   // ----- Pay vendor (saved as a bar expense, so cash and bank balances follow) -----
-  function openPayVendor(vid) {
+  function openPayVendor(vid, inv) {
     if (!state.bk.ok) { toast("Run bar_accounts.sql in Supabase first."); return; }
     $("bg-form").hidden = true; var f = $("bp-form"); f.hidden = false;
     vendorOptions($("bp-vendor"), false); if (vid) $("bp-vendor").value = vid;
-    $("bp-date").value = todayISO(); $("bp-amount").value = ""; $("bp-note").value = "";
+    state.bk.payInv = inv || null;
+    $("bp-inv-note").hidden = !inv; $("bp-inv-note").textContent = inv ? "Paying " + vendName(vid) + " for the " + inv.name + " (balance " + inr2.format(inv.due) + "). It comes off the account you pick." : "";
+    $("bp-date").value = todayISO(); $("bp-amount").value = inv ? inv.due.toFixed(2).replace(/\.00$/, "") : ""; $("bp-note").value = "";
     f.scrollIntoView({ behavior: "smooth", block: "center" }); $("bp-amount").focus();
   }
   $("bp-open").addEventListener("click", function () { openPayVendor(); });
-  $("bp-cancel").addEventListener("click", function () { $("bp-form").hidden = true; });
+  $("bp-cancel").addEventListener("click", function () { $("bp-form").hidden = true; state.bk.payInv = null; });
+  $("bp-vendor").addEventListener("change", function () { state.bk.payInv = null; $("bp-inv-note").hidden = true; });
   $("bp-form").addEventListener("submit", async function (e) {
     e.preventDefault();
     var row = { expense_date: $("bp-date").value, paid_from: $("bp-from").value, amount: toNum($("bp-amount").value), vendor_id: $("bp-vendor").value || null,
-      description: $("bp-note").value.trim() || ("Paid " + vendName($("bp-vendor").value)) };
+      description: $("bp-note").value.trim() || ("Paid " + vendName($("bp-vendor").value) + (state.bk.payInv ? " · " + state.bk.payInv.name : "")),
+      invoice_key: state.bk.payInv && state.bk.payInv.key !== "opening" ? state.bk.payInv.key : null };
     if (!row.vendor_id) { toast("Pick a vendor."); return; }
     if (!(row.amount > 0)) { toast("Enter an amount above zero."); return; }
     if (row.expense_date < START_DATE) { toast("Entries start from " + fmtLong(START_DATE) + "."); return; }
     var btn = this.querySelector(".primary"); btn.disabled = true;
     var r = await sb.from("bar_expenses").insert(row); btn.disabled = false;
     if (r.error) { toast("Couldn't save: " + r.error.message); return; }
-    this.hidden = true; toast(inr.format(row.amount) + " paid to " + vendName(row.vendor_id)); loadMonth();
+    this.hidden = true; state.bk.payInv = null; state.bk.vendOpen = state.bk.vendOpen || {}; state.bk.vendOpen[row.vendor_id] = true;
+    toast(inr.format(row.amount) + " paid to " + vendName(row.vendor_id) + " from " + PAID[row.paid_from]); loadMonth();
   });
 
   // ----- Goods received: one vendor, several items. Prices are remembered per vendor and item. -----
@@ -1786,6 +1875,7 @@
     vendorOptions($("bg-vendor"), !g); $("bg-lines").innerHTML = "";
     state.bk.editGoods = g ? g.id : null;
     $("bg-date").value = g ? g.goods_date : todayISO(); if (g) $("bg-vendor").value = g.vendor_id;
+    $("bg-inv").value = g ? g.invoice_no || "" : "";
     $("bg-addline").hidden = !!g; f.querySelector(".primary").textContent = g ? "Save changes" : "Save goods";
     refreshItemList(); var l = addGoodsLine(g);
     f.scrollIntoView({ behavior: "smooth", block: "center" }); l.querySelector(g ? ".bl-qty" : ".bl-item").focus();
@@ -1818,7 +1908,7 @@
         c = l.querySelector(".bl-cost").value, s = l.querySelector(".bl-sell").value;
       if (!name && !q) return;
       if (!name) bad = "Every line needs an item name."; else if (!(q > 0)) bad = "Enter the quantity for " + name + "."; else if (c === "" || s === "") bad = "Enter the cost and selling price for " + name + ".";
-      lines.push({ goods_date: date, vendor_id: vid, item_name: name, qty: q, cost_price: toNum(c), sell_price: toNum(s) });
+      lines.push({ goods_date: date, vendor_id: vid, item_name: name, qty: q, cost_price: toNum(c), sell_price: toNum(s), invoice_no: $("bg-inv").value.trim() || null });
     });
     if (bad) { toast(bad); return; }
     if (!lines.length) { toast("Add at least one item."); return; }
