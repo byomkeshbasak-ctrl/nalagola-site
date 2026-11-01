@@ -3828,11 +3828,9 @@
     COMPANIES.forEach(function (c) { totals[c.name] = 0; });
     var add = function (name, cat, size, bottles) {
       var co = companyOf(name); if (!co) return;
-      var k = cleanName(name), x = rows[k] || (rows[k] = { co: co, brand: brandOf(name), size: size, cat: cat, bottles: 0 });
+      var k = cleanName(name), x = rows[k] || (rows[k] = { co: co, brand: brandOf(name), name: cleanName(name), size: size, cat: cat, bottles: 0 });
       x.bottles += bottles;
     };
-    // All known items first (with zero), so brands not ordered yet still show
-    state.items.forEach(function (i) { add(i.item_name, i.category, Number(i.size_ml) || sizeOf(i), 0); });
     state.co.lines.forEach(function (l) {
       var mrp = Number(l.mrp);
       add(l.item_name, savedCategory(l.item_name, mrp) || l.category || categoryOf(l.item_name), sizeOf(l), Number(l.stock_in || 0));
@@ -3854,16 +3852,16 @@
     var html = '<div class="co-total"><div><div class="k">' + esc(cur) + ' · total</div><div class="v">' + fmtC(totals[cur]) + ' cases</div></div><div class="b">' + num.format(bottles) + " bottles</div></div>";
     html += '<div class="table-wrap"><table id="co-table"><thead><tr><th>Brand</th><th class="num">Bottles</th><th class="num">Cases</th></tr></thead><tbody>';
     co.brands.forEach(function (b) {
-      var items = list.filter(function (x) { return x.brand === b; }).sort(function (a, c) { return a.size - c.size; });
+      var items = list.filter(function (x) { return x.brand === b && x.bottles > 0; }).sort(function (a, c) { return a.size - c.size; });
       if (!items.length) return;
       var bb = items.reduce(function (a, x) { return a + x.bottles; }, 0), bc = items.reduce(function (a, x) { return a + x.cases; }, 0);
-      var label = BRAND_LABEL[b] || b;
-      html += '<tr class="co-brand' + (bb ? "" : " co-zero") + '"><td>' + esc(label) + '</td><td class="num">' + (bb ? num.format(bb) : "–") + '</td><td class="num">' + (bc ? fmtC(bc) : "–") + "</td></tr>";
+      html += '<tr class="co-brand"><td>' + esc(b) + '</td><td class="num">' + (bb ? num.format(bb) : "–") + '</td><td class="num">' + (bc ? fmtC(bc) : "–") + "</td></tr>";
       items.forEach(function (x) {
-        html += '<tr class="co-size' + (x.bottles ? "" : " co-zero") + '"><td>' + (x.size ? x.size + " ml" : "–") + (x.per ? "" : x.bottles ? ' <span class="warn-t">case size not set</span>' : "") +
+        html += '<tr class="co-size"><td>' + esc(x.name) + (x.per ? "" : x.bottles ? ' <span class="warn-t">case size not set</span>' : "") +
           '</td><td class="num">' + (x.bottles ? num.format(x.bottles) : "–") + '</td><td class="num">' + (x.cases ? fmtC(x.cases) : "–") + "</td></tr>";
       });
     });
+    if (!bottles) html += '<tr><td class="empty" colspan="3">Nothing ordered from ' + esc(cur) + " this month.</td></tr>";
     html += "</tbody></table></div>";
     html += '<div class="co-note">From the stock received in the daily register this month, in cases using the case sizes on the Indent tab.' + (missing ? " " + missing + " size" + (missing === 1 ? " has" : "s have") + " no case size, so " + (missing === 1 ? "it isn't" : "they aren't") + " counted." : "") + "</div>";
     $("co-body").innerHTML = html;
