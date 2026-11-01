@@ -1383,7 +1383,18 @@
   function itemsOf(kind) { return oth.items.filter(function (i) { return i.kind === kind && !i.closed; }); }
   function goldGrams() { return itemsOf("gold").reduce(function (x, i) { return x + toNum((i.details || {}).grams); }, 0); }
   // Gold is valued live: grams × today's 24k rate × purity; anything else uses the value you entered
+  // PF between statements: each month's contribution lands by the 20th of the next month and interest is added monthly
+  // at the PF rate on the running balance. The balance you enter from a statement always replaces this estimate.
+  function epfEstimate(i) {
+    var d = i.details || {}, m = toNum(d.monthly), rate = toNum(d.rate) / 100, bal = Number(i.value) || 0;
+    if (!(m > 0) || !i.as_of) return { value: bal, months: 0 };
+    var t = todayISO(), y = +i.as_of.slice(0, 4), mo = +i.as_of.slice(5, 7), n = 0;
+    // Credits after the statement date: the 20th of each following month, up to today
+    for (;;) { mo++; if (mo > 12) { mo = 1; y++; } var c = y + "-" + String(mo).padStart(2, "0") + "-20"; if (c > t) break; bal = bal * (1 + rate / 12) + m; n++; }
+    return { value: bal, months: n };
+  }
   function itemValue(i) {
+    if (i.kind === "epf") return epfEstimate(i).value;
     if (i.kind === "gold") {
       var d = i.details || {}, g = toNum(d.grams), k = toNum(d.karat) || 24;
       if (g > 0 && oth.gold) return g * Number(oth.gold.value) * k / 24;
@@ -1393,10 +1404,10 @@
 
   // One table and form per tab. Fields: [key, label, type, where ("value"/"invested"/"name"/"institution"/"as_of"/details key), options]
   var ITEM_CFG = {
-    epf: { kinds: ["epf"], word: "account", fields: [["name", "Account / UAN", "text", "e.g. UAN ending 4521"], ["institution", "Employer / office", "text"], ["value", "Balance (₹)", "money"], ["as_of", "Balance as of", "date"],
+    epf: { kinds: ["epf"], word: "account", fields: [["name", "Account / UAN", "text", "e.g. UAN ending 4521"], ["institution", "Employer / office", "text"], ["value", "Balance on the statement (₹)", "money"], ["as_of", "Statement date", "date"],
       ["employee", "Employee share (₹)", "money", "d"], ["employer", "Employer share (₹)", "money", "d"], ["monthly", "Monthly contribution (₹)", "money", "d"], ["rate", "Interest rate (%)", "num", "d"]],
       cols: [["Account", function (i) { return esc(i.name) + "<small>" + esc(i.institution || "") + "</small>"; }], ["Employee share", function (i) { return money(i.details.employee); }, 1], ["Employer share", function (i) { return money(i.details.employer); }, 1],
-        ["Monthly", function (i) { return money(i.details.monthly); }, 1], ["Balance", function (i) { return inr.format(itemValue(i)); }, 1], ["As of", function (i) { return fmtDate(i.as_of); }]] },
+        ["Monthly", function (i) { return money(i.details.monthly); }, 1], ["Balance", function (i) { var e = epfEstimate(i); return inr.format(e.value) + (e.months ? "<small>incl. " + e.months + " month" + (e.months > 1 ? "s" : "") + " estimated</small>" : "<small>as per statement</small>"); }, 1], ["Statement", function (i) { return fmtDate(i.as_of) + "<small>" + inr.format(Number(i.value) || 0) + "</small>"; }]] },
     gold: { kinds: ["gold"], word: "item", fields: [["name", "Item", "text", "e.g. Bangles, 10 g coin"], ["institution", "Form", "select", ["Jewellery", "Coins & bars", "Sovereign Gold Bond", "Digital gold", "Other"]],
       ["grams", "Weight (grams)", "num", "d"], ["karat", "Purity", "select", ["24", "22", "18"], "d"], ["invested", "Bought for (₹, optional)", "money"], ["bought", "Bought on", "date", "d"], ["as_of", "Last checked", "date"]],
       cols: [["Item", function (i) { return esc(i.name) + "<small>" + esc(i.institution || "") + "</small>"; }], ["Weight", function (i) { return num3.format(toNum(i.details.grams)) + " g"; }, 1], ["Purity", function (i) { return (i.details.karat || 24) + "k"; }, 1],
@@ -1457,6 +1468,7 @@
           (i.notes ? '<tr class="bf"><td colspan="' + (c.cols.length + 1) + '">' + esc(i.notes) + "</td></tr>" : "");
       }).join("") + "</tbody>" : '<tbody><tr><td class="empty">Nothing added yet. Use the button above to add one.</td></tr></tbody>';
     $(tab + "-note").textContent = tab === "gold" ? "Gold value moves with the 24k rate every day; 22k is counted at 22/24 and 18k at 18/24 of it." :
+      tab === "epf" ? "Between statements, each month's contribution is added on the 20th of the next month, with interest at the PF rate. When a new statement arrives, enter its balance and date with Edit and the estimate restarts from there." :
       tab === "trading" ? "Update these balances from your broker's funds page when they change." : "Update the balance whenever you get a new statement.";
   }
   function annualPremium(i) { var p = toNum(i.details.premium), f = i.details.freq; return f === "Monthly" ? p * 12 : f === "Quarterly" ? p * 4 : f === "Half-yearly" ? p * 2 : f === "Single" ? 0 : p; }
