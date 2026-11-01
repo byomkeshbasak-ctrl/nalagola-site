@@ -454,6 +454,12 @@
   .pm-h { font-size: 0.72rem; color: var(--muted); margin-bottom: 6px; }
   .pm-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 0; }
   .pm-row input { padding: 5px 8px; font-size: 0.8rem; }
+  .gi-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 3px 0; }
+  .gi-row input { padding: 5px 8px; font-size: 0.8rem; }
+  .gi-row .gi-name { flex: 1; min-width: 160px; } .gi-row .gi-qty { width: 70px; text-align: right; }
+  .gi-row .gi-cost, .gi-row .gi-sell { width: 95px; text-align: right; }
+  .gi-amt { width: 90px; text-align: right; font-size: 0.8rem; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .gi-hd { font-weight: 400; margin-left: 6px; }
   .pm-row .pm-bill { padding: 5px 8px; font-size: 0.8rem; max-width: 230px; }
   .pm-row .pm-date { width: 150px; } .pm-row .pm-amt { width: 120px; text-align: right; }
   .pm-info { flex: 1; min-width: 140px; font-size: 0.74rem; color: var(--muted); }
@@ -1885,6 +1891,21 @@
         '<button class="icon-btn" type="button" data-pmsave="' + x.id + '">Save</button><button class="icon-btn del" type="button" data-pmdel="' + x.id + '">Delete</button></div>';
     }).join("");
   }
+  // Items on a bill, editable in place: name, quantity, cost and selling price; plus a blank line to add one
+  function giRows(v, i) {
+    var line = function (g) {
+      var id = g ? g.id : "";
+      return '<div class="gi-row"' + (g ? ' data-giid="' + id + '"' : "") + '><input type="text" class="gi-name" placeholder="Item" value="' + (g ? esc(g.item_name) : "") + '" aria-label="Item" list="gi-names-' + v.id + '">' +
+        '<input type="number" class="gi-qty" step="any" min="0" placeholder="Qty" value="' + (g ? Number(g.qty) : "") + '" aria-label="Quantity">' +
+        '<input type="number" class="gi-cost" step="0.01" min="0" placeholder="Cost" value="' + (g ? Number(g.cost_price) : "") + '" aria-label="Cost price">' +
+        '<input type="number" class="gi-sell" step="0.01" min="0" placeholder="Selling" value="' + (g ? Number(g.sell_price) : "") + '" aria-label="Selling price">' +
+        '<span class="gi-amt">' + (g ? inr2.format(g.qty * g.cost_price) : "") + "</span>" +
+        (g ? '<button class="icon-btn" type="button" data-gisave="' + id + '">Save</button><button class="icon-btn del" type="button" data-gidel="' + id + '">Delete</button>'
+           : '<button class="icon-btn" type="button" data-giadd="' + esc(v.id + "|" + i.date + "|" + (i.no || "")) + '">Add item</button>') + "</div>";
+    };
+    var names = itemsFor(v.id).map(function (x) { return '<option value="' + esc(x.name) + '">'; }).join("");
+    return '<div class="pm-h">Items on this bill <span class="gi-hd">qty · cost · selling</span></div><datalist id="gi-names-' + v.id + '">' + names + "</datalist>" + i.items.map(line).join("") + line(null);
+  }
   function invoiceTable(v, inv, r) {
     var vo = state.bk.invOpen || (state.bk.invOpen = {}), vm = state.bk.invMod || (state.bk.invMod = {});
     var h = '<div class="inv-h">Bills this month, and older bills still due or paid this month</div><table class="inv-tbl"><thead><tr><th>Invoice</th><th class="num">Amount</th><th class="num">Paid</th><th>Payment date</th><th class="num">Balance</th><th>Status</th><th></th></tr></thead><tbody>';
@@ -1896,10 +1917,11 @@
       var k = v.id + "#" + i.key, open = vo[k];
       return '<tr><td><button type="button" class="sec-link" data-invitems="' + esc(k) + '">' + invTitle(i) + '</button></td><td class="num">' + inr2.format(i.amt) +
         '</td><td class="num">' + inr2.format(i.paid) + "</td><td>" + (i.payDates.length ? i.payDates.map(fmtDate).join(", ") : "–") + '</td><td class="num"><b>' + (i.due < -0.5 ? "−" + inr2.format(-i.due) : inr2.format(Math.max(0, i.due))) + "</b></td><td>" + invStatus(i) + '</td><td class="actions">' +
-        (i.parts.length ? '<button class="icon-btn" data-invmod="' + esc(k) + '">' + (vm[k] ? "Close" : "Modify") + "</button>" : "") +
+        (i.parts.length || i.items.length ? '<button class="icon-btn" data-invmod="' + esc(k) + '">' + (vm[k] ? "Close" : "Modify") + "</button>" : "") +
         (i.due > 0.5 ? '<button class="icon-btn" data-invpay="' + v.id + '" data-invkey="' + esc(i.key) + '" data-invdue="' + i.due.toFixed(2) + '" data-invname="' + esc(i.opening ? "opening balance" : fmtDate(i.date) + (i.no ? " bill " + i.no : "")) + '">Pay</button>' : "") + "</td></tr>" +
-        (open && i.items.length ? '<tr class="inv-items"><td colspan="7">' + i.items.map(function (g) { return esc(g.item_name) + " × " + num.format(g.qty) + " @ " + inr2.format(g.cost_price); }).join(" · ") + "</td></tr>" : "") +
-        (vm[k] && i.parts.length ? '<tr class="inv-mod"><td colspan="7"><div class="pm-h">Payments for this bill</div>' + pmRows(i.parts, "", inv.list) + "</td></tr>" : "");
+        (open && !vm[k] && i.items.length ? '<tr class="inv-items"><td colspan="7">' + i.items.map(function (g) { return esc(g.item_name) + " × " + num.format(g.qty) + " @ " + inr2.format(g.cost_price); }).join(" · ") + "</td></tr>" : "") +
+        (vm[k] ? '<tr class="inv-mod"><td colspan="7">' + (i.opening ? "" : giRows(v, i)) +
+          (i.parts.length ? '<div class="pm-h" style="margin-top:12px">Payments for this bill</div>' + pmRows(i.parts, "", inv.list) : "") + "</td></tr>" : "");
     }).join("") : '<tr><td class="empty" colspan="7">No bills this month.</td></tr>';
     h += "</tbody></table>";
     if (hidden) h += '<div class="hint" style="margin-top:6px">' + hidden + " older bill" + (hidden === 1 ? " was" : "s were") + " settled before this month and " + (hidden === 1 ? "is" : "are") + " in the earlier months.</div>";
@@ -1908,12 +1930,50 @@
       (vm[xk] ? '<div class="inv-mod-box">' + pmRows(inv.extraParts, "", inv.list) + "</div>" : "");
     return h;
   }
+  $("vend-table").addEventListener("input", function (e) {
+    var gr = e.target.closest(".gi-row"); if (!gr) return;
+    if (e.target.classList.contains("gi-name")) {
+      var vid = (gr.closest("[data-giadd]") || gr.querySelector("[data-giadd]") || { getAttribute: function () { return ""; } }).getAttribute("data-giadd");
+      vid = vid ? vid.split("|")[0] : (state.bk.goods.find(function (y) { return y.id === gr.dataset.giid; }) || {}).vendor_id;
+      var it = itemsFor(vid).find(function (x) { return x.name.toLowerCase() === e.target.value.trim().toLowerCase(); });
+      if (it && !gr.dataset.giid) { gr.querySelector(".gi-cost").value = it.cost_price; gr.querySelector(".gi-sell").value = it.sell_price; }
+    }
+    var q = toNum(gr.querySelector(".gi-qty").value), c = toNum(gr.querySelector(".gi-cost").value);
+    gr.querySelector(".gi-amt").textContent = q > 0 && c >= 0 ? inr2.format(q * c) : "";
+  });
   $("goods-sum").addEventListener("click", function () { state.bk.goodsOpen = !state.bk.goodsOpen; renderBarBook(); });
   // Vendor table buttons: opening balance, pay, open invoices
   $("vend-table").addEventListener("click", async function (e) {
     var ip = e.target.getAttribute("data-invpay");
     if (ip) { openPayVendor(ip, { key: e.target.dataset.invkey, due: Number(e.target.dataset.invdue), name: e.target.dataset.invname }); return; }
     var im = e.target.getAttribute("data-invmod"); if (im) { var vm = state.bk.invMod || (state.bk.invMod = {}); vm[im] = !vm[im]; renderBarBook(); return; }
+    var gs = e.target.getAttribute("data-gisave"), ga = e.target.getAttribute("data-giadd");
+    if (gs || ga) {
+      var gr = e.target.closest(".gi-row"), nm = gr.querySelector(".gi-name").value.trim().replace(/\s+/g, " "), q = toNum(gr.querySelector(".gi-qty").value),
+        cs = gr.querySelector(".gi-cost").value, sp = gr.querySelector(".gi-sell").value;
+      if (!nm) { toast("Enter the item name."); return; }
+      if (!(q > 0)) { toast("Enter the quantity for " + nm + "."); return; }
+      if (cs === "" || sp === "") { toast("Enter the cost and selling price for " + nm + "."); return; }
+      var vals = { item_name: nm, qty: q, cost_price: toNum(cs), sell_price: toNum(sp) }, vid2;
+      if (ga) { var pr = ga.split("|"); vid2 = pr[0]; vals.vendor_id = pr[0]; vals.goods_date = pr[1]; vals.invoice_no = pr[2] || null; }
+      else { var g0 = state.bk.goods.find(function (y) { return y.id === gs; }); vid2 = g0 && g0.vendor_id; }
+      e.target.disabled = true;
+      var ex = itemsFor(vid2).find(function (x) { return x.name.toLowerCase() === nm.toLowerCase(); });
+      var pp = await sb.from("bar_items").upsert({ vendor_id: vid2, name: ex ? ex.name : nm, cost_price: vals.cost_price, sell_price: vals.sell_price, updated_at: new Date().toISOString() }, { onConflict: "vendor_id,name" });
+      var rg = ga ? await sb.from("bar_goods").insert(vals) : await sb.from("bar_goods").update(vals).eq("id", gs);
+      e.target.disabled = false;
+      if (rg.error || pp.error) { toast("Couldn't save: " + (rg.error || pp.error).message); return; }
+      toast((ga ? "Added " : "Updated ") + nm + " · " + num.format(q) + " @ " + inr2.format(vals.cost_price)); loadMonth(); return;
+    }
+    var gd = e.target.getAttribute("data-gidel");
+    if (gd) {
+      var gx = state.bk.goods.find(function (y) { return y.id === gd; }); if (!gx) return;
+      var same = state.bk.goods.filter(function (y) { return y.vendor_id === gx.vendor_id && y.goods_date === gx.goods_date && (y.invoice_no || "") === (gx.invoice_no || ""); }).length;
+      if (!confirm("Delete " + gx.item_name + " × " + num.format(gx.qty) + " from the " + fmtDate(gx.goods_date) + " bill?" + (same === 1 ? "\n\nIt's the last item, so the bill goes too. Any payment linked to it will show as an advance until you link it to another bill." : ""))) return;
+      var rdg = await sb.from("bar_goods").delete().eq("id", gd);
+      if (rdg.error) { toast("Couldn't delete: " + rdg.error.message); return; }
+      toast("Deleted " + gx.item_name); loadMonth(); return;
+    }
     var ps = e.target.getAttribute("data-pmsave");
     if (ps) {
       var row = e.target.closest(".pm-row"), d = row.querySelector(".pm-date").value, amt = toNum(row.querySelector(".pm-amt").value);
