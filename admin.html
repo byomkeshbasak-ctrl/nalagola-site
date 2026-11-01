@@ -194,6 +194,31 @@
   .seg button { background: none; border: 0; padding: 7px 12px; cursor: pointer; font-size: 0.82rem; color: var(--muted); }
   .seg button[aria-pressed="true"] { background: var(--panel-2); color: var(--gold); }
 
+  .perf-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .perf-head h2 { flex: 1; margin: 0; }
+  .perf-chips { margin-top: 12px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  @media (max-width: 760px) { .perf-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .perf-chips div { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; }
+  .perf-chips .l { font-size: 0.72rem; color: var(--muted); }
+  .perf-chips .a { margin-top: 3px; font-size: 1.05rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .perf-chips .d { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+  .perf-grid { margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 960px) { .perf-grid { grid-template-columns: 1fr; } }
+  .perf-box { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px 12px 10px; min-width: 0; }
+  .perf-t { font-size: 0.84rem; font-weight: 600; margin-bottom: 6px; }
+  .perf-t span { font-weight: 400; font-size: 0.72rem; color: var(--muted); }
+  .perf-chart { position: relative; }
+  .perf-chart svg { width: 100%; height: auto; display: block; }
+  .perf-chart .gl { stroke: var(--line); stroke-width: 1; }
+  .perf-chart .zl { stroke: var(--line-strong); stroke-width: 1; }
+  .perf-chart .ax { fill: var(--muted); font-size: 10px; }
+  .perf-chart .hov { stroke: var(--gold); stroke-dasharray: 3 3; }
+  .perf-tip { position: absolute; top: 0; pointer-events: none; background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: 8px; padding: 7px 10px; font-size: 0.74rem; min-width: 170px; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+  .perf-tip b { display: block; color: var(--gold); margin-bottom: 3px; }
+  .perf-tip div { display: flex; justify-content: space-between; gap: 12px; font-variant-numeric: tabular-nums; }
+  .perf-key { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.72rem; color: var(--muted); }
+  .perf-key i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
+  .perf-key i.ln { height: 2px; width: 12px; vertical-align: 3px; }
   .breakdowns { margin-top: 18px; display: grid; grid-template-columns: 1fr; gap: 18px; }
   @media (max-width: 960px) { .breakdowns { grid-template-columns: 1fr; } }
   .bar-row { display: grid; grid-template-columns: 130px 1fr 110px; gap: 10px; align-items: center; font-size: 0.85rem; padding: 5px 0; }
@@ -578,7 +603,25 @@
     </section>
 
     <section class="breakdowns">
-      <div class="card"><h2>Sales by category</h2><div id="bd-cat"></div></div>
+      <div class="card perf-card">
+        <div class="perf-head">
+          <h2>Performance tracker</h2>
+          <div class="seg" id="perf-mode"><button type="button" data-mode="month" aria-pressed="true">Month on month</button><button type="button" data-mode="day" aria-pressed="false">Day by day</button></div>
+        </div>
+        <div class="perf-chips" id="perf-chips"></div>
+        <div class="perf-grid">
+          <div class="perf-box">
+            <div class="perf-t">Revenue <span>bars</span> &amp; average daily sales <span>line</span></div>
+            <div class="perf-chart" id="perf-rev"></div>
+            <div class="perf-key"><span><i style="background:var(--gold)"></i>Revenue</span><span><i class="ln" style="background:#8fa8e0"></i>Average sales a day</span></div>
+          </div>
+          <div class="perf-box">
+            <div class="perf-t" id="perf-pt">Net profit <span>stacked area</span></div>
+            <div class="perf-chart" id="perf-pro"></div>
+            <div class="perf-key"><span><i style="background:#7fcf9a"></i>Shop net profit</span><span><i style="background:#e08fb4"></i>Bar counter net profit</span><span><i class="ln" style="background:#f4ece4"></i>Total</span></div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <nav class="tabs" role="tablist">
@@ -2069,9 +2112,121 @@
     var buyDays = state.reports.filter(function (r) { return Number(r.units_in || 0) > 0; }).length;
     $("k-buy").textContent = inr.format(buy);
     $("k-buy-s").textContent = buyUnits ? num.format(buyUnits) + " bottles received on " + buyDays + " day" + (buyDays === 1 ? "" : "s") + ", at cost" : "No stock received this month";
-    renderBars("bd-cat", groupBy(state.cats, "category", "sales_value"), "No sales this month");
+    renderPerf();
     renderExpPie();
   }
+
+
+  // ---------- Performance tracker ----------
+  // Revenue is a column per period with average daily sales as a line on its own scale (the two differ ~30×).
+  // Profit is a stacked area: shop net profit (gross profit + other income − expenses) under bar counter net profit
+  // (selling − cost of goods given to the bar), so the top edge is total profit. Day view shows the month running
+  // up (cumulative), which reads better than spiky single days.
+  state.perfMode = "month";
+  function perfData() {
+    var m = {}, t = todayISO();
+    var b = function (k) { return m[k] || (m[k] = { sales: 0, days: 0, gp: 0, inc: 0, exp: 0, bar: 0 }); };
+    var key = state.perfMode === "month" ? function (d) { return d.slice(0, 7); } : function (d) { return d; };
+    var inScope = state.perfMode === "month" ? function () { return true; } : function (d) { return d.slice(0, 7) === state.month; };
+    state.allReports.forEach(function (r) { if (!inScope(r.report_date)) return; var x = b(key(r.report_date)); x.sales += Number(r.sales_value); x.gp += Number(r.gross_profit); x.days++; });
+    state.allIncome.forEach(function (r) { if (inScope(r.income_date)) b(key(r.income_date)).inc += Number(r.amount); });
+    state.allExp.forEach(function (r) { if (inScope(r.expense_date)) b(key(r.expense_date)).exp += Number(r.amount); });
+    (state.bk.goods || []).forEach(function (g) { if (inScope(g.goods_date)) b(key(g.goods_date)).bar += Number(g.qty) * (Number(g.sell_price) - Number(g.cost_price)); });
+    var keys = [];
+    if (state.perfMode === "month") {
+      for (var k = START_DATE.slice(0, 7); k <= t.slice(0, 7); ) { keys.push(k); var y = +k.slice(0, 4), mo = +k.slice(5, 7) + 1; if (mo > 12) { mo = 1; y++; } k = y + "-" + String(mo).padStart(2, "0"); }
+    } else {
+      var r = monthRange(state.month), last = r[1] < t ? r[1] : t;
+      for (var d = r[0]; d <= last; d = addDays(d, 1)) keys.push(d);
+    }
+    var cumS = 0, cumB = 0, cumSales = 0, cumDays = 0;
+    return keys.map(function (k) {
+      var x = m[k] || { sales: 0, days: 0, gp: 0, inc: 0, exp: 0, bar: 0 }, net = x.gp + x.inc - x.exp;
+      if (state.perfMode === "day") {
+        cumS += net; cumB += x.bar; cumSales += x.sales; cumDays += x.days;
+        return { k: k, sales: x.sales, avg: cumDays ? cumSales / cumDays : 0, shop: cumS, bar: cumB, dayShop: net, dayBar: x.bar, days: x.days };
+      }
+      return { k: k, sales: x.sales, avg: x.days ? x.sales / x.days : 0, shop: net, bar: x.bar, days: x.days, gp: x.gp, exp: x.exp, inc: x.inc };
+    });
+  }
+  function perfLabel(k, long) {
+    if (k.length === 7) return new Date(k + "-01T00:00:00").toLocaleDateString("en-IN", long ? { month: "long", year: "numeric" } : { month: "short", year: "2-digit" });
+    return long ? fmtDate(k) : String(+k.slice(8, 10));
+  }
+  var shortAmt = function (v) { var a = Math.abs(v), s2 = v < 0 ? "−" : ""; return s2 + (a >= 1e7 ? (a / 1e7).toFixed(1) + "Cr" : a >= 1e5 ? (a / 1e5).toFixed(a >= 1e6 ? 0 : 1) + "L" : a >= 1e3 ? Math.round(a / 1e3) + "k" : Math.round(a)); };
+  function niceTop(v) { if (v <= 0) return 1; var p = Math.pow(10, Math.floor(Math.log10(v))), f = v / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p; }
+  function perfHover(box, W, xs, html) {
+    var svg = box.querySelector("svg"), tip = box.querySelector(".perf-tip"), hov = box.querySelector(".hov"), hit = box.querySelector(".hit");
+    hit.addEventListener("mousemove", function (e) {
+      var r = svg.getBoundingClientRect(), x = (e.clientX - r.left) * W / r.width, best = 0;
+      xs.forEach(function (v, i) { if (Math.abs(v - x) < Math.abs(xs[best] - x)) best = i; });
+      hov.setAttribute("x1", xs[best]); hov.setAttribute("x2", xs[best]);
+      tip.innerHTML = html(best); tip.hidden = false;
+      var left = xs[best] / W * r.width; tip.style.left = Math.min(Math.max(0, left + 12), r.width - tip.offsetWidth) + "px";
+    });
+    hit.addEventListener("mouseleave", function () { tip.hidden = true; hov.setAttribute("x1", -10); hov.setAttribute("x2", -10); });
+  }
+  function renderPerf() {
+    if (!$("perf-rev")) return;
+    var pts = perfData(), day = state.perfMode === "day", n = pts.length;
+    var W = 560, H = 230, L = 46, R = 46, T = 10, B = 24, iw = W - L - R, ih = H - T - B;
+    var step = iw / Math.max(1, n), X = function (i) { return L + step * (i + 0.5); };
+    var lblEvery = Math.max(1, Math.ceil(n / (day ? 10 : 12)));
+    var xlabels = pts.map(function (p, i) { return i % lblEvery === 0 || n <= 12 ? '<text class="ax" x="' + X(i).toFixed(1) + '" y="' + (H - 7) + '" text-anchor="middle">' + perfLabel(p.k) + "</text>" : ""; }).join("");
+    // ----- Revenue columns + average line (right axis)
+    var topR = niceTop(Math.max.apply(null, pts.map(function (p) { return p.sales; }).concat([1]))), topA = niceTop(Math.max.apply(null, pts.map(function (p) { return p.avg; }).concat([1])));
+    var YR = function (v) { return T + ih * (1 - v / topR); }, YA = function (v) { return T + ih * (1 - v / topA); };
+    var g = "";
+    for (var i = 0; i <= 4; i++) { var y = T + ih * i / 4; g += '<line class="gl" x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '"/><text class="ax" x="' + (L - 5) + '" y="' + (y + 3) + '" text-anchor="end">' + shortAmt(topR * (1 - i / 4)) + '</text><text class="ax" x="' + (W - R + 5) + '" y="' + (y + 3) + '" fill="#8fa8e0">' + shortAmt(topA * (1 - i / 4)) + "</text>"; }
+    var bw = Math.min(46, step * 0.62);
+    var bars = pts.map(function (p, i) { var y = YR(p.sales); return p.sales ? '<rect x="' + (X(i) - bw / 2).toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + (T + ih - y).toFixed(1) + '" rx="3" fill="var(--gold)" fill-opacity="0.85"/>' : ""; }).join("");
+    var withAvg = pts.map(function (p, i) { return [i, p]; }).filter(function (x) { return x[1].avg > 0; });
+    var line = withAvg.length ? '<path d="M' + withAvg.map(function (x) { return X(x[0]).toFixed(1) + " " + YA(x[1].avg).toFixed(1); }).join(" L") + '" fill="none" stroke="#8fa8e0" stroke-width="2"/>' +
+      withAvg.map(function (x) { return '<circle cx="' + X(x[0]).toFixed(1) + '" cy="' + YA(x[1].avg).toFixed(1) + '" r="' + (n > 20 ? 1.8 : 3.2) + '" fill="#8fa8e0"/>'; }).join("") : "";
+    $("perf-rev").innerHTML = '<svg viewBox="0 0 ' + W + " " + H + '">' + g + bars + line + xlabels + '<line class="hov" y1="' + T + '" y2="' + (T + ih) + '" x1="-10" x2="-10"/><rect class="hit" x="' + L + '" y="' + T + '" width="' + iw + '" height="' + ih + '" fill="transparent"/></svg><div class="perf-tip" hidden></div>';
+    perfHover($("perf-rev"), W, pts.map(function (p, i) { return X(i); }), function (i) { var p = pts[i];
+      return "<b>" + perfLabel(p.k, true) + "</b><div><span>Revenue</span><span>" + inr.format(p.sales) + "</span></div><div><span>" + (day ? "Average a day, month to date" : "Average a day") + "</span><span>" + inr.format(p.avg) + "</span></div>" + (day ? "" : "<div><span>Days reported</span><span>" + p.days + "</span></div>"); });
+
+    // ----- Profit stacked area (can go below zero)
+    var tops = pts.map(function (p) { return p.shop + p.bar; });
+    var hi = Math.max.apply(null, pts.map(function (p) { return Math.max(p.shop, 0) + Math.max(p.bar, 0); }).concat([1])), lo = Math.min.apply(null, pts.map(function (p) { return Math.min(p.shop, 0) + Math.min(p.bar, 0); }).concat([0]));
+    var span = niceTop(hi - lo || 1), pTop = lo < 0 ? niceTop(hi) : span, pBot = lo < 0 ? -niceTop(-lo) : 0;
+    var YP = function (v) { return T + ih * (pTop - v) / (pTop - pBot); };
+    var g2 = "";
+    for (var j = 0; j <= 4; j++) { var v = pTop - (pTop - pBot) * j / 4, yy = YP(v); g2 += '<line class="' + (Math.abs(v) < 1e-9 ? "zl" : "gl") + '" x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '"/><text class="ax" x="' + (L - 5) + '" y="' + (yy + 3) + '" text-anchor="end">' + shortAmt(v) + "</text>"; }
+    if (pBot < 0) { var z = YP(0); g2 += '<line class="zl" x1="' + L + '" x2="' + (W - R) + '" y1="' + z + '" y2="' + z + '"/>'; }
+    var xs = pts.map(function (p, i) { return n === 1 ? null : X(i); });
+    var area = function (lower, upper, col) {
+      if (n === 1) { var w2 = bw; return '<rect x="' + (X(0) - w2 / 2) + '" y="' + Math.min(YP(upper[0]), YP(lower[0])) + '" width="' + w2 + '" height="' + Math.abs(YP(upper[0]) - YP(lower[0])) + '" fill="' + col + '" fill-opacity="0.6" rx="3"/>'; }
+      return '<path d="M' + pts.map(function (p, i) { return X(i).toFixed(1) + " " + YP(upper[i]).toFixed(1); }).join(" L") + " L" + pts.map(function (p, i) { return i; }).reverse().map(function (i) { return X(i).toFixed(1) + " " + YP(lower[i]).toFixed(1); }).join(" L") + 'Z" fill="' + col + '" fill-opacity="0.55" stroke="' + col + '" stroke-width="1"/>';
+    };
+    var shopTop = pts.map(function (p) { return p.shop; }), zero = pts.map(function () { return 0; });
+    var areas = area(zero, shopTop, "#7fcf9a") + area(shopTop, tops, "#e08fb4");
+    var tl = n > 1 ? '<path d="M' + pts.map(function (p, i) { return X(i).toFixed(1) + " " + YP(tops[i]).toFixed(1); }).join(" L") + '" fill="none" stroke="#f4ece4" stroke-width="1.6"/>' : '<line x1="' + (X(0) - bw / 2 - 4) + '" x2="' + (X(0) + bw / 2 + 4) + '" y1="' + YP(tops[0]) + '" y2="' + YP(tops[0]) + '" stroke="#f4ece4" stroke-width="2"/>';
+    $("perf-pt").innerHTML = (day ? "Net profit, month to date" : "Net profit") + " <span>stacked area" + (day ? ", running total" : "") + "</span>";
+    $("perf-pro").innerHTML = '<svg viewBox="0 0 ' + W + " " + H + '">' + g2 + areas + tl + xlabels + '<line class="hov" y1="' + T + '" y2="' + (T + ih) + '" x1="-10" x2="-10"/><rect class="hit" x="' + L + '" y="' + T + '" width="' + iw + '" height="' + ih + '" fill="transparent"/></svg><div class="perf-tip" hidden></div>';
+    perfHover($("perf-pro"), W, pts.map(function (p, i) { return X(i); }), function (i) { var p = pts[i];
+      return "<b>" + perfLabel(p.k, true) + "</b><div><span>Shop net profit</span><span>" + inr.format(p.shop) + "</span></div><div><span>Bar counter net profit</span><span>" + inr.format(p.bar) + "</span></div><div><span>Total</span><span>" + inr.format(p.shop + p.bar) + "</span></div>" +
+        (day ? "<div><span>This day: shop / bar</span><span>" + inr.format(p.dayShop) + " / " + inr.format(p.dayBar) + "</span></div>" : "<div><span>Gross profit − expenses</span><span>" + inr.format(p.gp) + " − " + inr.format(p.exp) + "</span></div>"); });
+
+    // ----- Summary chips: this period vs the one before
+    var cur, prev, curLbl, prevLbl;
+    if (day) {
+      var all = state.perfMode; state.perfMode = "month"; var mp = perfData(); state.perfMode = all;
+      var ix = mp.findIndex(function (p) { return p.k === state.month; }); cur = mp[ix]; prev = ix > 0 ? mp[ix - 1] : null;
+    } else { var lastIx = pts.length - 1; while (lastIx > 0 && !pts[lastIx].days) lastIx--; cur = pts[lastIx]; prev = lastIx > 0 ? pts[lastIx - 1] : null; }
+    curLbl = cur ? perfLabel(cur.k, true) : ""; prevLbl = prev ? perfLabel(prev.k, true) : "";
+    var chg = function (a, b) { if (!prev || !b) return prev ? "nothing in " + prevLbl : "first month on record"; var d = (a - b) / Math.abs(b) * 100; return '<span class="' + (d >= 0 ? "pos" : "neg") + '">' + (d >= 0 ? "▲ " : "▼ ") + Math.abs(d).toFixed(1) + "%</span> vs " + prevLbl; };
+    var chip = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + d + "</div></div>"; };
+    $("perf-chips").innerHTML = cur ? chip("Revenue · " + curLbl, inr.format(cur.sales), chg(cur.sales, prev && prev.sales)) + chip("Average sales a day", inr.format(cur.avg), chg(cur.avg, prev && prev.avg)) +
+      chip("Shop net profit", inr.format(cur.shop), chg(cur.shop, prev && prev.shop), cur.shop >= 0 ? "pos" : "neg") + chip("Bar counter net profit", inr.format(cur.bar), chg(cur.bar, prev && prev.bar), cur.bar >= 0 ? "pos" : "neg") : "";
+  }
+  $("perf-mode").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-mode]"); if (!b) return;
+    state.perfMode = b.dataset.mode;
+    this.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+    renderPerf();
+  });
 
   // ---------- Expenses pie (donut) ----------
   // Colours stay with the category across months: the 7 categories with the most spend overall get a colour each,
