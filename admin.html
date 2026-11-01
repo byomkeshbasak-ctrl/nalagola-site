@@ -446,6 +446,9 @@
   .inv-tbl td, .inv-tbl th { padding: 6px 10px; }
   .inv-tbl tr.inv-mod > td { background: var(--bg); padding: 8px 10px 10px; }
   .inv-mod-box { margin-top: 6px; padding: 8px 10px; background: var(--bg); border-radius: 8px; }
+  .vend-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 0 4px; font-size: 0.78rem; }
+  .vend-tools .muted-t { flex: 1; }
+  #vend-table tr.vend-row td { white-space: nowrap; }
   .th-sub { display: block; font-size: 0.66rem; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--muted); margin-top: 2px; }
   .adv-t { font-size: 0.68rem; font-weight: 400; color: #7fcf9a; }
   .pm-h { font-size: 0.72rem; color: var(--muted); margin-bottom: 6px; }
@@ -1735,19 +1738,20 @@
 
     // Vendor table: balance on the 1st, bills (+), payments (−), balance at month end. Click a vendor for its bills.
     var vt = { open: 0, goods: 0, paid: 0, owe: 0 }, vo = state.bk.vendOpen || (state.bk.vendOpen = {});
-    var firstOf = fmtDate(r[0]), endOf = fmtDate(r[1] < todayISO() ? r[1] : todayISO());
+    var firstOf = fmtDate(r[0]);
     var balCell = function (n, strong) { var t = n < -0.5 ? inr.format(-n) + ' <span class="adv-t">advance</span>' : inr.format(Math.max(0, n)); return strong ? "<b>" + t + "</b>" : t; };
-    $("vend-table").innerHTML = '<thead><tr><th>Vendor</th><th class="num">Opening balance<small class="th-sub">' + firstOf + '</small></th><th class="num">Bills<small class="th-sub">this month, +</small></th><th class="num">Payments<small class="th-sub">this month, −</small></th><th class="num">Balance due<small class="th-sub">' + endOf + "</small></th><th></th></tr></thead><tbody>" +
+    $("vend-table").innerHTML = '<thead><tr><th>Vendor</th><th class="num">Opening balance (' + firstOf + ')</th><th class="num">Bills (this month, +)</th><th class="num">Payments (this month, −)</th><th class="num">Balance due</th><th></th></tr></thead><tbody>' +
       (c.vend.length ? c.vend.map(function (x) {
         vt.open += x.open; vt.goods += x.goods; vt.paid += x.paid; vt.owe += x.owe;
         var inv = vendorInvoices(x.v, r[1]);
         var monthBills = inv.list.filter(function (i) { return !i.opening && i.date >= r[0]; }), unpaid = inv.list.filter(function (i) { return i.due > 0.5; }).length, open = !!vo[x.v.id];
-        var head = '<tr class="gd-day vend-row" data-vrow="' + x.v.id + '"><td><span class="vend-name">' + esc(x.v.name) + '</span><small class="vend-sub">' + monthBills.length + " bill" + (monthBills.length === 1 ? "" : "s") + " · " + x.pays + " payment" + (x.pays === 1 ? "" : "s") +
-          (unpaid ? ' · <span class="neg">' + unpaid + " unpaid</span>" : inv.list.length ? ' · <span class="pos">all paid</span>' : "") + "</small></td>" +
+        var head = '<tr class="gd-day vend-row" data-vrow="' + x.v.id + '"><td>' + esc(x.v.name) + "</td>" +
           '<td class="num">' + balCell(x.open) + '</td><td class="num">' + (x.goods ? "+ " + inr.format(x.goods) : "–") + '</td><td class="num">' + (x.paid ? "− " + inr.format(x.paid) : "–") +
-          '</td><td class="num">' + balCell(x.owe, true) + '</td><td class="actions">' + (r[0] <= START_DATE ? '<button class="icon-btn" data-vopen="' + x.v.id + '" title="What you owed on ' + fmtLong(START_DATE) + '">Opening</button>' : "") +
-          '<button class="icon-btn" data-vpay="' + x.v.id + '">Pay</button><span class="gd-tog">' + (open ? "Hide ▴" : "Bills ▾") + "</span></td></tr>";
-        return head + (open ? '<tr class="gd-detail"><td colspan="6">' + invoiceTable(x.v, inv, r) + "</td></tr>" : "");
+          '</td><td class="num">' + balCell(x.owe, true) + '</td><td class="actions"><span class="gd-tog">' + (open ? "▴" : "▾") + "</span></td></tr>";
+        var tools = '<div class="vend-tools"><span class="muted-t">' + monthBills.length + " bill" + (monthBills.length === 1 ? "" : "s") + " · " + x.pays + " payment" + (x.pays === 1 ? "" : "s") + " this month" +
+          (unpaid ? ' · <span class="neg">' + unpaid + " unpaid</span>" : "") + '</span><button class="icon-btn" data-vpay="' + x.v.id + '">Pay ' + esc(x.v.name) + "</button>" +
+          (r[0] <= START_DATE ? '<button class="icon-btn" data-vopen="' + x.v.id + '">Opening balance (' + fmtDate(START_DATE) + ")</button>" : "") + "</div>";
+        return head + (open ? '<tr class="gd-detail"><td colspan="6">' + tools + invoiceTable(x.v, inv, r) + "</td></tr>" : "");
       }).join("") : '<tr><td class="empty" colspan="6">No vendors yet.</td></tr>') +
       '</tbody><tfoot><tr><td>Total</td><td class="num">' + balCell(vt.open) + '</td><td class="num">+ ' + inr.format(vt.goods) + '</td><td class="num">− ' + inr.format(vt.paid) +
       '</td><td class="num">' + balCell(vt.owe) + "</td><td></td></tr></tfoot>";
