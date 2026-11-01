@@ -444,6 +444,13 @@
   .vend-sub { display: block; font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
   .inv-tbl { width: 100%; font-size: 0.8rem; }
   .inv-tbl td, .inv-tbl th { padding: 6px 10px; }
+  .inv-tbl tr.inv-mod > td { background: var(--bg); padding: 8px 10px 10px; }
+  .inv-mod-box { margin-top: 6px; padding: 8px 10px; background: var(--bg); border-radius: 8px; }
+  .pm-h { font-size: 0.72rem; color: var(--muted); margin-bottom: 6px; }
+  .pm-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 0; }
+  .pm-row input { padding: 5px 8px; font-size: 0.8rem; }
+  .pm-row .pm-date { width: 150px; } .pm-row .pm-amt { width: 120px; text-align: right; }
+  .pm-info { flex: 1; min-width: 140px; font-size: 0.74rem; color: var(--muted); }
   .inv-tbl tr.inv-items td { color: var(--muted); font-size: 0.74rem; padding-top: 0; border-top: 0; }
   .st-pill { display: inline-block; font-size: 0.7rem; padding: 1px 8px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
   .st-pill.paid { color: var(--green); border-color: rgba(127, 207, 154, 0.5); }
@@ -1831,43 +1838,53 @@
     // Payments marked against a bill settle it first; what's left of each payment clears the oldest bills, in payment date order.
     // Each bill remembers the dates of the payments that went into it.
     var pool = 0, chunks = [];
-    list.forEach(function (i) { i.payDates = []; });
-    var note = function (i, d) { if (i.payDates.indexOf(d) < 0) i.payDates.push(d); };
+    list.forEach(function (i) { i.payDates = []; i.parts = []; });
+    var note = function (i, p, use) { if (i.payDates.indexOf(p.expense_date) < 0) i.payDates.push(p.expense_date); i.parts.push({ p: p, use: use }); };
     pays.forEach(function (p) {
       var amt = Number(p.amount), t = p.invoice_key && list.find(function (i) { return i.key === p.invoice_key; });
-      if (t) { var use = Math.min(amt, Math.max(0, t.amt - t.paid)); if (use > 0.005) { t.paid += use; amt -= use; note(t, p.expense_date); } }
-      if (amt > 0.005) { pool += amt; chunks.push({ d: p.expense_date, a: amt }); }
+      if (t) { var use = Math.min(amt, Math.max(0, t.amt - t.paid)); if (use > 0.005) { t.paid += use; amt -= use; note(t, p, use); } }
+      if (amt > 0.005) { pool += amt; chunks.push({ p: p, a: amt }); }
     });
     var ci = 0;
     list.forEach(function (i) {
       while (ci < chunks.length && i.amt - i.paid > 0.005) {
         var c = chunks[ci], use = Math.min(c.a, i.amt - i.paid);
-        i.paid += use; c.a -= use; pool -= use; note(i, c.d);
+        i.paid += use; c.a -= use; pool -= use; note(i, c.p, use);
         if (c.a <= 0.005) ci++;
       }
       i.due = i.amt - i.paid; i.payDates.sort();
     });
-    return { list: list, pays: pays, extra: pool };
+    var extraParts = chunks.filter(function (c) { return c.a > 0.5; }).map(function (c) { return { p: c.p, use: c.a }; });
+    return { list: list, pays: pays, extra: pool, extraParts: extraParts };
   }
   function invStatus(i) { return i.due <= 0.5 ? '<span class="st-pill paid">Paid</span>' : i.paid > 0.5 ? '<span class="st-pill part">Part paid</span>' : '<span class="st-pill unpaid">Unpaid</span>'; }
   function invTitle(i) { return i.opening ? "Opening balance" : fmtDate(i.date) + (i.no ? " · Bill " + esc(i.no) : ""); }
+  // Date and amount of each payment, editable in place
+  function pmRows(parts, partNote) {
+    return parts.map(function (pt) {
+      var x = pt.p, split = Math.abs(Number(x.amount) - pt.use) > 0.5;
+      return '<div class="pm-row" data-pmid="' + x.id + '"><input type="date" class="pm-date" value="' + x.expense_date + '" aria-label="Payment date">' +
+        '<input type="number" class="pm-amt" step="0.01" min="0" inputmode="decimal" value="' + Number(x.amount) + '" aria-label="Payment amount">' +
+        '<span class="pm-info">' + esc(PAID[x.paid_from] || x.paid_from) + (split ? " · " + inr2.format(pt.use) + partNote : "") + "</span>" +
+        '<button class="icon-btn" type="button" data-pmsave="' + x.id + '">Save</button><button class="icon-btn del" type="button" data-pmdel="' + x.id + '">Delete</button></div>';
+    }).join("");
+  }
   function invoiceTable(v, inv) {
-    var vo = state.bk.invOpen || (state.bk.invOpen = {});
+    var vo = state.bk.invOpen || (state.bk.invOpen = {}), vm = state.bk.invMod || (state.bk.invMod = {});
     var h = '<div class="inv-h">Invoices</div><table class="inv-tbl"><thead><tr><th>Invoice</th><th class="num">Amount</th><th class="num">Paid</th><th>Payment date</th><th class="num">Balance</th><th>Status</th><th></th></tr></thead><tbody>';
     h += inv.list.length ? inv.list.slice().reverse().map(function (i) {
       var k = v.id + "#" + i.key, open = vo[k];
       return '<tr><td><button type="button" class="sec-link" data-invitems="' + esc(k) + '">' + invTitle(i) + '</button></td><td class="num">' + inr2.format(i.amt) +
         '</td><td class="num">' + inr2.format(i.paid) + "</td><td>" + (i.payDates.length ? i.payDates.map(fmtDate).join(", ") : "–") + '</td><td class="num"><b>' + inr2.format(Math.max(0, i.due)) + "</b></td><td>" + invStatus(i) + '</td><td class="actions">' +
+        (i.parts.length ? '<button class="icon-btn" data-invmod="' + esc(k) + '">' + (vm[k] ? "Close" : "Modify") + "</button>" : "") +
         (i.due > 0.5 ? '<button class="icon-btn" data-invpay="' + v.id + '" data-invkey="' + esc(i.key) + '" data-invdue="' + i.due.toFixed(2) + '" data-invname="' + esc(i.opening ? "opening balance" : fmtDate(i.date) + (i.no ? " bill " + i.no : "")) + '">Pay</button>' : "") + "</td></tr>" +
-        (open && i.items.length ? '<tr class="inv-items"><td colspan="7">' + i.items.map(function (g) { return esc(g.item_name) + " × " + num.format(g.qty) + " @ " + inr2.format(g.cost_price); }).join(" · ") + "</td></tr>" : "");
+        (open && i.items.length ? '<tr class="inv-items"><td colspan="7">' + i.items.map(function (g) { return esc(g.item_name) + " × " + num.format(g.qty) + " @ " + inr2.format(g.cost_price); }).join(" · ") + "</td></tr>" : "") +
+        (vm[k] && i.parts.length ? '<tr class="inv-mod"><td colspan="7"><div class="pm-h">Payments for this bill</div>' + pmRows(i.parts, " of it on this bill") + "</td></tr>" : "");
     }).join("") : '<tr><td class="empty" colspan="7">No goods received from this vendor yet.</td></tr>';
     h += "</tbody></table>";
-    h += '<div class="inv-h">Payments</div><table class="inv-tbl"><thead><tr><th>Date</th><th>Paid from</th><th>Against</th><th class="num">Amount</th></tr></thead><tbody>' +
-      (inv.pays.length ? inv.pays.slice().reverse().map(function (p) {
-        var t = p.invoice_key ? inv.list.find(function (i) { return i.key === p.invoice_key; }) : null;
-        return "<tr><td>" + fmtDate(p.expense_date) + "</td><td>" + esc(PAID[p.paid_from] || p.paid_from) + "</td><td>" + (t ? invTitle(t) : '<span class="muted-t">Oldest bills first</span>') + '</td><td class="num">' + inr2.format(p.amount) + "</td></tr>";
-      }).join("") : '<tr><td class="empty" colspan="4">No payments yet.</td></tr>') + "</tbody></table>" +
-      (inv.extra > 0.5 ? '<div class="hint" style="margin-top:6px">' + inr.format(inv.extra) + " paid in advance, not yet matched to a bill.</div>" : "");
+    var xk = v.id + "#advance";
+    if (inv.extra > 0.5) h += '<div class="hint" style="margin-top:6px">' + inr.format(inv.extra) + ' paid in advance, not yet matched to a bill. <button class="icon-btn" type="button" data-invmod="' + esc(xk) + '">' + (vm[xk] ? "Close" : "Modify") + "</button></div>" +
+      (vm[xk] ? '<div class="inv-mod-box">' + pmRows(inv.extraParts, " of it is the advance") + "</div>" : "");
     return h;
   }
   $("goods-sum").addEventListener("click", function () { state.bk.goodsOpen = !state.bk.goodsOpen; renderBarBook(); });
@@ -1875,10 +1892,30 @@
   $("vend-table").addEventListener("click", async function (e) {
     var ip = e.target.getAttribute("data-invpay");
     if (ip) { openPayVendor(ip, { key: e.target.dataset.invkey, due: Number(e.target.dataset.invdue), name: e.target.dataset.invname }); return; }
+    var im = e.target.getAttribute("data-invmod"); if (im) { var vm = state.bk.invMod || (state.bk.invMod = {}); vm[im] = !vm[im]; renderBarBook(); return; }
+    var ps = e.target.getAttribute("data-pmsave");
+    if (ps) {
+      var row = e.target.closest(".pm-row"), d = row.querySelector(".pm-date").value, amt = toNum(row.querySelector(".pm-amt").value);
+      if (!d || d < START_DATE) { toast("Pick a date from " + fmtLong(START_DATE) + " on."); return; }
+      if (!(amt > 0)) { toast("Enter an amount above zero."); return; }
+      e.target.disabled = true;
+      var ru = await sb.from("bar_expenses").update({ expense_date: d, amount: amt }).eq("id", ps);
+      e.target.disabled = false;
+      if (ru.error) { toast("Couldn't save: " + ru.error.message); return; }
+      toast("Payment updated: " + inr2.format(amt) + " on " + fmtDate(d)); loadMonth(); return;
+    }
+    var pd = e.target.getAttribute("data-pmdel");
+    if (pd) {
+      var px = state.barExp.find(function (y) { return y.id === pd; }); if (!px) return;
+      if (!confirm("Delete the payment of " + inr2.format(px.amount) + " on " + fmtDate(px.expense_date) + " to " + vendName(px.vendor_id) + "?")) return;
+      var rd = await sb.from("bar_expenses").delete().eq("id", pd);
+      if (rd.error) { toast("Couldn't delete: " + rd.error.message); return; }
+      toast("Payment deleted"); loadMonth(); return;
+    }
     var it = e.target.getAttribute("data-invitems"); if (it) { var io = state.bk.invOpen || (state.bk.invOpen = {}); io[it] = !io[it]; renderBarBook(); return; }
     var po = e.target.getAttribute("data-vpay"); if (po) { openPayVendor(po); return; }
     var vr = e.target.closest("[data-vrow]");
-    if (vr && !e.target.closest("button")) { var vo = state.bk.vendOpen || (state.bk.vendOpen = {}); vo[vr.dataset.vrow] = !vo[vr.dataset.vrow]; renderBarBook(); return; }
+    if (vr && !e.target.closest("button, input")) { var vo = state.bk.vendOpen || (state.bk.vendOpen = {}); vo[vr.dataset.vrow] = !vo[vr.dataset.vrow]; renderBarBook(); return; }
     var id = e.target.getAttribute("data-vopen"); if (!id) return;
     var v = state.bk.vendors.find(function (x) { return x.id === id; }); if (!v) return;
     var val = prompt("What you owed " + v.name + " on " + fmtLong(START_DATE) + " (₹)", v.opening_balance || 0);
