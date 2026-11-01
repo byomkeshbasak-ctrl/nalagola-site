@@ -1835,16 +1835,31 @@
     var op = Number(v.opening_balance || 0);
     if (op > 0) list.unshift({ key: "opening", date: START_DATE, no: "", opening: true, items: [], amt: op, paid: 0 });
     var pays = state.barExp.filter(function (e) { return e.vendor_id === v.id && e.expense_date <= upto; }).sort(function (a, b) { return a.expense_date < b.expense_date ? -1 : 1; });
-    // Payments marked against a bill settle it first; what's left of each payment clears the oldest bills, in payment date order.
-    // Each bill remembers the dates of the payments that went into it.
-    var pool = 0, chunks = [];
+    // Matching payments to bills:
+    // 1. A payment made with a bill's Pay link goes to that bill.
+    // 2. Otherwise a payment goes to the oldest unpaid bill (dated on or before it) with the same amount,
+    // 3. then to one within ₹25 of it (rounding or a small adjustment).
+    // 4. Whatever is still unmatched clears the oldest open balances, in payment date order; anything left is an advance.
+    // Each bill remembers the payments (and dates) that went into it.
+    var pool = 0, chunks = [], loose = [];
     list.forEach(function (i) { i.payDates = []; i.parts = []; });
     var note = function (i, p, use) { if (i.payDates.indexOf(p.expense_date) < 0) i.payDates.push(p.expense_date); i.parts.push({ p: p, use: use }); };
+    var apply = function (i, p, amt) { var use = Math.min(amt, Math.max(0, i.amt - i.paid)); if (use > 0.005) { i.paid += use; note(i, p, use); } return amt - use; };
     pays.forEach(function (p) {
       var amt = Number(p.amount), t = p.invoice_key && list.find(function (i) { return i.key === p.invoice_key; });
-      if (t) { var use = Math.min(amt, Math.max(0, t.amt - t.paid)); if (use > 0.005) { t.paid += use; amt -= use; note(t, p, use); } }
-      if (amt > 0.005) { pool += amt; chunks.push({ p: p, a: amt }); }
+      if (t) amt = apply(t, p, amt);
+      if (amt > 0.005) loose.push({ p: p, a: amt });
     });
+    [0.5, 25].forEach(function (tol) {
+      loose = loose.filter(function (c) {
+        if (c.p.invoice_key) return true;
+        var b = list.find(function (i) { return !i.opening && i.paid < 0.005 && i.date <= c.p.expense_date && Math.abs(i.amt - c.a) <= tol; });
+        if (!b) return true;
+        c.a = apply(b, c.p, c.a);
+        return c.a > 0.005;
+      });
+    });
+    loose.forEach(function (c) { pool += c.a; chunks.push(c); });
     var ci = 0;
     list.forEach(function (i) {
       while (ci < chunks.length && i.amt - i.paid > 0.005) {
