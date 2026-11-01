@@ -446,6 +446,8 @@
   .inv-tbl td, .inv-tbl th { padding: 6px 10px; }
   .inv-tbl tr.inv-mod > td { background: var(--bg); padding: 8px 10px 10px; }
   .inv-mod-box { margin-top: 6px; padding: 8px 10px; background: var(--bg); border-radius: 8px; }
+  .th-sub { display: block; font-size: 0.66rem; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--muted); margin-top: 2px; }
+  .adv-t { font-size: 0.68rem; font-weight: 400; color: #7fcf9a; }
   .pm-h { font-size: 0.72rem; color: var(--muted); margin-bottom: 6px; }
   .pm-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 0; }
   .pm-row input { padding: 5px 8px; font-size: 0.8rem; }
@@ -1657,11 +1659,18 @@
       var o = days[k], open = bal; bal = bal + o.goods - o.cash - o.onl;
       rows.push({ date: k, open: open, goods: o.goods, coll: o.cash + o.onl, cash: o.cash, onl: o.onl, close: bal });
     });
-    var vend = state.bk.vendors.map(function (v) { return { v: v, open: Number(v.opening_balance || 0), goods: 0, paid: 0 }; });
+    // Vendors, month by month: balance on the 1st (carried forward from 1 Oct) + bills this month − payments this month = balance at month end
+    var vend = state.bk.vendors.map(function (v) { return { v: v, start: Number(v.opening_balance || 0), open: Number(v.opening_balance || 0), goods: 0, paid: 0, bills: 0, pays: 0 }; });
     var vf = function (id) { return vend.find(function (x) { return x.v.id === id; }); };
-    state.bk.goods.forEach(function (g) { var x = vf(g.vendor_id); if (x && g.goods_date <= r[1]) x.goods += Number(g.qty) * Number(g.cost_price); });
+    state.bk.goods.forEach(function (g) {
+      var x = vf(g.vendor_id); if (!x || g.goods_date > r[1]) return; var a = Number(g.qty) * Number(g.cost_price);
+      if (g.goods_date < r[0]) x.open += a; else x.goods += a;
+    });
     var unassigned = 0;
-    state.barExp.forEach(function (e) { if (e.expense_date > r[1]) return; var x = vf(e.vendor_id); if (x) x.paid += Number(e.amount); else unassigned += Number(e.amount); });
+    state.barExp.forEach(function (e) {
+      if (e.expense_date > r[1]) return; var x = vf(e.vendor_id); if (!x) { unassigned += Number(e.amount); return; }
+      if (e.expense_date < r[0]) x.open -= Number(e.amount); else { x.paid += Number(e.amount); x.pays++; }
+    });
     vend.forEach(function (x) { x.owe = x.open + x.goods - x.paid; });
     return { rows: rows, repNow: bal, vend: vend, unassigned: unassigned, range: r };
   }
@@ -1724,19 +1733,24 @@
       '</tbody><tfoot><tr><td>Month</td><td class="num">' + inr.format(openM) + '</td><td class="num">+ ' + inr.format(tg) + '</td><td class="num">− ' + inr.format(tc) +
       '</td><td class="num">' + inr.format(openM + tg - tc) + "</td><td></td></tr></tfoot>";
 
-    // Vendor table: click a vendor to see its invoices and payments
+    // Vendor table: balance on the 1st, bills (+), payments (−), balance at month end. Click a vendor for its bills.
     var vt = { open: 0, goods: 0, paid: 0, owe: 0 }, vo = state.bk.vendOpen || (state.bk.vendOpen = {});
-    $("vend-table").innerHTML = '<thead><tr><th>Vendor</th><th class="num">Opening (1 Oct)</th><th class="num">Goods received (cost)</th><th class="num">Paid</th><th class="num">You owe</th><th></th></tr></thead><tbody>' +
+    var firstOf = fmtDate(r[0]), endOf = fmtDate(r[1] < todayISO() ? r[1] : todayISO());
+    var balCell = function (n, strong) { var t = n < -0.5 ? inr.format(-n) + ' <span class="adv-t">advance</span>' : inr.format(Math.max(0, n)); return strong ? "<b>" + t + "</b>" : t; };
+    $("vend-table").innerHTML = '<thead><tr><th>Vendor</th><th class="num">Opening balance<small class="th-sub">' + firstOf + '</small></th><th class="num">Bills<small class="th-sub">this month, +</small></th><th class="num">Payments<small class="th-sub">this month, −</small></th><th class="num">Balance due<small class="th-sub">' + endOf + "</small></th><th></th></tr></thead><tbody>" +
       (c.vend.length ? c.vend.map(function (x) {
         vt.open += x.open; vt.goods += x.goods; vt.paid += x.paid; vt.owe += x.owe;
-        var inv = vendorInvoices(x.v, r[1]), unpaid = inv.list.filter(function (i) { return i.due > 0.5; }).length, open = !!vo[x.v.id];
-        var head = '<tr class="gd-day vend-row" data-vrow="' + x.v.id + '"><td><span class="vend-name">' + esc(x.v.name) + "</span><small class=\"vend-sub\">" + inv.list.length + " invoice" + (inv.list.length === 1 ? "" : "s") +
-          (unpaid ? ' · <span class="neg">' + unpaid + " unpaid</span>" : inv.list.length ? ' · <span class="pos">all paid</span>' : "") + '</small></td><td class="num">' + inr.format(x.open) + '</td><td class="num">' + inr.format(x.goods) + '</td><td class="num">' + inr.format(x.paid) +
-          '</td><td class="num"><b>' + inr.format(x.owe) + '</b></td><td class="actions"><button class="icon-btn" data-vopen="' + x.v.id + '">Opening</button><button class="icon-btn" data-vpay="' + x.v.id + '">Pay</button><span class="gd-tog">' + (open ? "Hide ▴" : "Invoices ▾") + "</span></td></tr>";
-        return head + (open ? '<tr class="gd-detail"><td colspan="6">' + invoiceTable(x.v, inv) + "</td></tr>" : "");
+        var inv = vendorInvoices(x.v, r[1]);
+        var monthBills = inv.list.filter(function (i) { return !i.opening && i.date >= r[0]; }), unpaid = inv.list.filter(function (i) { return i.due > 0.5; }).length, open = !!vo[x.v.id];
+        var head = '<tr class="gd-day vend-row" data-vrow="' + x.v.id + '"><td><span class="vend-name">' + esc(x.v.name) + '</span><small class="vend-sub">' + monthBills.length + " bill" + (monthBills.length === 1 ? "" : "s") + " · " + x.pays + " payment" + (x.pays === 1 ? "" : "s") +
+          (unpaid ? ' · <span class="neg">' + unpaid + " unpaid</span>" : inv.list.length ? ' · <span class="pos">all paid</span>' : "") + "</small></td>" +
+          '<td class="num">' + balCell(x.open) + '</td><td class="num">' + (x.goods ? "+ " + inr.format(x.goods) : "–") + '</td><td class="num">' + (x.paid ? "− " + inr.format(x.paid) : "–") +
+          '</td><td class="num">' + balCell(x.owe, true) + '</td><td class="actions">' + (r[0] <= START_DATE ? '<button class="icon-btn" data-vopen="' + x.v.id + '" title="What you owed on ' + fmtLong(START_DATE) + '">Opening</button>' : "") +
+          '<button class="icon-btn" data-vpay="' + x.v.id + '">Pay</button><span class="gd-tog">' + (open ? "Hide ▴" : "Bills ▾") + "</span></td></tr>";
+        return head + (open ? '<tr class="gd-detail"><td colspan="6">' + invoiceTable(x.v, inv, r) + "</td></tr>" : "");
       }).join("") : '<tr><td class="empty" colspan="6">No vendors yet.</td></tr>') +
-      '</tbody><tfoot><tr><td>Total</td><td class="num">' + inr.format(vt.open) + '</td><td class="num">' + inr.format(vt.goods) + '</td><td class="num">' + inr.format(vt.paid) +
-      '</td><td class="num">' + inr.format(vt.owe) + "</td><td></td></tr></tfoot>";
+      '</tbody><tfoot><tr><td>Total</td><td class="num">' + balCell(vt.open) + '</td><td class="num">+ ' + inr.format(vt.goods) + '</td><td class="num">− ' + inr.format(vt.paid) +
+      '</td><td class="num">' + balCell(vt.owe) + "</td><td></td></tr></tfoot>";
 
     // Goods received this month: one row per day, click to see the items
     var gDays = {}; mg.forEach(function (g) { gDays[g.goods_date] = 1; });
@@ -1884,10 +1898,14 @@
         '<button class="icon-btn" type="button" data-pmsave="' + x.id + '">Save</button><button class="icon-btn del" type="button" data-pmdel="' + x.id + '">Delete</button></div>';
     }).join("");
   }
-  function invoiceTable(v, inv) {
+  function invoiceTable(v, inv, r) {
     var vo = state.bk.invOpen || (state.bk.invOpen = {}), vm = state.bk.invMod || (state.bk.invMod = {});
-    var h = '<div class="inv-h">Invoices</div><table class="inv-tbl"><thead><tr><th>Invoice</th><th class="num">Amount</th><th class="num">Paid</th><th>Payment date</th><th class="num">Balance</th><th>Status</th><th></th></tr></thead><tbody>';
-    h += inv.list.length ? inv.list.slice().reverse().map(function (i) {
+    var h = '<div class="inv-h">Bills this month, and older bills still due or paid this month</div><table class="inv-tbl"><thead><tr><th>Invoice</th><th class="num">Amount</th><th class="num">Paid</th><th>Payment date</th><th class="num">Balance</th><th>Status</th><th></th></tr></thead><tbody>';
+    var shownBills = inv.list.filter(function (i) {
+      return !r || (!i.opening && i.date >= r[0]) || i.due > 0.5 || i.parts.some(function (pt) { return pt.p.expense_date >= r[0]; });
+    });
+    var hidden = inv.list.length - shownBills.length;
+    h += shownBills.length ? shownBills.slice().reverse().map(function (i) {
       var k = v.id + "#" + i.key, open = vo[k];
       return '<tr><td><button type="button" class="sec-link" data-invitems="' + esc(k) + '">' + invTitle(i) + '</button></td><td class="num">' + inr2.format(i.amt) +
         '</td><td class="num">' + inr2.format(i.paid) + "</td><td>" + (i.payDates.length ? i.payDates.map(fmtDate).join(", ") : "–") + '</td><td class="num"><b>' + inr2.format(Math.max(0, i.due)) + "</b></td><td>" + invStatus(i) + '</td><td class="actions">' +
@@ -1895,8 +1913,9 @@
         (i.due > 0.5 ? '<button class="icon-btn" data-invpay="' + v.id + '" data-invkey="' + esc(i.key) + '" data-invdue="' + i.due.toFixed(2) + '" data-invname="' + esc(i.opening ? "opening balance" : fmtDate(i.date) + (i.no ? " bill " + i.no : "")) + '">Pay</button>' : "") + "</td></tr>" +
         (open && i.items.length ? '<tr class="inv-items"><td colspan="7">' + i.items.map(function (g) { return esc(g.item_name) + " × " + num.format(g.qty) + " @ " + inr2.format(g.cost_price); }).join(" · ") + "</td></tr>" : "") +
         (vm[k] && i.parts.length ? '<tr class="inv-mod"><td colspan="7"><div class="pm-h">Payments for this bill</div>' + pmRows(i.parts, " of it on this bill") + "</td></tr>" : "");
-    }).join("") : '<tr><td class="empty" colspan="7">No goods received from this vendor yet.</td></tr>';
+    }).join("") : '<tr><td class="empty" colspan="7">No bills this month.</td></tr>';
     h += "</tbody></table>";
+    if (hidden) h += '<div class="hint" style="margin-top:6px">' + hidden + " older bill" + (hidden === 1 ? " was" : "s were") + " settled before this month and " + (hidden === 1 ? "is" : "are") + " in the earlier months.</div>";
     var xk = v.id + "#advance";
     if (inv.extra > 0.5) h += '<div class="hint" style="margin-top:6px">' + inr.format(inv.extra) + ' paid in advance, not yet matched to a bill. <button class="icon-btn" type="button" data-invmod="' + esc(xk) + '">' + (vm[xk] ? "Close" : "Modify") + "</button></div>" +
       (vm[xk] ? '<div class="inv-mod-box">' + pmRows(inv.extraParts, " of it is the advance") + "</div>" : "");
