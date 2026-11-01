@@ -95,6 +95,11 @@
   .wrap { max-width: 1200px; margin: 0 auto; padding: 20px 16px 48px; }
 
   .kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+  .kpis-main { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .kpis-main .kpi-wide { grid-column: span 2; }
+  .kpis-main .kpi-wide .v { font-size: 1.9rem; }
+  .sum-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .sum-head h2 { flex: 1; margin: 0; font-size: 1rem; font-weight: 600; color: var(--gold); }
   .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
   .kpi .k { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
   .kpi .v { margin-top: 6px; font-size: 1.55rem; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -104,7 +109,7 @@
   .neg { color: var(--red); }
   .warn-t { color: var(--amber); }
   @media (max-width: 1100px) { .kpis .kpi .v { font-size: 1.3rem; } }
-  @media (max-width: 860px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .kpis .kpi:last-child { grid-column: 1 / -1; } }
+  @media (max-width: 860px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .kpis .kpi:last-child { grid-column: 1 / -1; } .kpis-main .kpi-wide { grid-column: 1 / -1; } }
   .capital { margin-top: 12px; border-color: var(--line-strong); }
   .cap-head { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
   .cap-head .k { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
@@ -531,12 +536,18 @@
   <main class="wrap">
     <section class="checks" id="checks" hidden aria-live="polite"></section>
 
-    <section class="kpis" aria-label="Month summary">
+    <div class="sum-head">
+      <h2 id="sum-title">October 2026</h2>
+      <div class="seg" id="sum-view"><button type="button" data-view="month" aria-pressed="true">This month</button><button type="button" data-view="all" aria-pressed="false">Overall total</button></div>
+    </div>
+    <section class="kpis kpis-main" aria-label="Summary">
       <div class="kpi"><div class="k">Sales (at MRP)</div><div class="v" id="k-sales">–</div><div class="s" id="k-sales-s"></div></div>
       <div class="kpi"><div class="k">Gross profit</div><div class="v" id="k-gp">–</div><div class="s" id="k-gp-s"></div></div>
       <div class="kpi"><div class="k">Expenses</div><div class="v" id="k-exp">–</div><div class="s" id="k-exp-s"></div></div>
-      <div class="kpi profit"><div class="k">Net profit</div><div class="v" id="k-net">–</div><div class="s"><span id="k-net-s">Gross profit − expenses</span></div></div>
       <div class="kpi"><div class="k">Purchases</div><div class="v" id="k-buy">–</div><div class="s" id="k-buy-s">Stock received at cost</div></div>
+      <div class="kpi"><div class="k">Shop net profit</div><div class="v" id="k-net">–</div><div class="s"><span id="k-net-s">Gross profit − expenses</span></div></div>
+      <div class="kpi"><div class="k">Bar counter profit</div><div class="v" id="k-bar">–</div><div class="s" id="k-bar-s"></div></div>
+      <div class="kpi profit kpi-wide"><div class="k">Total profit</div><div class="v" id="k-tot">–</div><div class="s" id="k-tot-s">Shop net profit + bar counter profit</div></div>
     </section>
 
     <section class="card capital" aria-label="Business capital">
@@ -1161,7 +1172,7 @@
       Promise.resolve({ data: [], error: null }),
       sb.from("daily_ledger").select("*").gte("ledger_date", START_DATE).lte("ledger_date", r[1]).order("ledger_date"),
       fetchAll(function () { return sb.from("customer_dues").select("*").order("entry_date", { ascending: false }).order("created_at", { ascending: false }); }),
-      fetchAll(function () { return sb.from("daily_report_summary").select("report_date,units_sold,sales_value,cost_value,gross_profit,closing_value_cost,missing_costs,stock_in_cost").order("report_date"); }),
+      fetchAll(function () { return sb.from("daily_report_summary").select("report_date,units_sold,sales_value,cost_value,gross_profit,closing_value_cost,missing_costs,stock_in_cost,units_in").order("report_date"); }),
       fetchAll(function () { return sb.from("expenses").select("id,expense_date,amount,category,description,paid_from").order("expense_date"); }),
       fetchAll(function () { return sb.from("daily_ledger").select("ledger_date,bar_collection,cash_collection,online_received,online_to,online_cc,online_bank").order("ledger_date"); }),
       sb.from("daily_report_summary").select("report_date,closing_value_cost").lte("report_date", r[1]).order("report_date", { ascending: false }).limit(1),
@@ -2091,31 +2102,54 @@
   $("ob-form").addEventListener("submit", function (e) { e.preventDefault(); saveOpening(false); });
   $("ob-freeze").addEventListener("click", function () { saveOpening(true); });
 
+  // Summary cards: this month, or everything since the accounts started (toggle)
+  state.sumView = "month";
   function renderSummary() {
-    var sales = sum(state.reports, "sales_value"), gp = sum(state.reports, "gross_profit"), cost = sum(state.reports, "cost_value");
-    var inc = sum(state.ledger.income);
-    var exp = sum(state.ledger.expenses), net = gp + inc - exp, units = sum(state.reports, "units_sold");
-    var missing = sum(state.reports, "missing_costs");
+    var all = state.sumView === "all", r = monthRange(state.month);
+    var within = function (d) { return all ? d >= START_DATE : d >= r[0] && d <= r[1]; };
+    var reps = all ? state.allReports.filter(function (x) { return within(x.report_date); }) : state.reports;
+    var exps = all ? state.allExp.filter(function (x) { return within(x.expense_date); }) : state.ledger.expenses;
+    var incs = all ? state.allIncome.filter(function (x) { return within(x.income_date); }) : state.ledger.income;
+    var goods = (state.bk.goods || []).filter(function (g) { return within(g.goods_date); });
+    var sales = sum(reps, "sales_value"), gp = sum(reps, "gross_profit"), cost = sum(reps, "cost_value");
+    var inc = sum(incs), exp = sum(exps), net = gp + inc - exp, units = sum(reps, "units_sold"), missing = sum(reps, "missing_costs");
+    var months = {}; reps.forEach(function (x) { months[x.report_date.slice(0, 7)] = 1; }); var nm = Object.keys(months).length;
+    var first = reps.length ? reps.reduce(function (m, x) { return x.report_date < m ? x.report_date : m; }, reps[0].report_date) : START_DATE;
+    $("sum-title").textContent = all ? "Overall total · since " + fmtDate(START_DATE) : new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
     $("k-sales").textContent = inr.format(sales);
-    var nd = state.reports.length;
-    $("k-sales-s").textContent = nd ? nd + " day" + (nd > 1 ? "s" : "") + " · " + num.format(units) + " bottles · avg " + inr.format(sales / nd) + "/day" : "No reports uploaded yet";
+    var nd = reps.length;
+    $("k-sales-s").textContent = nd ? nd + " day" + (nd > 1 ? "s" : "") + (all && nm > 1 ? " over " + nm + " months" : "") + " · " + num.format(units) + " bottles · avg " + inr.format(sales / nd) + "/day" : "No reports uploaded yet";
     $("k-gp").textContent = inr.format(gp);
     $("k-gp-s").innerHTML = "Margin " + pct(gp, sales) + " · cost " + inr.format(cost) +
       (missing ? '<br><span class="warn-t">' + missing + " item line" + (missing > 1 ? "s" : "") + " without a cost price</span>" : "");
     $("k-exp").textContent = inr.format(exp);
-    $("k-exp-s").textContent = state.ledger.expenses.length + " entr" + (state.ledger.expenses.length === 1 ? "y" : "ies");
+    $("k-exp-s").textContent = exps.length + " entr" + (exps.length === 1 ? "y" : "ies") + (all && nm > 1 ? " · avg " + inr.format(exp / nm) + "/month" : "");
     $("k-net").textContent = inr.format(net);
     $("k-net-s").textContent = inc ? "Gross profit + " + inr.format(inc) + " other income − expenses" : "Gross profit − expenses";
     $("k-net").className = "v " + (net >= 0 ? "pos" : "neg");
-    // Purchases: what the stock received this month cost (Stock In × cost price, from the daily Excel)
-    var buy = sum(state.reports, "stock_in_cost"), buyUnits = sum(state.reports, "units_in");
-    var buyDays = state.reports.filter(function (r) { return Number(r.units_in || 0) > 0; }).length;
+    // Bar counter: selling value of goods given to the bar rep minus what they cost from the vendors
+    var bSell = goods.reduce(function (a, g) { return a + g.qty * g.sell_price; }, 0), bCost = goods.reduce(function (a, g) { return a + g.qty * g.cost_price; }, 0), bar = bSell - bCost;
+    $("k-bar").textContent = inr.format(bar); $("k-bar").className = "v " + (bar >= 0 ? "pos" : "neg");
+    $("k-bar-s").textContent = goods.length ? "Selling " + inr.format(bSell) + " − cost " + inr.format(bCost) + " · margin " + pct(bar, bSell) : "No bar goods entered";
+    var tot = net + bar;
+    $("k-tot").textContent = inr.format(tot); $("k-tot").className = "v " + (tot >= 0 ? "pos" : "neg");
+    $("k-tot-s").textContent = "Shop " + inr.format(net) + " + bar counter " + inr.format(bar) + (sales + bSell ? " · " + pct(tot, sales + bSell) + " of all sales" : "") + (all && nm > 1 ? " · avg " + inr.format(tot / nm) + "/month" : "");
+    // Purchases: what the stock received cost (Stock In × cost price, from the daily Excel)
+    var buy = sum(reps, "stock_in_cost"), buyUnits = sum(reps, "units_in");
+    var buyDays = reps.filter(function (x) { return Number(x.units_in || 0) > 0; }).length;
     $("k-buy").textContent = inr.format(buy);
-    $("k-buy-s").textContent = buyUnits ? num.format(buyUnits) + " bottles received on " + buyDays + " day" + (buyDays === 1 ? "" : "s") + ", at cost" : "No stock received this month";
+    $("k-buy-s").textContent = buyUnits ? num.format(buyUnits) + " bottles received on " + buyDays + " day" + (buyDays === 1 ? "" : "s") + ", at cost" : buy ? "At cost" : "No stock received " + (all ? "yet" : "this month");
     renderPerf();
     renderExpPie();
   }
 
+
+  $("sum-view").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-view]"); if (!b) return;
+    state.sumView = b.dataset.view;
+    this.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+    renderSummary();
+  });
 
   // ---------- Performance tracker ----------
   // Revenue is a column per period with average daily sales as a line on its own scale (the two differ ~30×).
