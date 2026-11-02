@@ -3788,13 +3788,17 @@
     { name: "Seagrams", brands: ["RS", "BP", "BP RESERVE", "IB", "IB DUAL CASK"] },
     { name: "Tuborg", brands: ["TUBORG CLASSIC", "TUBORG GREEN", "TUBORG STRONG", "CARLSBERG ELEPHANT", "CARLSBERG PREMIUM"] },
     { name: "Kingfisher", brands: ["KINGFISHER DELUXE", "KINGFISHER IMPERIAL", "KINGFISHER STORM", "KINGFISHER STRONG", "KINGFISHER ULTRA"] },
-    { name: "Captain", brands: ["CAPTAIN", "BAZIGAR"] }
+    { name: "Captain", brands: ["CAPTAIN", "BAZIGAR"] },
+    { name: "Haywards", brands: ["BUDWEISER MAGNUM", "BUDWEISER PREM", "HAYWARDS 5000", "HAYWARDS BOLD"] },
+    { name: "Snoski", brands: ["SNOSKI", "SNOSKI APPLE", "SNOSKI JAMUN"] }
   ];
   var BRAND_LABEL = { "MCD NO1 LUXURY": "No1 Luxury", "MCD NO1": "No1", "SIGNATURE PREMIER": "Signature Premier", "RC": "Royal Challenge (RC)", "MCD XXX": "MCD XXX Rum", "MCD PREMIUM": "MCD Premium Vodka",
     "RS": "Royal Stag (RS)", "BP": "Blenders Pride (BP)", "BP RESERVE": "BP Reserve", "IB": "Imperial Blue (IB)", "IB DUAL CASK": "IB Dual Cask",
     "TUBORG CLASSIC": "Tuborg Classic", "TUBORG GREEN": "Tuborg Green", "TUBORG STRONG": "Tuborg Strong", "CARLSBERG ELEPHANT": "Carlsberg Elephant", "CARLSBERG PREMIUM": "Carlsberg Premium",
     "KINGFISHER DELUXE": "Kingfisher Deluxe", "KINGFISHER IMPERIAL": "Kingfisher Imperial", "KINGFISHER STORM": "Kingfisher Storm", "KINGFISHER STRONG": "Kingfisher Strong", "KINGFISHER ULTRA": "Kingfisher Ultra",
-    "CAPTAIN": "Captain", "BAZIGAR": "Bazigar" };
+    "CAPTAIN": "Captain", "BAZIGAR": "Bazigar",
+    "BUDWEISER MAGNUM": "Budweiser Magnum", "BUDWEISER PREM": "Budweiser Premium", "HAYWARDS 5000": "Haywards 5000", "HAYWARDS BOLD": "Haywards Bold",
+    "SNOSKI": "Snoski", "SNOSKI APPLE": "Snoski Apple", "SNOSKI JAMUN": "Snoski Jamun" };
   var brandOf = function (name) { return cleanName(name).replace(/\s+[A-Z]+\s*\d+$/, ""); };
   var companyOf = function (name) {
     var b = brandOf(name);
