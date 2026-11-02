@@ -78,6 +78,24 @@
   .neg { color: var(--red); }
   .empty { text-align: center; color: var(--muted); padding: 22px 10px; font-size: 0.9rem; }
   .sec { margin-top: 22px; }
+  .hint-line { margin-top: 10px; font-size: 0.76rem; color: var(--muted); }
+  .hint-line:empty { display: none; }
+  .book { margin-top: 16px; }
+  .book .stmt-head { flex-wrap: wrap; }
+  .book .sub { font-size: 0.76rem; color: var(--muted); }
+  .book tr.mrow { cursor: pointer; }
+  .book tr.mrow:hover td { background: rgba(217, 178, 111, 0.05); }
+  .book tr.mrow.open td { color: var(--gold); }
+  .book .caret { display: inline-block; width: 14px; color: var(--muted); }
+  .book tr.txns > td { padding: 0 0 10px 18px; background: var(--bg); }
+  .book tr.txns table { font-size: 0.8rem; }
+  .book tr.txns th { font-size: 0.64rem; }
+  .book td.kind { color: var(--muted); font-size: 0.72rem; white-space: nowrap; }
+  .pv-table td { vertical-align: middle; }
+  .pv-table input[type="text"] { padding: 5px 8px; font-size: 0.8rem; border-radius: 8px; min-width: 130px; }
+  .pv-table input[type="checkbox"] { width: auto; }
+  .pv-table tr.off td { opacity: 0.45; }
+  .tag { display: inline-block; font-size: 0.66rem; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); margin-left: 6px; white-space: nowrap; }
   .sec h2 { font-size: 0.95rem; font-weight: 600; margin-bottom: 10px; }
 
   .center { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
@@ -267,11 +285,13 @@
         <button type="button" class="tab" data-tab="mf">Mutual funds</button>
         <button type="button" class="tab" data-tab="business">Business</button>
         <button type="button" class="tab" data-tab="bank">Bank</button>
+        <button type="button" class="tab" data-tab="cards">Credit cards</button>
         <button type="button" class="tab" data-tab="epf">PF / EPF</button>
         <button type="button" class="tab" data-tab="gold">Gold</button>
         <button type="button" class="tab" data-tab="loans">Loans &amp; advances</button>
         <button type="button" class="tab" data-tab="insurance">Insurance</button>
         <button type="button" class="tab" data-tab="trading">Trading balance</button>
+        <button type="button" class="tab" data-tab="income">Income</button>
         <button type="button" class="tab" data-tab="expenses">Expenses</button>
       </div>
     </nav>
@@ -472,12 +492,87 @@
         <div class="actions"><button class="primary" type="submit">Save balances</button><button class="ghost" type="button" id="ob-cancel">Cancel</button></div>
       </form>
 
-      <div class="stmt" id="stmt" hidden></div>
+      <div class="hint-line" id="ob-note"></div>
     </section>
-    <section class="sec card" aria-label="Transfers">
-      <h2>Transfers with the shop</h2>
-      <div class="table-wrap"><table id="tr-table"></table></div>
+    <div id="books"></div>
     </section>
+
+    <section class="pane" id="pane-cards" hidden>
+      <section class="card" aria-label="Credit cards">
+        <div class="head">
+          <div>
+            <div class="k">Credit card dues</div>
+            <div class="v" id="cc-total">–</div>
+            <div class="s" id="cc-total-s">Counted as a liability in net worth</div>
+          </div>
+          <div class="spacer"></div>
+          <button class="ghost" id="cc-up-open" type="button">Upload statement</button>
+          <button class="ghost" id="cc-pay-open" type="button">Pay card bill</button>
+          <button class="ghost" id="cc-add-open" type="button">Add card</button>
+        </div>
+        <div class="tiles" id="cc-tiles"></div>
+
+        <form class="form" id="cc-add-form" hidden>
+          <h3 id="cc-add-title">Add card</h3>
+          <label>Card name <input type="text" id="cc-name" placeholder="e.g. HDFC Regalia" autocomplete="off" required></label>
+          <label>Last 4 digits <input type="text" id="cc-last4" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" autocomplete="off"></label>
+          <label>Amount due as of <input type="date" id="cc-odate" required></label>
+          <label>Amount due (₹) <input type="number" id="cc-odue" step="0.01" min="0" inputmode="decimal" value="0" required></label>
+          <div class="hint">Enter what you owed on this card on that date. Spends and bill payments after it are added on top.</div>
+          <div class="actions"><button class="primary" type="submit" id="cc-add-save">Save card</button><button class="ghost" type="button" id="cc-add-cancel">Cancel</button></div>
+        </form>
+
+        <form class="form" id="cc-pay-form" hidden>
+          <h3 id="cc-pay-title">Pay card bill</h3>
+          <label>Date <input type="date" id="cp-date" required></label>
+          <label>Card <select id="cp-card"></select></label>
+          <label>Paid from <select id="cp-from"></select></label>
+          <label>Amount (₹) <input type="number" id="cp-amt" step="0.01" min="0" inputmode="decimal" required></label>
+          <label>Note (optional) <input type="text" id="cp-note" autocomplete="off"></label>
+          <div class="hint">A bill payment comes off the bank account and clears the card due. It isn't an expense, because the spends are already counted.</div>
+          <div class="actions"><button class="primary" type="submit" id="cp-save">Save payment</button><button class="ghost" type="button" id="cp-cancel">Cancel</button></div>
+        </form>
+
+        <form class="form" id="cc-up-form" hidden>
+          <h3>Upload a card statement</h3>
+          <label>Card <select id="cu-card"></select></label>
+          <label style="grid-column: span 2">Statement PDF <input type="file" id="cu-file" accept="application/pdf,.pdf" required></label>
+          <label>PDF password (if any) <input type="password" id="cu-pass" autocomplete="off"></label>
+          <div class="hint">The PDF is read in your browser and isn't uploaded anywhere. Most bank statements are locked with a password, usually your name and date of birth in a set pattern. You check every line before anything is saved, and lines already imported are skipped.</div>
+          <div class="actions"><button class="primary" type="submit" id="cu-read">Read statement</button><button class="ghost" type="button" id="cu-cancel">Cancel</button></div>
+        </form>
+        <div class="stmt" id="cu-preview" hidden></div>
+      </section>
+      <div id="cc-books"></div>
+    </section>
+
+    <section class="pane" id="pane-income" hidden>
+      <section class="card">
+        <div class="head">
+          <div>
+            <div class="k" id="in-title">Income</div>
+            <div class="v" id="in-total">–</div>
+            <div class="s" id="in-total-s"></div>
+          </div>
+          <div class="spacer"></div>
+          <label class="month-pick">Month <input type="month" id="in-month"></label>
+          <button class="ghost" id="in-add" type="button">Add income</button>
+        </div>
+        <form class="form" id="in-form" hidden>
+          <h3 id="in-form-title">Add income</h3>
+          <label>Date <input type="date" id="in-date" required></label>
+          <label>Category <input type="text" id="in-cat" list="in-cats" autocomplete="off" required></label>
+          <label>Amount (₹) <input type="number" id="in-amt" step="0.01" min="0" inputmode="decimal" required></label>
+          <label>Received into <select id="in-to"></select></label>
+          <label style="grid-column: span 2">Description <input type="text" id="in-note" autocomplete="off"></label>
+          <div class="hint">Income received into a bank account adds to that account's balance in the Bank tab.</div>
+          <div class="actions"><button class="primary" type="submit" id="in-save">Save</button><button class="ghost" type="button" id="in-cancel">Cancel</button></div>
+        </form>
+        <datalist id="in-cats"></datalist>
+        <div class="mf-kpis" id="in-kpis"></div>
+        <div id="in-pie" style="margin-top:14px"></div>
+        <div class="table-wrap" style="margin-top:14px"><table id="in-table"></table></div>
+      </section>
     </section>
 
     <section class="pane" id="pane-epf" hidden>
@@ -589,13 +684,13 @@
           <label>Category <input type="text" id="ex-cat" list="ex-cats" autocomplete="off" required></label>
           <label>Amount (₹) <input type="number" id="ex-amt" step="0.01" min="0" inputmode="decimal" required></label>
           <label>Paid from <select id="ex-from"></select></label>
-          <label style="grid-column: span 2">Note (optional) <input type="text" id="ex-note" autocomplete="off"></label>
-          <div class="hint">Expenses paid from a bank account come off that account's balance in the Bank tab. Cash and card spends are only recorded here.</div>
+          <label style="grid-column: span 2">Description <input type="text" id="ex-note" autocomplete="off"></label>
+          <div class="hint">Expenses paid from a bank account come off that account's balance in the Bank tab. Card spends add to that card's due in the Credit cards tab.</div>
           <div class="actions"><button class="primary" type="submit" id="ex-save">Save</button><button class="ghost" type="button" id="ex-cancel">Cancel</button></div>
         </form>
         <datalist id="ex-cats"></datalist>
         <div class="mf-kpis" id="ex-kpis"></div>
-        <div id="ex-cats-bars" style="margin-top:14px"></div>
+        <div id="ex-pie" style="margin-top:14px"></div>
         <div class="table-wrap" style="margin-top:14px"><table id="ex-table"></table></div>
       </section>
     </section>
@@ -626,7 +721,7 @@
 
   // Shop accounts a personal account can send money to (or take it back from)
   var SHOP = { bank: "Shop bank account", cash_credit: "Shop SBI cash credit", cash_hand: "Shop cash (not deposited)" };
-  var state = { accounts: [], transfers: [], stmt: null, editing: null };
+  var state = { accounts: [], transfers: [], income: [], cards: [], cardPays: [], monthOpen: {}, editing: null, missing: false };
   var isPersonal = function (k) { return /^p_/.test(k || ""); };
   function acctName(k) {
     if (SHOP[k]) return SHOP[k];
@@ -646,10 +741,16 @@
   async function load() {
     var q = await Promise.all([
       sb.from("personal_accounts").select("*").order("sort"),
-      sb.from("account_transfers").select("*").order("transfer_date").order("created_at")
+      sb.from("account_transfers").select("*").order("transfer_date").order("created_at"),
+      sb.from("personal_income").select("*").order("inc_date").order("created_at"),
+      sb.from("credit_cards").select("*").order("sort").order("created_at"),
+      sb.from("card_payments").select("*").order("pay_date").order("created_at")
     ]);
     if (q[0].error || q[1].error) toast("Some data couldn't load. Try reloading the page.");
+    state.missing = !!(q[2].error || q[3].error || q[4].error);
+    if (state.missing) toast("Income and credit cards need nw_bank_cards.sql run once in Supabase.");
     state.accounts = q[0].data || [];
+    state.income = q[2].data || []; state.cards = q[3].data || []; state.cardPays = q[4].data || [];
     state.transfers = (q[1].data || []).filter(function (t) { return isPersonal(t.from_account) || isPersonal(t.to_account); });
     fillSelects();
     render();
@@ -657,67 +758,108 @@
     renderNetWorth();
   }
 
-  // Balance = opening balance + transfers in − transfers out, from the opening date
+  // ---------- Month-by-month books ----------
+  // Every account follows: opening balance + income − expenses ± transfers = closing balance.
+  // Each movement has a group (g) that decides which column of the month summary it lands in.
+  function cardName(k) { var c = state.cards.find(function (x) { return x.code === k; }); return c ? c.name + (c.last4 ? " ••" + c.last4 : "") : k; }
   function movements(code) {
     var a = state.accounts.find(function (x) { return x.code === code; }); if (!a) return [];
-    var m = [{ date: a.opening_date, desc: "Opening balance", amt: Number(a.opening_balance), opening: true }];
+    var from = a.opening_date, m = [];
     state.transfers.forEach(function (t) {
-      if (t.transfer_date < a.opening_date) return;
+      if (t.transfer_date < from) return;
       var amt = Number(t.amount), note = t.note ? " · " + t.note : "";
-      if (t.from_account === code) m.push({ date: t.transfer_date, desc: "To " + acctName(t.to_account) + note, amt: -amt, id: t.id });
-      if (t.to_account === code) m.push({ date: t.transfer_date, desc: "From " + acctName(t.from_account) + note, amt: amt, id: t.id });
+      if (t.from_account === code) m.push({ date: t.transfer_date, g: "tr", kind: "Transfer", desc: "To " + acctName(t.to_account) + note, amt: -amt, ref: "tr:" + t.id });
+      if (t.to_account === code) m.push({ date: t.transfer_date, g: "tr", kind: "Transfer", desc: "From " + acctName(t.from_account) + note, amt: amt, ref: "tr:" + t.id });
+    });
+    state.cardPays.forEach(function (p) {
+      if (p.paid_from !== code || p.pay_date < from) return;
+      m.push({ date: p.pay_date, g: "tr", kind: "Card bill", desc: "Paid " + cardName(p.card_code) + (p.note ? " · " + p.note : ""), amt: -Number(p.amount), ref: "cp:" + p.id });
+    });
+    state.income.forEach(function (x) {
+      if (x.received_into !== code || x.inc_date < from) return;
+      m.push({ date: x.inc_date, g: "inc", kind: "Income", desc: x.category + (x.note ? " · " + x.note : ""), amt: Number(x.amount), ref: "in:" + x.id });
     });
     ((typeof ex !== "undefined" && ex.list) || []).forEach(function (x) {
-      if (x.paid_from !== code || x.exp_date < a.opening_date) return;
-      m.push({ date: x.exp_date, desc: "Expense · " + x.category + (x.note ? " · " + x.note : ""), amt: -Number(x.amount) });
+      if (x.paid_from !== code || x.exp_date < from) return;
+      m.push({ date: x.exp_date, g: "exp", kind: "Expense", desc: x.category + (x.note ? " · " + x.note : ""), amt: -Number(x.amount), ref: "ex:" + x.id });
     });
-    var head = m.shift(); m.sort(function (x, y) { return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; }); m.unshift(head);
+    m.sort(function (x, y) { return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; });
     return m;
   }
-  function balance(code) { return movements(code).reduce(function (s, x) { return s + x.amt; }, 0); }
+  function balance(code) {
+    var a = state.accounts.find(function (x) { return x.code === code; }); if (!a) return 0;
+    return movements(code).reduce(function (s, x) { return s + x.amt; }, Number(a.opening_balance));
+  }
+  function nextMonth(k) { var y = +k.slice(0, 4), mo = +k.slice(5, 7) + 1; if (mo > 12) { mo = 1; y++; } return y + "-" + String(mo).padStart(2, "0"); }
+  function mName(k) { var p = k.split("-"); return new Date(+p[0], +p[1] - 1, 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" }); }
+  // Split movements into months from the opening date up to this month
+  function byMonth(opening, openDate, moves) {
+    var out = [], last = todayISO().slice(0, 7), run = opening;
+    moves.forEach(function (x) { if (x.date.slice(0, 7) > last) last = x.date.slice(0, 7); });
+    for (var k = openDate.slice(0, 7); k <= last; k = nextMonth(k)) {
+      var rows = moves.filter(function (x) { return x.date.slice(0, 7) === k; }), sums = {};
+      rows.forEach(function (x) { sums[x.g] = (sums[x.g] || 0) + x.amt; });
+      var open = run; run += rows.reduce(function (s, x) { return s + x.amt; }, 0);
+      out.push({ k: k, open: open, close: run, sums: sums, rows: rows });
+    }
+    return out.reverse(); // latest month first
+  }
+  // cfg: { id, title, sub, opening, openDate, moves, cols:[{g,l,signed,neg}], inL, outL, balL }
+  function bookHtml(cfg) {
+    var months = byMonth(cfg.opening, cfg.openDate, cfg.moves);
+    var ncol = cfg.cols.length + 3;
+    var cell = function (c, v) {
+      v = v || 0;
+      if (c.signed) return '<td class="num ' + (v > 0.004 ? "pos" : v < -0.004 ? "neg" : "") + '">' + (v > 0.004 ? "+" : v < -0.004 ? "−" : "") + inr2.format(Math.abs(v)) + "</td>";
+      return '<td class="num">' + inr2.format(Math.abs(v)) + "</td>";
+    };
+    var body = months.map(function (mo) {
+      var key = cfg.id + "|" + mo.k, open = !!state.monthOpen[key];
+      var h = '<tr class="mrow' + (open ? " open" : "") + '" data-mkey="' + esc(key) + '"><td><span class="caret">' + (open ? "▾" : "▸") + "</span>" + mName(mo.k) + "</td>" +
+        '<td class="num">' + inr2.format(mo.open) + "</td>" + cfg.cols.map(function (c) { return cell(c, mo.sums[c.g]); }).join("") +
+        '<td class="num"><b>' + inr2.format(mo.close) + "</b></td></tr>";
+      if (open) {
+        var run = mo.open;
+        var tx = mo.rows.map(function (x) {
+          run += x.amt;
+          var id = x.ref.slice(3), t = x.ref.slice(0, 2);
+          return "<tr><td>" + fmtDate(x.date) + '</td><td class="kind">' + esc(x.kind) + "</td><td>" + esc(x.desc) + '</td><td class="num pos">' + (x.amt > 0 ? inr2.format(x.amt) : "") +
+            '</td><td class="num neg">' + (x.amt < 0 ? inr2.format(-x.amt) : "") + '</td><td class="num">' + inr2.format(run) + '</td><td class="actions-c">' +
+            '<button class="icon-btn" type="button" data-medit="' + t + ":" + id + '">Edit</button><button class="icon-btn del" type="button" data-mdel="' + t + ":" + id + '">Delete</button></td></tr>';
+        }).reverse().join("");
+        h += '<tr class="txns"><td colspan="' + ncol + '"><div class="table-wrap"><table><thead><tr><th>Date</th><th>Type</th><th>Details</th><th class="num">' + cfg.inL + '</th><th class="num">' + cfg.outL +
+          '</th><th class="num">' + cfg.balL + "</th><th></th></tr></thead><tbody>" +
+          (tx || '<tr><td colspan="7" class="empty">Nothing recorded this month.</td></tr>') +
+          '<tr class="bf"><td>' + fmtDate(mo.k + "-01" < cfg.openDate ? cfg.openDate : mo.k + "-01") + '</td><td></td><td>' + (mo.k === cfg.openDate.slice(0, 7) ? "Opening balance" : "Brought forward") +
+          '</td><td></td><td></td><td class="num">' + inr2.format(mo.open) + "</td><td></td></tr></tbody></table></div></td></tr>";
+      }
+      return h;
+    }).join("");
+    return '<section class="card book" id="book-' + esc(cfg.id) + '"><div class="stmt-head"><h3>' + esc(cfg.title) + '</h3><span class="sub">' + cfg.sub + "</span></div>" +
+      '<div class="table-wrap"><table><thead><tr><th>Month</th><th class="num">Opening</th>' + cfg.cols.map(function (c) { return '<th class="num">' + c.l + "</th>"; }).join("") +
+      '<th class="num">Closing</th></tr></thead><tbody>' + body + "</tbody></table></div></section>";
+  }
 
   function render() {
     var total = 0;
     $("tiles").innerHTML = state.accounts.map(function (a) {
       var b = balance(a.code); total += b;
-      return '<button type="button" class="tile' + (state.stmt === a.code ? " on" : "") + '" data-acct="' + esc(a.code) + '" title="See the statement">' +
+      return '<button type="button" class="tile" data-acct="' + esc(a.code) + '" title="Go to the month-by-month statement">' +
         '<div class="l">' + esc(a.name) + '</div><div class="a' + (b < 0 ? " neg" : "") + '">' + inr.format(b) + "</div>" +
-        '<div class="d">Opening ' + inr.format(a.opening_balance) + " on " + fmtDate(a.opening_date) + "</div></button>";
+        '<div class="d">Opening ' + inr.format(a.opening_balance) + " on " + fmtDate(a.opening_date) + (a.opening_locked ? " · frozen" : "") + "</div></button>";
     }).join("") || '<div class="empty">No accounts yet.</div>';
     $("total").textContent = inr.format(total);
     $("total-s").textContent = state.accounts.map(function (a) { return a.name; }).join(" + ") + ", as of " + fmtDate(todayISO());
-    renderStatement();
-    renderTransfers();
+    var unlocked = state.accounts.filter(function (a) { return !a.opening_locked; });
+    $("ob-note").textContent = unlocked.length ? "Opening balances aren't frozen yet for " + unlocked.map(function (a) { return a.name; }).join(", ") + ". Enter the balance as on 01 Nov 2026 under Opening balances." : "";
+    $("books").innerHTML = state.accounts.map(function (a) {
+      return bookHtml({ id: a.code, title: a.name, sub: "Opening + income − expenses ± transfers = closing. Click a month to see its entries.",
+        opening: Number(a.opening_balance), openDate: a.opening_date, moves: movements(a.code),
+        cols: [{ g: "inc", l: "Income" }, { g: "exp", l: "Expenses" }, { g: "tr", l: "Transfers", signed: true }], inL: "Money in", outL: "Money out", balL: "Balance" });
+    }).join("");
+    if (typeof renderCards === "function") renderCards();
+    if (typeof renderIncome === "function") renderIncome();
     if (typeof renderNetWorth === "function") renderNetWorth();
-  }
-
-  function renderStatement() {
-    var el = $("stmt"), code = state.stmt;
-    if (!code) { el.hidden = true; return; }
-    var a = state.accounts.find(function (x) { return x.code === code; });
-    var m = movements(code), run = 0, inn = 0, out = 0;
-    var rows = m.map(function (x) {
-      run += x.amt; if (!x.opening) { if (x.amt > 0) inn += x.amt; else out -= x.amt; }
-      return "<tr" + (x.opening ? ' class="bf"' : "") + "><td>" + fmtDate(x.date) + "</td><td>" + esc(x.desc) + '</td><td class="num pos">' + (x.amt > 0 && !x.opening ? inr2.format(x.amt) : "") +
-        '</td><td class="num neg">' + (x.amt < 0 ? inr2.format(-x.amt) : "") + '</td><td class="num">' + inr2.format(run) + '</td><td class="actions-c">' +
-        (x.id ? '<button class="icon-btn" data-edit="' + x.id + '">Edit</button><button class="icon-btn del" data-del="' + x.id + '">Delete</button>' : "") + "</td></tr>";
-    }).reverse().join(""); // latest first, opening balance at the bottom
-    el.innerHTML = '<div class="stmt-head"><h3>' + esc(a.name) + ' statement</h3><div class="spacer"></div><button class="ghost" type="button" id="stmt-close">Close</button></div>' +
-      '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Details</th><th class="num">Money in</th><th class="num">Money out</th><th class="num">Balance</th><th></th></tr></thead><tbody>' + rows +
-      '</tbody><tfoot><tr><td></td><td>Total</td><td class="num pos">' + inr2.format(inn) + '</td><td class="num neg">' + inr2.format(out) + '</td><td class="num">' + inr2.format(run) + "</td><td></td></tr></tfoot></table></div>";
-    el.hidden = false;
-    $("stmt-close").onclick = function () { state.stmt = null; render(); };
-  }
-
-  function renderTransfers() {
-    var list = state.transfers.slice().sort(function (x, y) { return x.transfer_date < y.transfer_date ? 1 : x.transfer_date > y.transfer_date ? -1 : 0; });
-    $("tr-table").innerHTML = list.length
-      ? "<thead><tr><th>Date</th><th>From</th><th>To</th><th>Note</th><th class=\"num\">Amount</th><th></th></tr></thead><tbody>" +
-        list.map(function (t) {
-          return "<tr><td>" + fmtDate(t.transfer_date) + "</td><td>" + esc(acctName(t.from_account)) + "</td><td>" + esc(acctName(t.to_account)) + "</td><td>" + esc(t.note || "") +
-            '</td><td class="num">' + inr2.format(t.amount) + '</td><td class="actions-c"><button class="icon-btn" data-edit="' + t.id + '">Edit</button><button class="icon-btn del" data-del="' + t.id + '">Delete</button></td></tr>';
-        }).join("") + "</tbody>"
-      : '<tbody><tr><td class="empty">No transfers yet. Use Transfer money to record one.</td></tr></tbody>';
   }
 
   // ---------- Transfers ----------
@@ -736,7 +878,7 @@
     $("tr-title").textContent = t ? "Edit transfer" : "Transfer money";
     $("tr-save").textContent = t ? "Save changes" : "Save transfer";
     $("tr-date").value = t ? t.transfer_date : todayISO();
-    $("tr-from").value = t ? t.from_account : (state.stmt || (state.accounts[0] && state.accounts[0].code) || "");
+    $("tr-from").value = t ? t.from_account : ((state.accounts[0] && state.accounts[0].code) || "");
     $("tr-to").value = t ? t.to_account : "bank";
     $("tr-amount").value = t ? t.amount : ""; $("tr-note").value = t ? t.note || "" : "";
     $("tr-form").scrollIntoView({ behavior: "smooth", block: "center" });
@@ -768,36 +910,49 @@
   }
   document.addEventListener("click", function (e) {
     var tile = e.target.closest("[data-acct]");
-    if (tile) { state.stmt = state.stmt === tile.dataset.acct ? null : tile.dataset.acct; render(); if (state.stmt) $("stmt").scrollIntoView({ behavior: "smooth", block: "nearest" }); return; }
-    var ed = e.target.getAttribute("data-edit");
-    if (ed) { var t = state.transfers.find(function (x) { return x.id === ed; }); if (t) openTransfer(t); return; }
-    var dl = e.target.getAttribute("data-del");
-    if (dl) del(dl);
+    if (tile) { var b = $("book-" + tile.dataset.acct); if (b) b.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+    var mr = e.target.closest("tr.mrow[data-mkey]");
+    if (mr) { var k = mr.dataset.mkey; state.monthOpen[k] = !state.monthOpen[k]; render(); return; }
+    var ed = e.target.getAttribute("data-medit"), dl = e.target.getAttribute("data-mdel");
+    var ref = ed || dl; if (!ref) return;
+    var t = ref.slice(0, 2), id = ref.slice(3);
+    if (t === "tr") { if (dl) del(id); else { var tr = state.transfers.find(function (x) { return x.id === id; }); if (tr) openTransfer(tr); } }
+    else if (t === "cp") { if (dl) delPay(id); else { showTab("cards", true); openPay(state.cardPays.find(function (x) { return x.id === id; })); } }
+    else if (t === "in") { if (dl) delIncome(id); else { showTab("income", true); openInForm(state.income.find(function (x) { return x.id === id; })); } }
+    else if (t === "ex") { if (dl) delExpense(id); else { showTab("expenses", true); openExForm(ex.list.find(function (x) { return x.id === id; })); } }
   });
 
-  // ---------- Opening balances ----------
+  // ---------- Opening balances (frozen once saved) ----------
+  var OPEN_FROM = "2026-11-01";
   $("ob-open").addEventListener("click", function () {
     var f = $("ob-form"); $("tr-form").hidden = true; f.hidden = !f.hidden; if (f.hidden) return;
+    var open = state.accounts.filter(function (a) { return !a.opening_locked; });
     $("ob-fields").innerHTML = state.accounts.map(function (a) {
-      return '<label>' + esc(a.name) + ' (₹)<input type="number" step="0.01" inputmode="decimal" data-ob="' + esc(a.code) + '" value="' + esc(a.opening_balance) + '" required></label>' +
-        '<label>' + esc(a.name) + ' as of<input type="date" data-obd="' + esc(a.code) + '" value="' + esc(a.opening_date) + '" required></label>';
-    }).join("");
+      if (a.opening_locked) return '<label>' + esc(a.name) + '<input type="text" value="' + esc(inr2.format(a.opening_balance) + " on " + fmtDate(a.opening_date) + " · frozen") + '" disabled></label>';
+      return '<label>' + esc(a.name) + ' (₹)<input type="number" step="0.01" inputmode="decimal" data-ob="' + esc(a.code) + '" required></label>' +
+        '<label>' + esc(a.name) + ' as of<input type="date" data-obd="' + esc(a.code) + '" value="' + OPEN_FROM + '" required></label>';
+    }).join("") + '<div class="hint">' + (open.length ? "Once you save, these balances are frozen and can't be changed. Everything from this date onwards is counted on top of them." : "All opening balances are frozen.") + "</div>";
+    e_obSave().hidden = !open.length;
   });
+  function e_obSave() { return $("ob-form").querySelector(".primary"); }
   $("ob-cancel").addEventListener("click", function () { $("ob-form").hidden = true; });
   $("ob-form").addEventListener("submit", async function (e) {
     e.preventDefault();
-    var btn = e.target.querySelector(".primary"); btn.disabled = true;
-    var jobs = state.accounts.map(function (a) {
-      var v = toNum(document.querySelector('[data-ob="' + a.code + '"]').value), d = document.querySelector('[data-obd="' + a.code + '"]').value;
-      if (v === Number(a.opening_balance) && d === a.opening_date) return null;
-      return sb.from("personal_accounts").update({ opening_balance: v, opening_date: d, updated_at: new Date().toISOString() }).eq("code", a.code);
-    }).filter(Boolean);
-    var res = await Promise.all(jobs);
+    var open = state.accounts.filter(function (a) { return !a.opening_locked; });
+    if (!open.length) return;
+    var vals = open.map(function (a) {
+      return { a: a, v: toNum(document.querySelector('[data-ob="' + a.code + '"]').value), d: document.querySelector('[data-obd="' + a.code + '"]').value };
+    });
+    if (!confirm("Freeze these opening balances?\n\n" + vals.map(function (x) { return x.a.name + ": " + inr2.format(x.v) + " on " + fmtDate(x.d); }).join("\n") + "\n\nYou won't be able to change them afterwards.")) return;
+    var btn = e_obSave(); btn.disabled = true;
+    var res = await Promise.all(vals.map(function (x) {
+      return sb.from("personal_accounts").update({ opening_balance: x.v, opening_date: x.d, opening_locked: true, updated_at: new Date().toISOString() }).eq("code", x.a.code);
+    }));
     btn.disabled = false;
     var err = res.find(function (r) { return r.error; });
     if (err) { toast("Couldn't save: " + err.error.message); return; }
     $("ob-form").hidden = true;
-    toast(jobs.length ? "Opening balances saved" : "Nothing changed");
+    toast("Opening balances saved and frozen");
     await load();
   });
 
@@ -1245,13 +1400,13 @@
     if (!$("nw-total") || !oth.loaded) return;
     var v = compValues(), assets = 0;
     COMP.forEach(function (c) { if (c.k === "loans") assets += v.given; else assets += Math.max(0, v[c.k]); });
-    var liab = v.taken + COMP.reduce(function (x, c) { return x + (c.k !== "loans" && v[c.k] < 0 ? -v[c.k] : 0); }, 0);
+    var liab = v.taken + cardDueTotal() + COMP.reduce(function (x, c) { return x + (c.k !== "loans" && v[c.k] < 0 ? -v[c.k] : 0); }, 0);
     var nw = assets - liab;
     $("nw-total").textContent = inr.format(nw);
     $("nw-s").textContent = "Everything you own minus what you owe, as of " + fmtDate(todayISO());
     var sd = st.day || 0;
     $("nw-split").innerHTML = '<div><div class="l">Assets</div><div class="a">' + inr.format(assets) + '</div><div class="d">' + COMP.filter(function (c) { return (c.k === "loans" ? v.given : v[c.k]) > 0; }).length + " components</div></div>" +
-      '<div><div class="l">Liabilities</div><div class="a ' + (liab ? "neg" : "") + '">' + inr.format(liab) + '</div><div class="d">Loans you owe</div></div>' +
+      '<div><div class="l">Liabilities</div><div class="a ' + (liab ? "neg" : "") + '">' + inr.format(liab) + '</div><div class="d">Loans you owe and card dues</div></div>' +
       '<div><div class="l">Market move today</div><div class="a ' + (sd >= 0 ? "pos" : "neg") + '">' + (sd >= 0 ? "+" : "") + inr.format(sd) + '</div><div class="d">Shares, at the last close</div></div>';
     // Allocation of assets
     var parts = COMP.map(function (c) { return { c: c, a: c.k === "loans" ? v.given : Math.max(0, v[c.k]) }; }).filter(function (x) { return x.a > 0; }).sort(function (x, y) { return y.a - x.a; });
@@ -1278,7 +1433,7 @@
     renderDashExpenses(); renderDashPremiums();
     // Net worth by category (assets); loans owed shown underneath
     donut("nw-pie", parts.map(function (x) { return { l: x.c.l, v: x.a, c: x.c.c }; }), [inr.format(nw).replace("₹", "₹ "), "net worth"]);
-    $("nw-pie-note").textContent = liab ? "Assets " + inr.format(assets) + " less loans owed " + inr.format(liab) + " = net worth " + inr.format(nw) + "." : "No loans owed, so net worth equals total assets.";
+    $("nw-pie-note").textContent = liab ? "Assets " + inr.format(assets) + " less loans owed and card dues " + inr.format(liab) + " = net worth " + inr.format(nw) + "." : "No loans owed, so net worth equals total assets.";
     if (mf.count !== undefined && st.count !== undefined) saveSnapshot(v, nw);
     renderGrowth();
   }
@@ -1362,7 +1517,7 @@
   segToggle("gr-range", function (m) { hist.range = m; renderGrowth(); });
 
   // ---------- Tabs ----------
-  var TABS = ["dash", "stocks", "mf", "business", "bank", "epf", "gold", "loans", "insurance", "trading", "expenses"];
+  var TABS = ["dash", "stocks", "mf", "business", "bank", "cards", "epf", "gold", "loans", "insurance", "trading", "income", "expenses"];
   function showTab(t, push) {
     if (TABS.indexOf(t) < 0) t = "dash";
     TABS.forEach(function (x) { $("pane-" + x).hidden = x !== t; });
@@ -1643,7 +1798,7 @@
   }
 
   // ---------- Expenses ----------
-  var EX_CATS = ["Groceries", "Rent", "Electricity", "Mobile & internet", "Fuel", "Transport", "Eating out", "Medical", "Education", "Household help", "Shopping", "Travel", "EMI", "Insurance premium", "Gifts", "Other"];
+  var EX_CATS = ["Groceries", "Rent", "Electricity", "Mobile & internet", "Fuel", "Transport", "Eating out", "Medical", "Education", "Household help", "Shopping", "Travel", "EMI", "Insurance premium", "Gifts", "Subscriptions", "Other"];
   $("ex-month").value = ex.month;
   $("ex-month").addEventListener("change", function () { if (this.value) { ex.month = this.value; renderExpenses(); } });
   function exMonthTotal(m) { return ex.list.filter(function (x) { return x.exp_date.slice(0, 7) === m; }).reduce(function (a, x) { return a + Number(x.amount); }, 0); }
@@ -1662,10 +1817,13 @@
     var max = rows[0][1] || 1;
     return rows.map(function (r) { return '<div class="bar-row"><span>' + esc(r[0]) + '</span><div class="bar"><span style="width:' + Math.max(2, 100 * r[1] / max).toFixed(1) + '%"></span></div><span class="amt">' + inr.format(r[1]) + "</span></div>"; }).join("");
   }
-  function payName(k) { return k === "cash" ? "Cash" : k === "card" ? "Credit card" : k === "upi_other" ? "UPI / other" : acctName(k); }
+  function payName(k) { return k === "cash" ? "Cash" : k === "card" ? "Credit card" : k === "upi_other" ? "UPI / other" : /^cc_/.test(k) ? cardName(k) : acctName(k); }
   function fillExFrom() {
-    $("ex-from").innerHTML = state.accounts.map(function (a) { return '<option value="' + esc(a.code) + '">' + esc(a.name) + "</option>"; }).join("") +
-      '<option value="cash">Cash</option><option value="card">Credit card</option><option value="upi_other">UPI / other</option>';
+    var cur = $("ex-from").value;
+    $("ex-from").innerHTML = '<optgroup label="Bank accounts">' + state.accounts.map(function (a) { return '<option value="' + esc(a.code) + '">' + esc(a.name) + "</option>"; }).join("") + "</optgroup>" +
+      (state.cards.length ? '<optgroup label="Credit cards">' + state.cards.map(function (c) { return '<option value="' + esc(c.code) + '">' + esc(cardName(c.code)) + "</option>"; }).join("") + "</optgroup>" : "") +
+      '<optgroup label="Other"><option value="cash">Cash</option><option value="upi_other">UPI / other</option>' + (ex.list.some(function (x) { return x.paid_from === "card"; }) ? '<option value="card">Credit card (old entries)</option>' : "") + "</optgroup>";
+    if (cur) $("ex-from").value = cur;
     var cats = EX_CATS.slice(); ex.list.forEach(function (x) { if (cats.indexOf(x.category) < 0) cats.push(x.category); });
     $("ex-cats").innerHTML = cats.map(function (c) { return '<option value="' + esc(c) + '">'; }).join("");
   }
@@ -1678,12 +1836,14 @@
     $("ex-total-s").textContent = list.length + " entries · not part of net worth";
     var k = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + (d || "") + "</div></div>"; };
     var fromBank = list.filter(function (x) { return /^p_/.test(x.paid_from); }).reduce(function (a, x) { return a + Number(x.amount); }, 0);
+    var onCards = list.filter(function (x) { return /^cc_/.test(x.paid_from) || x.paid_from === "card"; }).reduce(function (a, x) { return a + Number(x.amount); }, 0);
     $("ex-kpis").innerHTML = k("This month", inr.format(tot), list.length + " entries") +
       k("Last month", inr.format(prev), prev ? (tot >= prev ? "up " : "down ") + inr.format(Math.abs(tot - prev)) : "", "") +
       k("Per day", inr.format(days ? tot / days : 0), "average over " + days + " days") + k("Biggest category", cats.length ? esc(cats[0][0]) : "–", cats.length ? inr.format(cats[0][1]) : "") +
-      k("Paid from bank", inr.format(fromBank), "The rest by cash, card or UPI");
-    $("ex-cats-bars").innerHTML = barsHtml(cats, "No expenses for this month yet.");
-    $("ex-table").innerHTML = list.length ? '<thead><tr><th>Date</th><th>Category</th><th>Note</th><th>Paid from</th><th class="num">Amount</th><th></th></tr></thead><tbody>' + list.map(function (x) {
+      k("Paid from bank", inr.format(fromBank), "") + k("On credit cards", inr.format(onCards), "Cash and UPI make up the rest");
+    if (cats.length) donut("ex-pie", cats.filter(function (c) { return c[1] > 0; }).map(function (c) { return { l: c[0], v: c[1] }; }), [inr.format(tot).replace("₹", "₹ "), cats.length + (cats.length > 1 ? " categories" : " category")]);
+    else $("ex-pie").innerHTML = '<div class="empty">No expenses for this month yet.</div>';
+    $("ex-table").innerHTML = list.length ? '<thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Paid from</th><th class="num">Amount</th><th></th></tr></thead><tbody>' + list.map(function (x) {
       return "<tr><td>" + fmtDate(x.exp_date) + "</td><td>" + esc(x.category) + "</td><td>" + esc(x.note || "") + "</td><td>" + esc(payName(x.paid_from)) + '</td><td class="num">' + inr2.format(x.amount) +
         '</td><td class="actions-c"><button class="icon-btn" type="button" data-exedit="' + x.id + '">Edit</button><button class="icon-btn del" type="button" data-exdel="' + x.id + '">Delete</button></td></tr>';
     }).join("") + '</tbody><tfoot><tr><td>Total</td><td></td><td></td><td></td><td class="num">' + inr2.format(tot) + "</td><td></td></tr></tfoot>" : "";
@@ -1706,12 +1866,14 @@
   $("ex-cancel").addEventListener("click", function () { $("ex-form").hidden = true; ex.editing = null; });
   $("ex-table").addEventListener("click", async function (e) {
     var ed = e.target.getAttribute("data-exedit"); if (ed) { openExForm(ex.list.find(function (x) { return x.id === ed; })); return; }
-    var dl = e.target.getAttribute("data-exdel"); if (!dl) return;
+    var dl = e.target.getAttribute("data-exdel"); if (dl) delExpense(dl);
+  });
+  async function delExpense(dl) {
     var x = ex.list.find(function (y) { return y.id === dl; }); if (!x || !confirm("Delete " + x.category + " " + inr.format(x.amount) + " on " + fmtDate(x.exp_date) + "?")) return;
     var r = await sb.from("household_expenses").delete().eq("id", dl);
     if (r.error) { toast("Couldn't delete: " + r.error.message); return; }
     ex.list = ex.list.filter(function (y) { return y.id !== dl; }); toast("Deleted"); renderExpenses(); render();
-  });
+  }
   $("ex-form").addEventListener("submit", async function (e) {
     e.preventDefault();
     var row = { exp_date: $("ex-date").value, category: $("ex-cat").value.trim().replace(/\s+/g, " "), amount: toNum($("ex-amt").value), paid_from: $("ex-from").value, note: $("ex-note").value.trim() || null };
@@ -1726,6 +1888,343 @@
     $("ex-form").hidden = true; toast(ex.editing ? "Expense updated" : inr.format(row.amount) + " for " + row.category + " saved"); ex.editing = null;
     ex.month = row.exp_date.slice(0, 7); $("ex-month").value = ex.month;
     renderExpenses(); render();
+  });
+
+  // ---------- Income ----------
+  var IN_CATS = ["Salary", "Bonus", "Interest", "Dividend", "Rent received", "Shop drawings", "Refund", "Gift received", "Sale of an asset", "Other"];
+  var inc = { month: todayISO().slice(0, 7), editing: null };
+  $("in-month").value = inc.month;
+  $("in-month").addEventListener("change", function () { if (this.value) { inc.month = this.value; renderIncome(); } });
+  function inMonth(m) { return state.income.filter(function (x) { return x.inc_date.slice(0, 7) === m; }); }
+  function sumAmt(l) { return l.reduce(function (a, x) { return a + Number(x.amount); }, 0); }
+  function fillInTo() {
+    var cur = $("in-to").value;
+    $("in-to").innerHTML = '<optgroup label="Bank accounts">' + state.accounts.map(function (a) { return '<option value="' + esc(a.code) + '">' + esc(a.name) + "</option>"; }).join("") +
+      '</optgroup><optgroup label="Other"><option value="cash">Cash</option></optgroup>';
+    if (cur) $("in-to").value = cur;
+    var cats = IN_CATS.slice(); state.income.forEach(function (x) { if (cats.indexOf(x.category) < 0) cats.push(x.category); });
+    $("in-cats").innerHTML = cats.map(function (c) { return '<option value="' + esc(c) + '">'; }).join("");
+  }
+  function renderIncome() {
+    if (!$("in-table")) return;
+    var m = inc.month, list = inMonth(m).slice().reverse(), tot = sumAmt(list), prev = sumAmt(inMonth(prevMonth(m)));
+    var c = {}; list.forEach(function (x) { c[x.category] = (c[x.category] || 0) + Number(x.amount); });
+    var cats = Object.keys(c).map(function (k) { return [k, c[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
+    var intoBank = sumAmt(list.filter(function (x) { return /^p_/.test(x.received_into); }));
+    $("in-title").textContent = "Income · " + monthName(m);
+    $("in-total").textContent = inr.format(tot);
+    $("in-total-s").textContent = list.length + (list.length === 1 ? " entry" : " entries");
+    var k = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + (d || "") + "</div></div>"; };
+    $("in-kpis").innerHTML = k("This month", inr.format(tot), list.length + " entries") +
+      k("Last month", inr.format(prev), prev ? (tot >= prev ? "up " : "down ") + inr.format(Math.abs(tot - prev)) : "") +
+      k("Into bank", inr.format(intoBank), "The rest as cash") + k("Biggest category", cats.length ? esc(cats[0][0]) : "–", cats.length ? inr.format(cats[0][1]) : "");
+    if (cats.length) donut("in-pie", cats.map(function (x) { return { l: x[0], v: x[1] }; }), [inr.format(tot).replace("₹", "₹ "), cats.length + (cats.length > 1 ? " categories" : " category")]);
+    else $("in-pie").innerHTML = '<div class="empty">No income recorded for this month yet.</div>';
+    $("in-table").innerHTML = list.length ? '<thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Received into</th><th class="num">Amount</th><th></th></tr></thead><tbody>' + list.map(function (x) {
+      return "<tr><td>" + fmtDate(x.inc_date) + "</td><td>" + esc(x.category) + "</td><td>" + esc(x.note || "") + "</td><td>" + esc(x.received_into === "cash" ? "Cash" : acctName(x.received_into)) +
+        '</td><td class="num">' + inr2.format(x.amount) + '</td><td class="actions-c"><button class="icon-btn" type="button" data-inedit="' + x.id + '">Edit</button><button class="icon-btn del" type="button" data-indel="' + x.id + '">Delete</button></td></tr>';
+    }).join("") + '</tbody><tfoot><tr><td>Total</td><td></td><td></td><td></td><td class="num">' + inr2.format(tot) + "</td><td></td></tr></tfoot>" : "";
+    fillInTo();
+  }
+  function openInForm(x) {
+    if (!x && state.missing) { toast("Run nw_bank_cards.sql in Supabase first."); return; }
+    inc.editing = x ? x.id : null; fillInTo(); $("in-form").hidden = false;
+    $("in-form-title").textContent = x ? "Edit income" : "Add income";
+    $("in-date").value = x ? x.inc_date : (inc.month === todayISO().slice(0, 7) ? todayISO() : inc.month + "-01");
+    $("in-cat").value = x ? x.category : ""; $("in-amt").value = x ? x.amount : ""; $("in-note").value = x ? x.note || "" : "";
+    $("in-to").value = x ? x.received_into : (state.accounts[0] ? state.accounts[0].code : "cash");
+    $("in-form").scrollIntoView({ behavior: "smooth", block: "center" }); $(x ? "in-amt" : "in-cat").focus();
+  }
+  async function delIncome(id) {
+    var x = state.income.find(function (y) { return y.id === id; }); if (!x || !confirm("Delete " + x.category + " " + inr.format(x.amount) + " on " + fmtDate(x.inc_date) + "?")) return;
+    var r = await sb.from("personal_income").delete().eq("id", id);
+    if (r.error) { toast("Couldn't delete: " + r.error.message); return; }
+    state.income = state.income.filter(function (y) { return y.id !== id; }); toast("Deleted"); render();
+  }
+  $("in-add").addEventListener("click", function () { if (!$("in-form").hidden && !inc.editing) { $("in-form").hidden = true; return; } openInForm(null); });
+  $("in-cancel").addEventListener("click", function () { $("in-form").hidden = true; inc.editing = null; });
+  $("in-table").addEventListener("click", function (e) {
+    var ed = e.target.getAttribute("data-inedit"); if (ed) { openInForm(state.income.find(function (x) { return x.id === ed; })); return; }
+    var dl = e.target.getAttribute("data-indel"); if (dl) delIncome(dl);
+  });
+  $("in-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var row = { inc_date: $("in-date").value, category: $("in-cat").value.trim().replace(/\s+/g, " "), amount: toNum($("in-amt").value), received_into: $("in-to").value, note: $("in-note").value.trim() || null };
+    if (!row.category) { toast("Enter a category."); return; }
+    if (!(row.amount > 0)) { toast("Enter an amount above zero."); return; }
+    var btn = $("in-save"); btn.disabled = true;
+    var r = inc.editing ? await sb.from("personal_income").update(row).eq("id", inc.editing).select().single() : await sb.from("personal_income").insert(row).select().single();
+    btn.disabled = false;
+    if (r.error) { toast("Couldn't save: " + r.error.message); return; }
+    if (inc.editing) Object.assign(state.income.find(function (y) { return y.id === inc.editing; }), r.data); else state.income.push(r.data);
+    state.income.sort(function (a, b) { return a.inc_date < b.inc_date ? -1 : a.inc_date > b.inc_date ? 1 : 0; });
+    $("in-form").hidden = true; toast(inc.editing ? "Income updated" : inr.format(row.amount) + " " + row.category + " saved"); inc.editing = null;
+    inc.month = row.inc_date.slice(0, 7); $("in-month").value = inc.month;
+    render();
+  });
+
+  // ---------- Credit cards ----------
+  // Due = amount owed on the opening date + spends − bill payments. Spends are expenses paid by the card.
+  var cc = { editing: null, payEditing: null, preview: null };
+  function cardMoves(code) {
+    var c = state.cards.find(function (x) { return x.code === code; }); if (!c) return [];
+    var m = [];
+    ((typeof ex !== "undefined" && ex.list) || []).forEach(function (x) {
+      if (x.paid_from !== code || x.exp_date < c.opening_date) return;
+      var a = Number(x.amount);
+      m.push({ date: x.exp_date, g: a >= 0 ? "spend" : "pay", kind: a >= 0 ? "Spend" : "Refund", desc: x.category + (x.note ? " · " + x.note : ""), amt: a, ref: "ex:" + x.id });
+    });
+    state.cardPays.forEach(function (p) {
+      if (p.card_code !== code || p.pay_date < c.opening_date) return;
+      m.push({ date: p.pay_date, g: "pay", kind: "Bill paid", desc: "From " + acctName(p.paid_from) + (p.note ? " · " + p.note : ""), amt: -Number(p.amount), ref: "cp:" + p.id });
+    });
+    m.sort(function (x, y) { return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; });
+    return m;
+  }
+  function cardDue(code) { var c = state.cards.find(function (x) { return x.code === code; }); return c ? cardMoves(code).reduce(function (s, x) { return s + x.amt; }, Number(c.opening_due)) : 0; }
+  function cardDueTotal() { return state.cards.reduce(function (s, c) { return s + Math.max(0, cardDue(c.code)); }, 0); }
+  function renderCards() {
+    if (!$("cc-tiles")) return;
+    var tm = todayISO().slice(0, 7), total = 0;
+    $("cc-tiles").innerHTML = state.cards.map(function (c) {
+      var d = cardDue(c.code); total += Math.max(0, d);
+      var spent = cardMoves(c.code).filter(function (x) { return x.g === "spend" && x.date.slice(0, 7) === tm; }).reduce(function (s, x) { return s + x.amt; }, 0);
+      return '<button type="button" class="tile" data-acct="' + esc(c.code) + '" title="Go to the month-by-month statement"><div class="l">' + esc(cardName(c.code)) + '</div><div class="a' + (d > 0.5 ? " neg" : "") + '">' + inr.format(d) +
+        '</div><div class="d">Spent ' + inr.format(spent) + " this month</div></button>";
+    }).join("") || '<div class="empty">' + (state.missing ? "Run nw_bank_cards.sql in Supabase, then add your cards here." : "No cards yet. Use Add card to set one up.") + "</div>";
+    $("cc-total").textContent = inr.format(total);
+    $("cc-total-s").textContent = state.cards.length ? state.cards.length + (state.cards.length > 1 ? " cards" : " card") + " · counted as a liability in net worth" : "Counted as a liability in net worth";
+    $("cc-books").innerHTML = state.cards.map(function (c) {
+      return bookHtml({ id: c.code, title: cardName(c.code), sub: "Opening due + spends − payments = closing due. Click a month to see its entries. " +
+        '<button class="icon-btn" type="button" data-ccedit="' + esc(c.code) + '">Edit card</button>',
+        opening: Number(c.opening_due), openDate: c.opening_date, moves: cardMoves(c.code),
+        cols: [{ g: "spend", l: "Spends" }, { g: "pay", l: "Payments & refunds" }], inL: "Spent", outL: "Paid", balL: "Due" });
+    }).join("");
+    var cardOpts = state.cards.map(function (c) { return '<option value="' + esc(c.code) + '">' + esc(cardName(c.code)) + "</option>"; }).join("");
+    ["cp-card", "cu-card"].forEach(function (id) { var v = $(id).value; $(id).innerHTML = cardOpts; if (v) $(id).value = v; });
+    var bv = $("cp-from").value;
+    $("cp-from").innerHTML = state.accounts.map(function (a) { return '<option value="' + esc(a.code) + '">' + esc(a.name) + "</option>"; }).join("");
+    if (bv) $("cp-from").value = bv;
+  }
+  function hideCardForms(except) { ["cc-add-form", "cc-pay-form", "cc-up-form"].forEach(function (id) { if (id !== except) $(id).hidden = true; }); }
+
+  // Add or edit a card
+  function openCard(c) {
+    if (state.missing) { toast("Run nw_bank_cards.sql in Supabase first."); return; }
+    hideCardForms("cc-add-form"); $("cc-add-form").hidden = false; cc.editing = c ? c.code : null;
+    $("cc-add-title").textContent = c ? "Edit card" : "Add card"; $("cc-add-save").textContent = c ? "Save changes" : "Save card";
+    $("cc-name").value = c ? c.name : ""; $("cc-last4").value = c ? c.last4 || "" : "";
+    $("cc-odate").value = c ? c.opening_date : OPEN_FROM; $("cc-odue").value = c ? c.opening_due : 0;
+    $("cc-add-form").scrollIntoView({ behavior: "smooth", block: "center" }); $("cc-name").focus();
+  }
+  $("cc-add-open").addEventListener("click", function () { if (!$("cc-add-form").hidden && !cc.editing) { $("cc-add-form").hidden = true; return; } openCard(null); });
+  $("cc-add-cancel").addEventListener("click", function () { $("cc-add-form").hidden = true; cc.editing = null; });
+  $("cc-books").addEventListener("click", function (e) { var c = e.target.getAttribute("data-ccedit"); if (c) openCard(state.cards.find(function (x) { return x.code === c; })); });
+  $("cc-add-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var row = { name: $("cc-name").value.trim(), last4: $("cc-last4").value.trim() || null, opening_date: $("cc-odate").value, opening_due: toNum($("cc-odue").value) };
+    if (!row.name) { toast("Enter the card name."); return; }
+    var btn = $("cc-add-save"), r; btn.disabled = true;
+    if (cc.editing) r = await sb.from("credit_cards").update(row).eq("code", cc.editing);
+    else {
+      var base = "cc_" + (row.name + (row.last4 ? "_" + row.last4 : "")).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""), code = base, n = 2;
+      while (state.cards.some(function (x) { return x.code === code; })) code = base + "_" + n++;
+      row.code = code; row.sort = state.cards.length;
+      r = await sb.from("credit_cards").insert(row);
+    }
+    btn.disabled = false;
+    if (r.error) { toast("Couldn't save: " + r.error.message); return; }
+    toast(cc.editing ? "Card updated" : row.name + " added"); $("cc-add-form").hidden = true; cc.editing = null;
+    await load();
+  });
+
+  // Pay a card bill from a bank account
+  function openPay(p) {
+    if (!state.cards.length) { toast("Add a card first."); return; }
+    hideCardForms("cc-pay-form"); $("cc-pay-form").hidden = false; cc.payEditing = p ? p.id : null; renderCards();
+    $("cc-pay-title").textContent = p ? "Edit card bill payment" : "Pay card bill"; $("cp-save").textContent = p ? "Save changes" : "Save payment";
+    $("cp-date").value = p ? p.pay_date : todayISO(); $("cp-card").value = p ? p.card_code : state.cards[0].code;
+    $("cp-from").value = p ? p.paid_from : (state.accounts[0] ? state.accounts[0].code : "");
+    $("cp-amt").value = p ? p.amount : ""; $("cp-note").value = p ? p.note || "" : "";
+    if (!p) { var d = cardDue($("cp-card").value); if (d > 0) $("cp-amt").placeholder = "Due " + inr2.format(d); }
+    $("cc-pay-form").scrollIntoView({ behavior: "smooth", block: "center" }); $("cp-amt").focus();
+  }
+  $("cc-pay-open").addEventListener("click", function () { if (!$("cc-pay-form").hidden && !cc.payEditing) { $("cc-pay-form").hidden = true; return; } openPay(null); });
+  $("cp-cancel").addEventListener("click", function () { $("cc-pay-form").hidden = true; cc.payEditing = null; });
+  $("cc-pay-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var row = { pay_date: $("cp-date").value, card_code: $("cp-card").value, paid_from: $("cp-from").value, amount: toNum($("cp-amt").value), note: $("cp-note").value.trim() || null };
+    if (!(row.amount > 0)) { toast("Enter an amount above zero."); return; }
+    var btn = $("cp-save"); btn.disabled = true;
+    var r = cc.payEditing ? await sb.from("card_payments").update(row).eq("id", cc.payEditing) : await sb.from("card_payments").insert(row);
+    btn.disabled = false;
+    if (r.error) { toast("Couldn't save: " + r.error.message); return; }
+    toast(cc.payEditing ? "Payment updated" : inr.format(row.amount) + " paid to " + cardName(row.card_code)); $("cc-pay-form").hidden = true; cc.payEditing = null;
+    await load();
+  });
+  async function delPay(id) {
+    var p = state.cardPays.find(function (x) { return x.id === id; }); if (!p) return;
+    if (!confirm("Delete the " + inr2.format(p.amount) + " payment to " + cardName(p.card_code) + " on " + fmtDate(p.pay_date) + "?")) return;
+    var r = await sb.from("card_payments").delete().eq("id", id);
+    if (r.error) { toast("Couldn't delete: " + r.error.message); return; }
+    toast("Payment deleted"); await load();
+  }
+
+  // ---------- Card statement PDFs: read in the browser, check, then save as expenses ----------
+  var pdfReady = null;
+  function loadPdfJs() {
+    if (window.pdfjsLib) return Promise.resolve();
+    return pdfReady || (pdfReady = new Promise(function (res, rej) {
+      var sc = document.createElement("script");
+      sc.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+      sc.onload = function () { window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; res(); };
+      sc.onerror = function () { pdfReady = null; rej(new Error("Couldn't load the PDF reader. Check your internet connection.")); };
+      document.head.appendChild(sc);
+    }));
+  }
+  // Rebuild the text of each printed line from the PDF's text pieces
+  async function pdfLines(file, password) {
+    var doc = await window.pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()), password: password || undefined }).promise;
+    var out = [];
+    for (var pg = 1; pg <= doc.numPages; pg++) {
+      var page = await doc.getPage(pg), tc = await page.getTextContent(), rows = [];
+      tc.items.forEach(function (it) {
+        if (!it.str || !it.str.trim()) return;
+        var x = it.transform[4], y = it.transform[5];
+        var row = rows.find(function (r) { return Math.abs(r.y - y) <= 2.5; });
+        if (!row) rows.push(row = { y: y, parts: [] });
+        row.parts.push({ x: x, s: it.str });
+      });
+      rows.sort(function (a, b) { return b.y - a.y; });
+      rows.forEach(function (r) { out.push(r.parts.sort(function (a, b) { return a.x - b.x; }).map(function (p) { return p.s; }).join(" ").replace(/\s+/g, " ").trim()); });
+    }
+    return out;
+  }
+  var MONS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12 };
+  var DATE_RE = /(\d{1,2})[\/\-. ](\d{1,2}|[A-Za-z]{3,4})[\/\-. ,]{1,2}(\d{4}|\d{2})(?!\d)/;
+  var pad2 = function (n) { return String(n).padStart(2, "0"); };
+  function dateISO(m) {
+    var d = +m[1], mo = /\d/.test(m[2]) ? +m[2] : MONS[m[2].toLowerCase()], y = +m[3];
+    if (y < 100) y += 2000;
+    if (!mo || mo > 12 || d < 1 || d > 31 || y < 2015 || y > 2100) return null;
+    return y + "-" + pad2(mo) + "-" + pad2(d);
+  }
+  var SKIP_RE = /(opening|previous|closing) balance|total (amount )?due|total dues|minimum (amount )?due|payment due|statement (date|period)|credit limit|available (credit )?limit|reward points? (summary|earned)|^page \d/i;
+  var PAYMENT_RE = /payment|thank you|received|neft|imps|rtgs|autopay|auto debit|bbps|billdesk|net ?banking/i;
+  function merchantKey(s) { return String(s || "").toLowerCase().replace(/[^a-z ]+/g, " ").replace(/\s+/g, " ").trim().split(" ").filter(function (w) { return w.length > 1; }).slice(0, 2).join(" "); }
+  var CAT_RULES = [
+    ["Eating out", /swiggy|zomato|restaurant|cafe|domino|pizza|mcdonald|kfc|starbucks|burger|eatsure|barbeque|haldiram|bikanervala|chaayos/i],
+    ["Groceries", /bigbasket|blinkit|zepto|instamart|dmart|avenue supermart|grofers|jiomart|reliance (fresh|smart|retail)|spencer|more retail|nature.?s basket|grocer/i],
+    ["Fuel", /petrol|fuel|hpcl|iocl|bpcl|indian oil|bharat petroleum|hindustan petroleum|shell|filling station|service station/i],
+    ["Mobile & internet", /airtel|jio|vodafone|vi prepaid|bsnl|act fibernet|hathway|broadband|tata play|dth/i],
+    ["Electricity", /electricity|bses|tata power|cesc|wbsedcl|dhbvn|uhbvn|adani elec|power distribution/i],
+    ["Travel", /makemytrip|goibibo|irctc|indigo|interglobe|air india|vistara|akasa|spicejet|cleartrip|yatra|ixigo|oyo|airbnb|hotel|resort|booking\.com|agoda/i],
+    ["Transport", /uber|ola|rapido|metro|fastag|parking|namma yatri|blusmart|redbus/i],
+    ["Medical", /pharm|chemist|apollo|medplus|1mg|netmeds|pharmeasy|hospital|clinic|diagnostic|pathlab|lal path|dr\.? /i],
+    ["Subscriptions", /netflix|spotify|hotstar|disney|prime video|amazon prime|youtube|apple\.com|google play|sonyliv|zee5|jiocinema|audible|openai|anthropic|claude/i],
+    ["Insurance premium", /insurance|lic of india|policybazaar|hdfc life|icici pru|max life|star health|niva bupa|care health|digit/i],
+    ["Education", /school|college|university|udemy|coursera|byju|unacademy|tuition/i],
+    ["Shopping", /amazon|flipkart|myntra|ajio|nykaa|meesho|tata cliq|croma|reliance digital|decathlon|lifestyle|westside|pantaloons|shoppers stop|ikea|pepperfry|lenskart/i],
+    ["EMI", /\bemi\b|loan/i]
+  ];
+  function guessCategory(desc, learned) {
+    var k = merchantKey(desc); if (k && learned[k]) return learned[k];
+    for (var i = 0; i < CAT_RULES.length; i++) if (CAT_RULES[i][1].test(desc)) return CAT_RULES[i][0];
+    return "Other";
+  }
+  function parseStatement(lines, card) {
+    var learned = {}, seen = {}, out = [];
+    ex.list.forEach(function (x) { var k = merchantKey(x.note); if (k) learned[k] = x.category; });
+    lines.forEach(function (line) {
+      var dm = DATE_RE.exec(line); if (!dm || dm.index > 15) return;
+      var date = dateISO(dm); if (!date) return;
+      var amts = [], re = /\d[\d,]*\.\d{2}/g, am;
+      while ((am = re.exec(line))) if (am.index >= dm.index + dm[0].length) amts.push(am);
+      if (!amts.length) return;
+      var last = amts[amts.length - 1], tail = line.slice(last.index + last[0].length).trim();
+      if (tail.length > 4 && !/^(cr|dr)\b/i.test(tail)) return;
+      var amt = toNum(last[0]); if (!(amt > 0)) return;
+      var before = line.slice(0, last.index).trim();
+      var credit = /^(cr|c|\+)\b/i.test(tail) || /(^|\s)(cr|\+|-)$/i.test(before);
+      var desc = line.slice(dm.index + dm[0].length, last.index)
+        .replace(DATE_RE, " ").replace(/\b\d{1,2}:\d{2}(:\d{2})?\b/g, " ").replace(/\b\d{6,}\b/g, " ").replace(/[₹`]|\bINR\b/g, " ")
+        .replace(/(^|\s)(cr|dr|\+|-)$/i, " ").replace(/\s+/g, " ").replace(/^[\s\-|:,.]+|[\s\-|:,.]+$/g, "");
+      if (!desc || SKIP_RE.test(desc) || SKIP_RE.test(line)) return;
+      var payment = credit && PAYMENT_RE.test(desc);
+      var base = card.code + "|" + date + "|" + amt.toFixed(2) + "|" + merchantKey(desc).replace(/ /g, "_");
+      seen[base] = (seen[base] || 0) + 1;
+      var key = base + "|" + seen[base];
+      var dup = ex.list.some(function (x) { return x.import_ref === key; });
+      var early = date < card.opening_date;
+      out.push({ date: date, desc: desc, amt: amt, credit: credit, payment: payment, key: key, dup: dup, early: early,
+        on: !credit && !dup && !early, cat: payment ? "" : credit ? "Refund" : guessCategory(desc, learned) });
+    });
+    return out;
+  }
+  function renderPreview() {
+    var el = $("cu-preview"), p = cc.preview;
+    if (!p) { el.hidden = true; el.innerHTML = ""; return; }
+    var pick = p.rows.filter(function (r) { return r.on; }), tot = pick.reduce(function (s, r) { return s + (r.credit ? -r.amt : r.amt); }, 0);
+    var n = { dup: 0, pay: 0 }; p.rows.forEach(function (r) { if (r.dup) n.dup++; if (r.payment) n.pay++; });
+    el.innerHTML = '<div class="stmt-head"><h3>' + esc(cardName(p.card)) + " statement · " + esc(p.file) + '</h3><span class="sub">' + p.rows.length + " lines found" +
+      (n.dup ? " · " + n.dup + " already imported" : "") + (n.pay ? " · " + n.pay + " bill payment" + (n.pay > 1 ? "s" : "") : "") + "</span></div>" +
+      '<div class="hint-line" style="margin:0 0 10px">Ticked lines are saved as expenses on this card. Credits are left unticked: tick one to save it as a refund, which lowers its category total. Bill payments shown here should be entered under Pay card bill, from the bank they were paid from.</div>' +
+      '<div class="table-wrap"><table class="pv-table"><thead><tr><th></th><th>Date</th><th>Description</th><th>Category</th><th class="num">Amount</th></tr></thead><tbody>' +
+      p.rows.map(function (r, i) {
+        var locked = r.dup || r.payment;
+        var tags = (r.dup ? '<span class="tag">Already imported</span>' : "") + (r.payment ? '<span class="tag">Bill payment</span>' : r.credit ? '<span class="tag">Credit</span>' : "") +
+          (r.early ? '<span class="tag">Before ' + fmtDate(card4(p.card).opening_date) + "</span>" : "");
+        return '<tr class="' + (r.on ? "" : "off") + '"><td><input type="checkbox" data-pv="' + i + '"' + (r.on ? " checked" : "") + (locked ? " disabled" : "") + "></td><td>" + fmtDate(r.date) +
+          "</td><td>" + esc(r.desc) + tags + "</td><td>" + (r.payment ? "" : '<input type="text" list="ex-cats" data-pvcat="' + i + '" value="' + esc(r.cat) + '">') +
+          '</td><td class="num' + (r.credit ? " pos" : "") + '">' + (r.credit ? "−" : "") + inr2.format(r.amt) + "</td></tr>";
+      }).join("") + "</tbody></table></div>" +
+      '<div class="actions" style="margin-top:12px"><button class="primary" type="button" id="cu-save"' + (pick.length ? "" : " disabled") + ">Save " + pick.length + (pick.length === 1 ? " expense" : " expenses") + " · " + inr2.format(tot) +
+      '</button><button class="ghost" type="button" id="cu-discard">Discard</button></div>';
+    el.hidden = false;
+  }
+  function card4(code) { return state.cards.find(function (x) { return x.code === code; }) || { opening_date: OPEN_FROM }; }
+  $("cc-up-open").addEventListener("click", function () {
+    if (!state.cards.length) { toast(state.missing ? "Run nw_bank_cards.sql in Supabase first." : "Add a card first."); return; }
+    var f = $("cc-up-form"); hideCardForms("cc-up-form"); f.hidden = !f.hidden; if (!f.hidden) { renderCards(); f.scrollIntoView({ behavior: "smooth", block: "center" }); }
+  });
+  $("cu-cancel").addEventListener("click", function () { $("cc-up-form").hidden = true; });
+  $("cc-up-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var file = $("cu-file").files[0], card = card4($("cu-card").value); if (!file || !card.code) return;
+    var btn = $("cu-read"); btn.disabled = true; btn.textContent = "Reading…";
+    try {
+      await loadPdfJs();
+      var lines = await pdfLines(file, $("cu-pass").value);
+      var rows = parseStatement(lines, card);
+      if (!rows.length) toast("Couldn't find any transactions in this PDF. If it's a scanned image rather than a downloaded statement, it can't be read.");
+      else { cc.preview = { card: card.code, file: file.name, rows: rows }; $("cc-up-form").hidden = true; renderPreview(); $("cu-preview").scrollIntoView({ behavior: "smooth", block: "start" }); }
+    } catch (err) {
+      if (err && err.name === "PasswordException") { toast(err.code === 2 ? "That password didn't open the PDF. Try again." : "This PDF is locked. Enter its password and read it again."); $("cu-pass").focus(); }
+      else toast("Couldn't read the PDF: " + (err.message || err));
+    }
+    btn.disabled = false; btn.textContent = "Read statement";
+  });
+  $("cu-preview").addEventListener("change", function (e) {
+    var i = e.target.getAttribute("data-pv"); if (i === null) return;
+    cc.preview.rows[+i].on = e.target.checked; renderPreview();
+  });
+  $("cu-preview").addEventListener("input", function (e) {
+    var i = e.target.getAttribute("data-pvcat"); if (i !== null) cc.preview.rows[+i].cat = e.target.value;
+  });
+  $("cu-preview").addEventListener("click", async function (e) {
+    if (e.target.id === "cu-discard") { cc.preview = null; renderPreview(); return; }
+    if (e.target.id !== "cu-save") return;
+    var p = cc.preview, rows = p.rows.filter(function (r) { return r.on && !r.dup && !r.payment; }).map(function (r) {
+      return { exp_date: r.date, category: (r.cat || "Other").trim().replace(/\s+/g, " "), amount: r.credit ? -r.amt : r.amt, paid_from: p.card, note: r.desc, import_ref: r.key };
+    });
+    if (!rows.length) return;
+    e.target.disabled = true;
+    var r = await sb.from("household_expenses").upsert(rows, { onConflict: "import_ref", ignoreDuplicates: true }).select();
+    if (r.error) { e.target.disabled = false; toast("Couldn't save: " + r.error.message); return; }
+    (r.data || []).forEach(function (x) { ex.list.push(x); });
+    ex.list.sort(function (a, b) { return a.exp_date < b.exp_date ? -1 : a.exp_date > b.exp_date ? 1 : 0; });
+    toast((r.data || []).length + " expenses saved to " + cardName(p.card));
+    cc.preview = null; $("cu-file").value = ""; $("cu-pass").value = ""; renderPreview(); renderExpenses(); render();
   });
 
   // ---------- Prices: updated on the server every day; this button runs the same update now ----------
