@@ -2526,25 +2526,25 @@
       var net = x.gp + x.inc - x.exp;
       return '<td class="num">' + inr.format(x.sales) + '</td><td class="num">' + inr.format(x.gp) + '</td><td class="num">' + pct(x.gp, x.sales) +
         '</td><td class="num">' + inr.format(x.inc) + '</td><td class="num">' + inr.format(x.exp) + '</td><td class="num ' + (net >= 0 ? "pos" : "neg") + '">' + inr.format(net) +
-        '</td><td class="num">' + inr.format(x.buy) + '</td><td class="num">' + inr.format(x.bar) + '</td><td class="num">' + (x.stock == null ? "–" : inr.format(x.stock)) + "</td>";
+        '</td><td class="num">' + inr.format(x.buy) + '</td><td class="num">' + inr.format(x.bar) + "</td>";
     };
     var T = blank();
     var body = months.map(function (k) {
       var x = m[k] || blank(), open = state.monthOpen === k;
       ["days", "sales", "gp", "exp", "bar", "inc", "buy"].forEach(function (f) { T[f] += x[f]; });
       var row = '<tr data-month="' + k + '" class="month-row' + (open ? " sel" : "") + '"><td><span class="m-caret">' + (open ? "▾" : "▸") + "</span>" +
-        new Date(k + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" }) + '</td><td class="num">' + x.days + "</td>" + cells(x) + "</tr>";
+        new Date(k + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" }) + "</td>" + cells(x) + "</tr>";
       if (open) {
         var ds = Object.keys(days).filter(function (d) { return d.slice(0, 7) === k; }).sort().reverse();
         row += ds.length ? ds.map(function (d) {
-          return '<tr class="day-row"><td>' + fmtDate(d) + '</td><td class="num">' + (days[d].days ? "✓" : "–") + "</td>" + cells(days[d]) + "</tr>";
-        }).join("") : '<tr class="day-row"><td colspan="11" class="empty">No days recorded in this month.</td></tr>';
+          return '<tr class="day-row"><td>' + fmtDate(d) + "</td>" + cells(days[d]) + "</tr>";
+        }).join("") : '<tr class="day-row"><td colspan="9" class="empty">No days recorded in this month.</td></tr>';
       }
       return row;
     }).join("");
-    tbl.innerHTML = '<thead><tr><th>Month</th><th class="num">Days reported</th><th class="num">Sales</th><th class="num">Gross profit</th>' +
-      '<th class="num">Margin</th><th class="num">Other income</th><th class="num">Expenses</th><th class="num">Net profit</th><th class="num" title="Stock received at cost">Purchases</th><th class="num" title="Bar collection minus bar expenses">Bar counter (net)</th><th class="num">Stock at day / month end</th></tr></thead>' +
-      "<tbody>" + body + '</tbody><tfoot><tr><td>Total</td><td class="num">' + T.days + "</td>" + cells(Object.assign(T, { stock: null })).replace(/<td class="num">–<\/td>$/, "<td></td>") + "</tr></tfoot>";
+    tbl.innerHTML = '<thead><tr><th>Month</th><th class="num">Sales</th><th class="num">Gross profit</th>' +
+      '<th class="num">Margin</th><th class="num">Other income</th><th class="num">Expenses</th><th class="num">Net profit</th><th class="num" title="Stock received at cost">Purchases</th><th class="num" title="Bar collection minus bar expenses">Bar counter (net)</th></tr></thead>' +
+      "<tbody>" + body + '</tbody><tfoot><tr><td>Total</td>' + cells(T) + "</tr></tfoot>";
   }
 
   $("month-table").addEventListener("click", function (e) {
