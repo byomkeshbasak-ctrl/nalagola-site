@@ -95,6 +95,9 @@
   .pv-table input[type="text"] { padding: 5px 8px; font-size: 0.8rem; border-radius: 8px; min-width: 130px; }
   .pv-table input[type="checkbox"] { width: auto; }
   .pv-table tr.off td { opacity: 0.45; }
+  .pv-table select { padding: 5px 8px; font-size: 0.8rem; border-radius: 8px; min-width: 130px; }
+  .pv-table tr.need td { background: rgba(232, 194, 122, 0.08); }
+  .pv-table tr.need td:first-child { box-shadow: inset 3px 0 0 var(--amber); }
   .tag { display: inline-block; font-size: 0.66rem; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); margin-left: 6px; white-space: nowrap; }
   .sec h2 { font-size: 0.95rem; font-weight: 600; margin-bottom: 10px; }
 
@@ -209,7 +212,7 @@
 
   /* ---------- Mutual funds ---------- */
   .mf-kpis { margin-top: 14px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
-  .mf-kpis div { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 11px 13px; }
+  .mf-kpis > div { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 11px 13px; }
   .mf-kpis .l { font-size: 0.74rem; color: var(--muted); }
   .mf-kpis .a { margin-top: 4px; font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; }
   .mf-kpis .d { margin-top: 2px; font-size: 0.72rem; color: var(--muted); }
@@ -468,6 +471,7 @@
         </div>
         <div class="spacer"></div>
         <button class="ghost" id="tr-open" type="button">Transfer money</button>
+        <button class="ghost" id="bu-open" type="button">Upload statement</button>
         <button class="ghost" id="ob-open" type="button">Opening balances</button>
       </div>
       <div class="tiles" id="tiles"></div>
@@ -488,6 +492,15 @@
         <div class="actions"><button class="primary" type="submit">Save balances</button><button class="ghost" type="button" id="ob-cancel">Cancel</button></div>
       </form>
 
+      <form class="form" id="bu-form" hidden>
+        <h3>Upload a bank statement</h3>
+        <label>Account <select id="bu-acct"></select></label>
+        <label style="grid-column: span 2">Statement (PDF or CSV) <input type="file" id="bu-file" accept="application/pdf,.pdf,.csv,text/csv,.txt" required></label>
+        <label>PDF password (if any) <input type="password" id="bu-pass" autocomplete="off"></label>
+        <div class="hint">The file is read in your browser and isn't uploaded anywhere. Each line is sorted into an expense, income, transfer or card bill. Lines already in the tracker are left out, and any line whose type isn't clear waits for you to choose before anything is saved.</div>
+        <div class="actions"><button class="primary" type="submit" id="bu-read">Read statement</button><button class="ghost" type="button" id="bu-cancel">Cancel</button></div>
+      </form>
+      <div class="stmt" id="bu-preview" hidden></div>
       <div class="hint-line" id="ob-note"></div>
     </section>
     <div id="books"></div>
@@ -532,9 +545,9 @@
         <form class="form" id="cc-up-form" hidden>
           <h3>Upload a card statement</h3>
           <label>Card <select id="cu-card"></select></label>
-          <label style="grid-column: span 2">Statement PDF <input type="file" id="cu-file" accept="application/pdf,.pdf" required></label>
+          <label style="grid-column: span 2">Statement (PDF or CSV) <input type="file" id="cu-file" accept="application/pdf,.pdf,.csv,text/csv,.txt" required></label>
           <label>PDF password (if any) <input type="password" id="cu-pass" autocomplete="off"></label>
-          <div class="hint">The PDF is read in your browser and isn't uploaded anywhere. Most bank statements are locked with a password, usually your name and date of birth in a set pattern. You check every line before anything is saved, and lines already imported are skipped.</div>
+          <div class="hint">The PDF is read in your browser and isn't uploaded anywhere. Most bank statements are locked with a password, usually your name and date of birth in a set pattern. You check every line before anything is saved. Lines already in the tracker are left out, and a credit that isn't clearly a refund or a bill payment waits for you to choose.</div>
           <div class="actions"><button class="primary" type="submit" id="cu-read">Read statement</button><button class="ghost" type="button" id="cu-cancel">Cancel</button></div>
         </form>
         <div class="stmt" id="cu-preview" hidden></div>
@@ -616,7 +629,8 @@
             <div class="s" id="loans-total-s">Money you have lent, less money you owe</div>
           </div>
           <div class="spacer"></div>
-          <button class="ghost" type="button" data-itemadd="loans">Add loan</button>
+          <button class="ghost" type="button" data-itemadd="loans" data-kind="loan_given">Add money I lent</button>
+          <button class="ghost" type="button" data-itemadd="loans" data-kind="loan_taken">Add money I owe</button>
         </div>
         <form class="form" id="loans-form" data-itemform="loans" hidden></form>
         <div class="mf-kpis" id="loans-kpis"></div>
@@ -764,20 +778,20 @@
     state.transfers.forEach(function (t) {
       if (t.transfer_date < from) return;
       var amt = Number(t.amount), note = t.note ? " · " + t.note : "";
-      if (t.from_account === code) m.push({ date: t.transfer_date, g: "tr", kind: "Transfer", desc: "To " + acctName(t.to_account) + note, amt: -amt, ref: "tr:" + t.id });
-      if (t.to_account === code) m.push({ date: t.transfer_date, g: "tr", kind: "Transfer", desc: "From " + acctName(t.from_account) + note, amt: amt, ref: "tr:" + t.id });
+      if (t.from_account === code) m.push({ date: t.transfer_date, g: "tr", kind: "Transfer", desc: "To " + acctName(t.to_account) + note, amt: -amt, ref: "tr:" + t.id, iref: t.import_ref });
+      if (t.to_account === code) m.push({ date: t.transfer_date, g: "tr", kind: "Transfer", desc: "From " + acctName(t.from_account) + note, amt: amt, ref: "tr:" + t.id, iref: t.import_ref });
     });
     state.cardPays.forEach(function (p) {
       if (p.paid_from !== code || p.pay_date < from) return;
-      m.push({ date: p.pay_date, g: "tr", kind: "Card bill", desc: "Paid " + cardName(p.card_code) + (p.note ? " · " + p.note : ""), amt: -Number(p.amount), ref: "cp:" + p.id });
+      m.push({ date: p.pay_date, g: "tr", kind: "Card bill", desc: "Paid " + cardName(p.card_code) + (p.note ? " · " + p.note : ""), amt: -Number(p.amount), ref: "cp:" + p.id, iref: p.import_ref });
     });
     state.income.forEach(function (x) {
       if (x.received_into !== code || x.inc_date < from) return;
-      m.push({ date: x.inc_date, g: "inc", kind: "Income", desc: x.category + (x.note ? " · " + x.note : ""), amt: Number(x.amount), ref: "in:" + x.id });
+      m.push({ date: x.inc_date, g: "inc", kind: "Income", desc: x.category + (x.note ? " · " + x.note : ""), amt: Number(x.amount), ref: "in:" + x.id, iref: x.import_ref });
     });
     ((typeof ex !== "undefined" && ex.list) || []).forEach(function (x) {
       if (x.paid_from !== code || x.exp_date < from) return;
-      m.push({ date: x.exp_date, g: "exp", kind: "Expense", desc: x.category + (x.note ? " · " + x.note : ""), amt: -Number(x.amount), ref: "ex:" + x.id });
+      m.push({ date: x.exp_date, g: "exp", kind: "Expense", desc: x.category + (x.note ? " · " + x.note : ""), amt: -Number(x.amount), ref: "ex:" + x.id, iref: x.import_ref });
     });
     m.sort(function (x, y) { return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; });
     return m;
@@ -1741,12 +1755,15 @@
     Object.assign(it, r.data); toast(a ? monthName(m) + " saved" : "Removed"); renderItems("epf"); render();
   });
   function annualPremium(i) { var p = toNum(i.details.premium), f = i.details.freq; return f === "Monthly" ? p * 12 : f === "Quarterly" ? p * 4 : f === "Half-yearly" ? p * 2 : f === "Single" ? 0 : p; }
-  function openItemForm(tab, item) {
-    var c = ITEM_CFG[tab], f = $(tab + "-form"); oth.editing[tab] = item ? item.id : null;
-    var d = item ? item.details || {} : {};
-    f.innerHTML = "<h3>" + (item ? "Edit " : "Add ") + c.word + "</h3>" + c.fields.map(function (fd) {
+  function openItemForm(tab, item, preKind) {
+    var c = ITEM_CFG[tab], f = $(tab + "-form"); oth.editing[tab] = item ? item.id : null; f.dataset.kind = preKind || "";
+    var d = item ? item.details || {} : {}, lk = item ? item.kind : preKind;
+    var title = tab === "loans" ? (item ? "Edit " : "Add ") + (lk === "loan_taken" ? "money I owe" : "money I lent") : (item ? "Edit " : "Add ") + c.word;
+    f.innerHTML = "<h3>" + title + "</h3>" + c.fields.map(function (fd) {
       var key = fd[0], lab = fd[1], typ = fd[2], isD = fd[fd.length - 1] === "d";
-      var val = item ? (isD ? d[key] : item[key]) : (key === "as_of" ? todayISO() : "");
+      if (tab === "loans" && key === "name") lab = lk === "loan_taken" ? "Borrowed from" : "Lent to";
+      if (tab === "loans" && key === "start") lab = lk === "loan_taken" ? "Taken on" : "Given on";
+      var val = item ? (isD ? d[key] : item[key]) : (key === "as_of" ? todayISO() : key === "kind" && preKind ? preKind : "");
       if (val === undefined || val === null) val = "";
       var nm = 'data-f="' + key + '"' + (isD ? ' data-d="1"' : "");
       if (typ === "select") return "<label>" + lab + " <select " + nm + ">" + fd[3].map(function (o) { return "<option" + (String(val) === o ? " selected" : "") + ">" + esc(o) + "</option>"; }).join("") + "</select></label>";
@@ -1760,11 +1777,20 @@
     var first = f.querySelector("input, select"); if (first) first.focus();
   }
   document.addEventListener("click", function (e) {
-    var a = e.target.getAttribute("data-itemadd"); if (a) { var f = $(a + "-form"); if (!f.hidden && !oth.editing[a]) { f.hidden = true; return; } openItemForm(a, null); return; }
+    var a = e.target.getAttribute("data-itemadd"); if (a) { var f = $(a + "-form"), pk = e.target.dataset.kind || ""; if (!f.hidden && !oth.editing[a] && f.dataset.kind === pk) { f.hidden = true; return; } openItemForm(a, null, pk); return; }
     var cn = e.target.getAttribute("data-itemcancel"); if (cn) { $(cn + "-form").hidden = true; oth.editing[cn] = null; return; }
     var ed = e.target.getAttribute("data-itemedit");
     if (ed) { var it = oth.items.find(function (x) { return x.id === ed; }); if (it) openItemForm(tabOfKind(it.kind), it); return; }
     var dl = e.target.getAttribute("data-itemdel"); if (dl) delItem(dl);
+  });
+  // Switching between money lent and money owed relabels the loan form
+  document.addEventListener("change", function (e) {
+    if (e.target.dataset.f !== "kind" || !e.target.closest("#loans-form")) return;
+    var owe = e.target.value === "loan_taken", f = $("loans-form");
+    f.querySelector("h3").textContent = (oth.editing.loans ? "Edit " : "Add ") + (owe ? "money I owe" : "money I lent");
+    var nm = f.querySelector('[data-f="name"]'), st = f.querySelector('[data-f="start"]');
+    if (nm) nm.parentNode.firstChild.textContent = (owe ? "Borrowed from" : "Lent to") + " ";
+    if (st) st.parentNode.firstChild.textContent = (owe ? "Taken on" : "Given on") + " ";
   });
   function tabOfKind(k) { return ITEM_TABS.find(function (t) { return ITEM_CFG[t].kinds.indexOf(k) >= 0; }); }
   document.addEventListener("submit", async function (e) {
@@ -1819,7 +1845,7 @@
   }
 
   // ---------- Expenses ----------
-  var EX_CATS = ["Groceries", "Rent", "Electricity", "Mobile & internet", "Fuel", "Transport", "Eating out", "Medical", "Education", "Household help", "Shopping", "Travel", "EMI", "Insurance premium", "Gifts", "Subscriptions", "Other"];
+  var EX_CATS = ["Groceries", "Rent", "Electricity", "Mobile & internet", "Fuel", "Transport", "Eating out", "Medical", "Education", "Household help", "Shopping", "Travel", "EMI", "Insurance premium", "Gifts", "Subscriptions", "Bank charges", "Other"];
   $("ex-month").value = ex.month;
   $("ex-month").addEventListener("change", function () { if (this.value) { ex.month = this.value; renderExpenses(); } });
   function exMonthTotal(m) { return ex.list.filter(function (x) { return x.exp_date.slice(0, 7) === m; }).reduce(function (a, x) { return a + Number(x.amount); }, 0); }
@@ -1988,11 +2014,11 @@
     ((typeof ex !== "undefined" && ex.list) || []).forEach(function (x) {
       if (x.paid_from !== code || x.exp_date < c.opening_date) return;
       var a = Number(x.amount);
-      m.push({ date: x.exp_date, g: a >= 0 ? "spend" : "pay", kind: a >= 0 ? "Spend" : "Refund", desc: x.category + (x.note ? " · " + x.note : ""), amt: a, ref: "ex:" + x.id });
+      m.push({ date: x.exp_date, g: a >= 0 ? "spend" : "pay", kind: a >= 0 ? "Spend" : "Refund", desc: x.category + (x.note ? " · " + x.note : ""), amt: a, ref: "ex:" + x.id, iref: x.import_ref });
     });
     state.cardPays.forEach(function (p) {
       if (p.card_code !== code || p.pay_date < c.opening_date) return;
-      m.push({ date: p.pay_date, g: "pay", kind: "Bill paid", desc: "From " + acctName(p.paid_from) + (p.note ? " · " + p.note : ""), amt: -Number(p.amount), ref: "cp:" + p.id });
+      m.push({ date: p.pay_date, g: "pay", kind: "Bill paid", desc: "From " + acctName(p.paid_from) + (p.note ? " · " + p.note : ""), amt: -Number(p.amount), ref: "cp:" + p.id, iref: p.import_ref });
     });
     m.sort(function (x, y) { return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; });
     return m;
@@ -2086,7 +2112,10 @@
     toast("Payment deleted"); await load();
   }
 
-  // ---------- Card statement PDFs: read in the browser, check, then save as expenses ----------
+  // ---------- Statement import, banks and cards: read in the browser, sort each line, confirm, then save ----------
+  // Nothing is saved twice: a line imported before is matched by its import reference, and a line that is
+  // already in the tracker (typed in by hand, or imported from the other side of a transfer) is matched by
+  // account, amount and a date within 3 days. Lines whose type can't be worked out wait for you to choose.
   var pdfReady = null;
   function loadPdfJs() {
     if (window.pdfjsLib) return Promise.resolve();
@@ -2116,8 +2145,19 @@
     }
     return out;
   }
+  async function readLines(file, password) {
+    if (/\.(csv|txt)$/i.test(file.name) || /^text\//.test(file.type)) {
+      var t = await file.text();
+      return t.split(/\r?\n/).map(function (l) {
+        return l.replace(/"([^"]*)"/g, function (m, x) { return x.replace(/,/g, ""); }).replace(/[,;\t]/g, " ").replace(/\s+/g, " ").trim();
+      }).filter(Boolean);
+    }
+    await loadPdfJs();
+    return pdfLines(file, password);
+  }
   var MONS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12 };
-  var DATE_RE = /(\d{1,2})[\/\-. ](\d{1,2}|[A-Za-z]{3,4})[\/\-. ,]{1,2}(\d{4}|\d{2})(?!\d)/;
+  var DATE_RE = /(?<!\d)(\d{1,2})[\/\-. ](\d{1,2}|[A-Za-z]{3,4})[\/\-. ,]{1,2}(\d{4}|\d{2})(?!\d)/;
+  var DATE_RE_G = new RegExp(DATE_RE.source, "g");
   var pad2 = function (n) { return String(n).padStart(2, "0"); };
   function dateISO(m) {
     var d = +m[1], mo = /\d/.test(m[2]) ? +m[2] : MONS[m[2].toLowerCase()], y = +m[3];
@@ -2125,8 +2165,14 @@
     if (!mo || mo > 12 || d < 1 || d > 31 || y < 2015 || y > 2100) return null;
     return y + "-" + pad2(mo) + "-" + pad2(d);
   }
-  var SKIP_RE = /(opening|previous|closing) balance|total (amount )?due|total dues|minimum (amount )?due|payment due|statement (date|period)|credit limit|available (credit )?limit|reward points? (summary|earned)|^page \d/i;
+  var SKIP_RE = /(opening|previous|closing) balance|balance b\/?f|brought forward|carried forward|total (amount )?due|total dues|minimum (amount )?due|payment due|statement (date|period)|credit limit|available (credit )?limit|reward points? (summary|earned)|^page \d|grand total|^total\b/i;
   var PAYMENT_RE = /payment|thank you|received|neft|imps|rtgs|autopay|auto debit|bbps|billdesk|net ?banking/i;
+  var CARDPAY_RE = /credit ?card|cc ?(payment|bill|pay)|card ?(payment|bill)|cred club|\bcred\b|cardbill|\bcc\b[\s\-]*(\d{4}|autopay|si\b)/i;
+  var SELF_RE = /\bself\b|own a\/?c|own account|to own|sweep (in|out)|\bsweep\b/i;
+  var CHARGES_RE = /charges?\b|\bfee\b|\bgst\b|sms alert|\bamc\b|annual fee|late payment|finance charge|interest charge|penal/i;
+  var ATM_RE = /\batm\b|cash wdl|cash withdrawal|\bnwd\b|cwdr/i;
+  var REFUND_RE = /refund|reversal|cashback|credit adj|cancel/i;
+  var INCOME_RULES = [["Salary", /salary|\bsal\b|payroll/i], ["Interest", /interest|int\.? ?pd|int\.? ?cr|sb int|int coll/i], ["Dividend", /dividend|\bdiv\b/i], ["Refund", /refund|reversal|cashback/i]];
   function merchantKey(s) { return String(s || "").toLowerCase().replace(/[^a-z ]+/g, " ").replace(/\s+/g, " ").trim().split(" ").filter(function (w) { return w.length > 1; }).slice(0, 2).join(" "); }
   var CAT_RULES = [
     ["Eating out", /swiggy|zomato|restaurant|cafe|domino|pizza|mcdonald|kfc|starbucks|burger|eatsure|barbeque|haldiram|bikanervala|chaayos/i],
@@ -2135,112 +2181,274 @@
     ["Mobile & internet", /airtel|jio|vodafone|vi prepaid|bsnl|act fibernet|hathway|broadband|tata play|dth/i],
     ["Electricity", /electricity|bses|tata power|cesc|wbsedcl|dhbvn|uhbvn|adani elec|power distribution/i],
     ["Travel", /makemytrip|goibibo|irctc|indigo|interglobe|air india|vistara|akasa|spicejet|cleartrip|yatra|ixigo|oyo|airbnb|hotel|resort|booking\.com|agoda/i],
-    ["Transport", /uber|ola|rapido|metro|fastag|parking|namma yatri|blusmart|redbus/i],
-    ["Medical", /pharm|chemist|apollo|medplus|1mg|netmeds|pharmeasy|hospital|clinic|diagnostic|pathlab|lal path|dr\.? /i],
+    ["Transport", /uber|\bola\b|rapido|metro|fastag|parking|namma yatri|blusmart|redbus/i],
+    ["Medical", /pharm|chemist|apollo|medplus|1mg|netmeds|pharmeasy|hospital|clinic|diagnostic|pathlab|lal path/i],
     ["Subscriptions", /netflix|spotify|hotstar|disney|prime video|amazon prime|youtube|apple\.com|google play|sonyliv|zee5|jiocinema|audible|openai|anthropic|claude/i],
-    ["Insurance premium", /insurance|lic of india|policybazaar|hdfc life|icici pru|max life|star health|niva bupa|care health|digit/i],
+    ["Insurance premium", /insurance|lic of india|policybazaar|hdfc life|icici pru|max life|star health|niva bupa|care health/i],
     ["Education", /school|college|university|udemy|coursera|byju|unacademy|tuition/i],
     ["Shopping", /amazon|flipkart|myntra|ajio|nykaa|meesho|tata cliq|croma|reliance digital|decathlon|lifestyle|westside|pantaloons|shoppers stop|ikea|pepperfry|lenskart/i],
-    ["EMI", /\bemi\b|loan/i]
+    ["EMI", /\bemi\b|\bloan\b/i]
   ];
-  function guessCategory(desc, learned) {
+  function ruleCategory(desc, learned) {
     var k = merchantKey(desc); if (k && learned[k]) return learned[k];
     for (var i = 0; i < CAT_RULES.length; i++) if (CAT_RULES[i][1].test(desc)) return CAT_RULES[i][0];
-    return "Other";
+    return null;
   }
-  function parseStatement(lines, card) {
-    var learned = {}, seen = {}, out = [];
-    ex.list.forEach(function (x) { var k = merchantKey(x.note); if (k) learned[k] = x.category; });
+
+  // Turn text lines into transactions: date, description, amount, running balance and any Cr/Dr marker
+  function rawRows(lines, kind) {
+    var rows = [], open = null, cont = 9, AMT = /\d[\d,]*\.\d{2}/g;
     lines.forEach(function (line) {
-      var dm = DATE_RE.exec(line); if (!dm || dm.index > 15) return;
-      var date = dateISO(dm); if (!date) return;
-      var amts = [], re = /\d[\d,]*\.\d{2}/g, am;
+      if (open === null && /opening balance|balance b\/?f|brought forward/i.test(line)) { var oa = line.match(AMT); if (oa) open = toNum(oa[oa.length - 1]); }
+      var dm = DATE_RE.exec(line), date = dm && dm.index <= 15 ? dateISO(dm) : null;
+      if (!date) { // a narration that wrapped onto the next line
+        var last = rows[rows.length - 1];
+        if (last && cont < 2 && !/\d[\d,]*\.\d{2}/.test(line) && line.length < 90 && !SKIP_RE.test(line)) { last.desc += " " + line; cont++; } else cont = 9;
+        return;
+      }
+      var amts = [], re = new RegExp(AMT.source, "g"), am;
       while ((am = re.exec(line))) if (am.index >= dm.index + dm[0].length) amts.push(am);
-      if (!amts.length) return;
-      var last = amts[amts.length - 1], tail = line.slice(last.index + last[0].length).trim();
-      if (tail.length > 4 && !/^(cr|dr)\b/i.test(tail)) return;
-      var amt = toNum(last[0]); if (!(amt > 0)) return;
-      var before = line.slice(0, last.index).trim();
-      var credit = /^(cr|c|\+)\b/i.test(tail) || /(^|\s)(cr|\+|-)$/i.test(before);
-      var desc = line.slice(dm.index + dm[0].length, last.index)
-        .replace(DATE_RE, " ").replace(/\b\d{1,2}:\d{2}(:\d{2})?\b/g, " ").replace(/\b\d{6,}\b/g, " ").replace(/[₹`]|\bINR\b/g, " ")
-        .replace(/(^|\s)(cr|dr|\+|-)$/i, " ").replace(/\s+/g, " ").replace(/^[\s\-|:,.]+|[\s\-|:,.]+$/g, "");
-      if (!desc || SKIP_RE.test(desc) || SKIP_RE.test(line)) return;
-      var payment = credit && PAYMENT_RE.test(desc);
-      var base = card.code + "|" + date + "|" + amt.toFixed(2) + "|" + merchantKey(desc).replace(/ /g, "_");
-      seen[base] = (seen[base] || 0) + 1;
-      var key = base + "|" + seen[base];
-      var dup = ex.list.some(function (x) { return x.import_ref === key; });
-      var early = date < card.opening_date;
-      out.push({ date: date, desc: desc, amt: amt, credit: credit, payment: payment, key: key, dup: dup, early: early,
-        on: !credit && !dup && !early, cat: payment ? "" : credit ? "Refund" : guessCategory(desc, learned) });
+      if (!amts.length) { cont = 9; return; }
+      var txn, bal = null;
+      if (kind === "card" || amts.length === 1) txn = amts[amts.length - 1];
+      else {
+        bal = toNum(amts[amts.length - 1][0]); txn = amts[amts.length - 2];
+        if (!toNum(txn[0]) && amts.length >= 3) txn = amts[amts.length - 3];
+      }
+      var tail = line.slice(txn.index + txn[0].length).trim(), before = line.slice(0, txn.index).trim();
+      if (kind === "card" && tail.length > 4 && !/^(cr|dr)\b/i.test(tail)) { cont = 9; return; }
+      var amt = toNum(txn[0]); if (!(amt > 0)) { cont = 9; return; }
+      var mark = null;
+      if (/^(cr|c)\b/i.test(tail) || /(^|\s)(cr|\+)$/i.test(before)) mark = "in";
+      else if (/^(dr|d)\b/i.test(tail) || /(^|\s)dr$/i.test(before)) mark = "out";
+      if (kind === "card" && !mark && /(^|\s)-$/.test(before)) mark = "in";
+      var desc = line.slice(dm.index + dm[0].length, txn.index);
+      if (SKIP_RE.test(desc) || SKIP_RE.test(line)) { cont = 9; return; }
+      rows.push({ date: date, desc: desc, amt: amt, bal: bal, mark: mark });
+      cont = 0;
     });
-    return out;
+    rows.forEach(function (r) {
+      r.desc = r.desc.replace(DATE_RE_G, " ").replace(/\b\d{1,2}:\d{2}(:\d{2})?\b/g, " ").replace(/\b\d{6,}\b/g, " ").replace(/[₹`]|\bINR\b/g, " ")
+        .replace(/(^|\s)(cr|dr|\+|-)$/i, " ").replace(/\s+/g, " ").replace(/^[\s\-|:,.\/]+|[\s\-|:,.\/]+$/g, "");
+    });
+    rows = rows.filter(function (r) { return r.desc; });
+    if (kind === "card") rows.forEach(function (r) { r.dir = r.mark || "out"; });
+    else bankDirections(rows, open);
+    return rows;
   }
-  function renderPreview() {
-    var el = $("cu-preview"), p = cc.preview;
-    if (!p) { el.hidden = true; el.innerHTML = ""; return; }
-    var pick = p.rows.filter(function (r) { return r.on; }), tot = pick.reduce(function (s, r) { return s + (r.credit ? -r.amt : r.amt); }, 0);
-    var n = { dup: 0, pay: 0 }; p.rows.forEach(function (r) { if (r.dup) n.dup++; if (r.payment) n.pay++; });
-    el.innerHTML = '<div class="stmt-head"><h3>' + esc(cardName(p.card)) + " statement · " + esc(p.file) + '</h3><span class="sub">' + p.rows.length + " lines found" +
-      (n.dup ? " · " + n.dup + " already imported" : "") + (n.pay ? " · " + n.pay + " bill payment" + (n.pay > 1 ? "s" : "") : "") + "</span></div>" +
-      '<div class="hint-line" style="margin:0 0 10px">Ticked lines are saved as expenses on this card. Credits are left unticked: tick one to save it as a refund, which lowers its category total. Bill payments shown here should be entered under Pay card bill, from the bank they were paid from.</div>' +
-      '<div class="table-wrap"><table class="pv-table"><thead><tr><th></th><th>Date</th><th>Description</th><th>Category</th><th class="num">Amount</th></tr></thead><tbody>' +
+  // Money in or out, worked out from the running balance (either order of lines), then from Cr/Dr markers
+  function bankDirections(rows, open) {
+    var near = function (a, b) { return Math.abs(a - b) < 0.015; }, asc = 0, dsc = 0;
+    for (var i = 1; i < rows.length; i++) {
+      var a = rows[i - 1], b = rows[i]; if (a.bal == null || b.bal == null) continue;
+      if (near(a.bal - b.amt, b.bal) || near(a.bal + b.amt, b.bal)) asc++;
+      if (near(b.bal - a.amt, a.bal) || near(b.bal + a.amt, a.bal)) dsc++;
+    }
+    var down = dsc > asc;
+    rows.forEach(function (r, j) {
+      var prev = down ? (j < rows.length - 1 ? rows[j + 1].bal : null) : (j > 0 ? rows[j - 1].bal : open);
+      r.dir = null;
+      if (prev != null && r.bal != null) { if (near(prev - r.amt, r.bal)) r.dir = "out"; else if (near(prev + r.amt, r.bal)) r.dir = "in"; }
+      if (!r.dir && r.mark) r.dir = r.mark;
+    });
+  }
+  function guessCard(d) {
+    var hit = state.cards.find(function (c) { return c.last4 && d.indexOf(c.last4) >= 0; });
+    return hit ? hit.code : state.cards.length === 1 ? state.cards[0].code : "";
+  }
+  // Work out what each line is. A line left without a type (or without the other account) waits for you.
+  function classify(kind, r, lex, lin) {
+    var d = r.desc, c;
+    r.type = null; r.cat = ""; r.other = "";
+    if (kind === "card") {
+      if (r.dir === "out") { r.type = "expense"; r.cat = CHARGES_RE.test(d) ? "Bank charges" : ruleCategory(d, lex) || "Other"; }
+      else if (PAYMENT_RE.test(d)) r.type = "billpay";
+      else if (REFUND_RE.test(d)) { r.type = "refund"; r.cat = ruleCategory(d, lex) || "Refund"; }
+      return;
+    }
+    if (!r.dir) return;
+    if (r.dir === "out") {
+      if (CARDPAY_RE.test(d)) { r.type = "cardpay"; r.other = guessCard(d); return; }
+      if (SELF_RE.test(d)) { r.type = "transfer"; return; }
+      if (ATM_RE.test(d)) return;
+      if (CHARGES_RE.test(d)) { r.type = "expense"; r.cat = "Bank charges"; return; }
+      if ((c = ruleCategory(d, lex))) { r.type = "expense"; r.cat = c; }
+      return;
+    }
+    if (SELF_RE.test(d)) { r.type = "transfer"; return; }
+    var k = merchantKey(d); if (k && lin[k]) { r.type = "income"; r.cat = lin[k]; return; }
+    for (var i = 0; i < INCOME_RULES.length; i++) if (INCOME_RULES[i][1].test(d)) { r.type = "income"; r.cat = INCOME_RULES[i][0]; return; }
+  }
+  function sgn(kind, dir) { return kind === "card" ? (dir === "out" ? 1 : -1) : (dir === "in" ? 1 : -1); }
+  // Skip anything already in the tracker
+  function markExisting(kind, src, rows) {
+    var refs = {};
+    [ex.list, state.income, state.transfers, state.cardPays].forEach(function (l) { l.forEach(function (x) { if (x.import_ref) refs[x.import_ref] = 1; }); });
+    var moves = (kind === "card" ? cardMoves(src) : movements(src)).map(function (m) { return { m: m, used: false }; });
+    var seen = {};
+    rows.forEach(function (r) {
+      var base = src + "|" + r.date + "|" + r.amt.toFixed(2) + "|" + (r.dir || "x") + "|" + merchantKey(r.desc).replace(/ /g, "_");
+      seen[base] = (seen[base] || 0) + 1; r.key = base + "|" + seen[base];
+      r.dup = !!refs[r.key];
+      if (r.dup) moves.forEach(function (c) { if (c.m.iref === r.key) c.used = true; });
+    });
+    rows.forEach(function (r) {
+      if (r.dup) return;
+      var signs = r.dir ? [sgn(kind, r.dir)] : [1, -1], best = null;
+      moves.forEach(function (c) {
+        if (c.used) return;
+        var dd = Math.abs(Date.parse(c.m.date) - Date.parse(r.date)) / dayMs; if (dd > 3) return;
+        if (!signs.some(function (s) { return Math.abs(c.m.amt - s * r.amt) < 0.01; })) return;
+        if (!best || dd < best.dd) best = { c: c, dd: dd };
+      });
+      if (best) {
+        best.c.used = true; r.match = best.c.m.kind + " · " + best.c.m.desc + " · " + fmtDate(best.c.m.date);
+        if (!r.dir) r.dir = (best.c.m.amt > 0) === (kind === "card") ? "out" : "in";
+      }
+    });
+  }
+  function needsChoice(r) { return r.on && (!r.type || ((r.type === "transfer" || r.type === "cardpay" || r.type === "billpay") && !r.other)); }
+  function srcOpenDate(kind, src) {
+    var o = kind === "card" ? state.cards.find(function (c) { return c.code === src; }) : state.accounts.find(function (a) { return a.code === src; });
+    return o ? o.opening_date : START_DATE;
+  }
+
+  function srcName(kind, code) { return kind === "card" ? cardName(code) : acctName(code); }
+  var imp = null; // { kind, src, file, rows, el }
+  async function readStatement(kind, src, file, pass, btn, formId, elId) {
+    btn.disabled = true; var label = btn.textContent; btn.textContent = "Reading…";
+    try {
+      var lines = await readLines(file, pass), rows = rawRows(lines, kind), lex = {}, lin = {};
+      ex.list.forEach(function (x) { var k = merchantKey(x.note); if (k && Number(x.amount) > 0) lex[k] = x.category; });
+      state.income.forEach(function (x) { var k = merchantKey(x.note); if (k) lin[k] = x.category; });
+      if (!rows.length) toast("Couldn't find any transactions in this file. A scanned image PDF can't be read; a downloaded statement or CSV can.");
+      else {
+        var od = srcOpenDate(kind, src);
+        rows.forEach(function (r) { classify(kind, r, lex, lin); });
+        markExisting(kind, src, rows);
+        rows.forEach(function (r) { r.early = r.date < od; r.on = !r.dup && !r.match && !r.early; });
+        if (imp && imp.el !== elId) { $(imp.el).hidden = true; }
+        imp = { kind: kind, src: src, file: file.name, rows: rows, el: elId };
+        $(formId).hidden = true; renderImport(); $(elId).scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    } catch (err) {
+      if (err && err.name === "PasswordException") toast(err.code === 2 ? "That password didn't open the PDF. Try again." : "This PDF is locked. Enter its password and read it again.");
+      else toast("Couldn't read the file: " + (err.message || err));
+    }
+    btn.disabled = false; btn.textContent = label;
+  }
+  var TYPE_LABEL = { expense: "Expense", income: "Income", transfer: "Transfer", cardpay: "Card bill", billpay: "Bill payment", refund: "Refund" };
+  function typeOpts(kind, dir) {
+    if (kind === "card") return dir === "out" ? [["expense:out", "Spend"]] : [["refund:in", "Refund"], ["billpay:in", "Bill payment"]];
+    if (dir === "out") return [["expense:out", "Expense"], ["transfer:out", "Transfer out"], ["cardpay:out", "Card bill"]];
+    if (dir === "in") return [["income:in", "Income"], ["transfer:in", "Transfer in"]];
+    return [["expense:out", "Expense (money out)"], ["transfer:out", "Transfer out"], ["cardpay:out", "Card bill (money out)"], ["income:in", "Income (money in)"], ["transfer:in", "Transfer in"]];
+  }
+  function otherOpts(kind, r) {
+    var o = [];
+    if (r.type === "transfer") {
+      state.accounts.forEach(function (a) { if (a.code !== imp.src) o.push([a.code, a.name]); });
+      Object.keys(SHOP).forEach(function (k) { o.push([k, SHOP[k]]); }); o.push(["bevco", "Bevco wallet"]);
+    } else if (r.type === "cardpay") state.cards.forEach(function (c) { o.push([c.code, cardName(c.code)]); });
+    else if (r.type === "billpay") state.accounts.forEach(function (a) { o.push([a.code, a.name]); });
+    var ph = r.type === "transfer" ? (r.dir === "out" ? "To which account?" : "From which account?") : r.type === "cardpay" ? "Which card?" : "Paid from?";
+    return '<option value="">' + ph + "</option>" + o.map(function (x) { return '<option value="' + esc(x[0]) + '"' + (r.other === x[0] ? " selected" : "") + ">" + esc(x[1]) + "</option>"; }).join("");
+  }
+  function renderImport() {
+    if (!imp) return;
+    var el = $(imp.el), p = imp, card = p.kind === "card";
+    var pick = p.rows.filter(function (r) { return r.on && !r.dup && r.type; }), need = p.rows.filter(needsChoice).length;
+    var tin = 0, tout = 0; pick.forEach(function (r) { if (r.dir === "in") tin += r.amt; else tout += r.amt; });
+    var n = { dup: 0, match: 0 }; p.rows.forEach(function (r) { if (r.dup) n.dup++; else if (r.match) n.match++; });
+    el.innerHTML = '<div class="stmt-head"><h3>' + esc(srcName(p.kind, p.src)) + " · " + esc(p.file) + '</h3><span class="sub">' + p.rows.length + " lines" +
+      (n.dup ? " · " + n.dup + " imported before" : "") + (n.match ? " · " + n.match + " already recorded" : "") + (need ? ' · <span class="neg">' + need + " need your choice</span>" : "") + "</span></div>" +
+      '<div class="hint-line" style="margin:0 0 10px">Check each line. Lines already in the tracker are unticked so they aren\'t recorded twice. Where the type couldn\'t be worked out, pick one, or untick the line to leave it out.' +
+      (card ? " A bill payment needs the bank it was paid from." : " A transfer needs the other account, and a card bill needs the card.") + "</div>" +
+      '<div class="table-wrap"><table class="pv-table"><thead><tr><th></th><th>Date</th><th>Description</th><th class="num">' + (card ? "Spent" : "Money out") + '</th><th class="num">' + (card ? "Credit" : "Money in") +
+      "</th><th>Type</th><th>Category / account</th></tr></thead><tbody>" +
       p.rows.map(function (r, i) {
-        var locked = r.dup || r.payment;
-        var tags = (r.dup ? '<span class="tag">Already imported</span>' : "") + (r.payment ? '<span class="tag">Bill payment</span>' : r.credit ? '<span class="tag">Credit</span>' : "") +
-          (r.early ? '<span class="tag">Before ' + fmtDate(card4(p.card).opening_date) + "</span>" : "");
-        return '<tr class="' + (r.on ? "" : "off") + '"><td><input type="checkbox" data-pv="' + i + '"' + (r.on ? " checked" : "") + (locked ? " disabled" : "") + "></td><td>" + fmtDate(r.date) +
-          "</td><td>" + esc(r.desc) + tags + "</td><td>" + (r.payment ? "" : '<input type="text" list="ex-cats" data-pvcat="' + i + '" value="' + esc(r.cat) + '">') +
-          '</td><td class="num' + (r.credit ? " pos" : "") + '">' + (r.credit ? "−" : "") + inr2.format(r.amt) + "</td></tr>";
+        var nd = needsChoice(r), val = r.type ? r.type + ":" + r.dir : "";
+        var tags = (r.dup ? '<span class="tag">Imported before</span>' : "") + (r.match ? '<span class="tag" title="' + esc(r.match) + '">Already recorded: ' + esc(r.match) + "</span>" : "") +
+          (r.early ? '<span class="tag">Before ' + fmtDate(srcOpenDate(p.kind, p.src)) + "</span>" : "");
+        var typeSel = r.dup ? "" : '<select data-imtype="' + i + '"><option value="">' + (r.type ? "" : "Choose…") + "</option>" +
+          typeOpts(p.kind, r.dir).map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === val ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select>";
+        var det = "";
+        if (!r.dup && r.type) {
+          if (r.type === "expense" || r.type === "refund") det = '<input type="text" list="ex-cats" data-imcat="' + i + '" value="' + esc(r.cat) + '">';
+          else if (r.type === "income") det = '<input type="text" list="in-cats" data-imcat="' + i + '" value="' + esc(r.cat) + '">';
+          else det = '<select data-imother="' + i + '">' + otherOpts(p.kind, r) + "</select>";
+        }
+        return '<tr class="' + (r.on ? "" : "off") + (nd ? " need" : "") + '"><td><input type="checkbox" data-imon="' + i + '"' + (r.on ? " checked" : "") + (r.dup ? " disabled" : "") + "></td><td>" + fmtDate(r.date) +
+          "</td><td>" + esc(r.desc) + tags + '</td><td class="num">' + (r.dir === "out" ? inr2.format(r.amt) : r.dir ? "" : inr2.format(r.amt) + '<span class="tag">in or out?</span>') + '</td><td class="num pos">' + (r.dir === "in" ? inr2.format(r.amt) : "") +
+          "</td><td>" + typeSel + "</td><td>" + det + "</td></tr>";
       }).join("") + "</tbody></table></div>" +
-      '<div class="actions" style="margin-top:12px"><button class="primary" type="button" id="cu-save"' + (pick.length ? "" : " disabled") + ">Save " + pick.length + (pick.length === 1 ? " expense" : " expenses") + " · " + inr2.format(tot) +
-      '</button><button class="ghost" type="button" id="cu-discard">Discard</button></div>';
+      '<div class="actions" style="margin-top:12px"><button class="primary" type="button" data-imsave="1"' + (pick.length && !need ? "" : " disabled") + ">" +
+      (need ? "Choose a type, or untick, for " + need + (need > 1 ? " lines" : " line") + " first" : "Save " + pick.length + (pick.length === 1 ? " entry" : " entries") + (tout ? " · out " + inr2.format(tout) : "") + (tin ? " · in " + inr2.format(tin) : "")) +
+      '</button><button class="ghost" type="button" data-imdiscard="1">Discard</button></div>';
     el.hidden = false;
   }
-  function card4(code) { return state.cards.find(function (x) { return x.code === code; }) || { opening_date: OPEN_FROM }; }
+  async function saveImport() {
+    var p = imp, src = p.src, ex1 = [], in1 = [], tr1 = [], cp1 = [];
+    p.rows.forEach(function (r) {
+      if (!r.on || r.dup || !r.type || needsChoice(r)) return;
+      var cat = (r.cat || "Other").trim().replace(/\s+/g, " ") || "Other";
+      if (r.type === "expense" || r.type === "refund") ex1.push({ exp_date: r.date, category: cat, amount: r.type === "refund" ? -r.amt : r.amt, paid_from: src, note: r.desc, import_ref: r.key });
+      else if (r.type === "income") in1.push({ inc_date: r.date, category: cat, amount: r.amt, received_into: src, note: r.desc, import_ref: r.key });
+      else if (r.type === "transfer") tr1.push({ transfer_date: r.date, from_account: r.dir === "out" ? src : r.other, to_account: r.dir === "out" ? r.other : src, amount: r.amt, note: r.desc, import_ref: r.key });
+      else if (r.type === "cardpay") cp1.push({ pay_date: r.date, card_code: r.other, paid_from: src, amount: r.amt, note: r.desc, import_ref: r.key });
+      else if (r.type === "billpay") cp1.push({ pay_date: r.date, card_code: src, paid_from: r.other, amount: r.amt, note: r.desc, import_ref: r.key });
+    });
+    var jobs = [["household_expenses", ex1], ["personal_income", in1], ["account_transfers", tr1], ["card_payments", cp1]].filter(function (j) { return j[1].length; });
+    if (!jobs.length) return;
+    var res = await Promise.all(jobs.map(function (j) { return sb.from(j[0]).upsert(j[1], { onConflict: "import_ref", ignoreDuplicates: true }).select("id"); }));
+    var err = res.find(function (r) { return r.error; });
+    var saved = res.reduce(function (s, r) { return s + ((r.data || []).length); }, 0);
+    if (err) { toast("Some lines couldn't be saved: " + err.error.message); }
+    else toast(saved + (saved === 1 ? " entry" : " entries") + " saved from the statement");
+    $(p.el).hidden = true; imp = null;
+    await load();
+  }
+  ["bu-preview", "cu-preview"].forEach(function (id) {
+    var el = $(id);
+    el.addEventListener("change", function (e) {
+      var t = e.target, i;
+      if ((i = t.getAttribute("data-imon")) !== null) { imp.rows[+i].on = t.checked; renderImport(); }
+      else if ((i = t.getAttribute("data-imtype")) !== null) {
+        var r = imp.rows[+i], v = t.value.split(":");
+        if (!v[0]) { r.type = null; } else { var was = r.type; r.type = v[0]; r.dir = v[1]; if (was !== r.type) { r.other = ""; r.cat = r.type === "income" ? "" : r.cat || ""; } }
+        if (r.type === "cardpay" && !r.other) r.other = guessCard(r.desc);
+        renderImport();
+      }
+      else if ((i = t.getAttribute("data-imother")) !== null) { imp.rows[+i].other = t.value; renderImport(); }
+    });
+    el.addEventListener("input", function (e) { var i = e.target.getAttribute("data-imcat"); if (i !== null) imp.rows[+i].cat = e.target.value; });
+    el.addEventListener("click", function (e) {
+      if (e.target.getAttribute("data-imdiscard")) { el.hidden = true; imp = null; return; }
+      if (e.target.getAttribute("data-imsave")) { e.target.disabled = true; saveImport(); }
+    });
+  });
+  // Card statement upload
   $("cc-up-open").addEventListener("click", function () {
     if (!state.cards.length) { toast(state.missing ? "Run nw_bank_cards.sql in Supabase first." : "Add a card first."); return; }
     var f = $("cc-up-form"); hideCardForms("cc-up-form"); f.hidden = !f.hidden; if (!f.hidden) { renderCards(); f.scrollIntoView({ behavior: "smooth", block: "center" }); }
   });
   $("cu-cancel").addEventListener("click", function () { $("cc-up-form").hidden = true; });
-  $("cc-up-form").addEventListener("submit", async function (e) {
-    e.preventDefault();
-    var file = $("cu-file").files[0], card = card4($("cu-card").value); if (!file || !card.code) return;
-    var btn = $("cu-read"); btn.disabled = true; btn.textContent = "Reading…";
-    try {
-      await loadPdfJs();
-      var lines = await pdfLines(file, $("cu-pass").value);
-      var rows = parseStatement(lines, card);
-      if (!rows.length) toast("Couldn't find any transactions in this PDF. If it's a scanned image rather than a downloaded statement, it can't be read.");
-      else { cc.preview = { card: card.code, file: file.name, rows: rows }; $("cc-up-form").hidden = true; renderPreview(); $("cu-preview").scrollIntoView({ behavior: "smooth", block: "start" }); }
-    } catch (err) {
-      if (err && err.name === "PasswordException") { toast(err.code === 2 ? "That password didn't open the PDF. Try again." : "This PDF is locked. Enter its password and read it again."); $("cu-pass").focus(); }
-      else toast("Couldn't read the PDF: " + (err.message || err));
-    }
-    btn.disabled = false; btn.textContent = "Read statement";
+  $("cc-up-form").addEventListener("submit", function (e) {
+    e.preventDefault(); var file = $("cu-file").files[0], src = $("cu-card").value; if (!file || !src) return;
+    readStatement("card", src, file, $("cu-pass").value, $("cu-read"), "cc-up-form", "cu-preview");
   });
-  $("cu-preview").addEventListener("change", function (e) {
-    var i = e.target.getAttribute("data-pv"); if (i === null) return;
-    cc.preview.rows[+i].on = e.target.checked; renderPreview();
+  // Bank statement upload
+  $("bu-open").addEventListener("click", function () {
+    var f = $("bu-form"); $("tr-form").hidden = true; $("ob-form").hidden = true; f.hidden = !f.hidden; if (f.hidden) return;
+    var v = $("bu-acct").value;
+    $("bu-acct").innerHTML = state.accounts.map(function (a) { return '<option value="' + esc(a.code) + '">' + esc(a.name) + "</option>"; }).join("");
+    if (v) $("bu-acct").value = v;
+    f.scrollIntoView({ behavior: "smooth", block: "center" });
   });
-  $("cu-preview").addEventListener("input", function (e) {
-    var i = e.target.getAttribute("data-pvcat"); if (i !== null) cc.preview.rows[+i].cat = e.target.value;
-  });
-  $("cu-preview").addEventListener("click", async function (e) {
-    if (e.target.id === "cu-discard") { cc.preview = null; renderPreview(); return; }
-    if (e.target.id !== "cu-save") return;
-    var p = cc.preview, rows = p.rows.filter(function (r) { return r.on && !r.dup && !r.payment; }).map(function (r) {
-      return { exp_date: r.date, category: (r.cat || "Other").trim().replace(/\s+/g, " "), amount: r.credit ? -r.amt : r.amt, paid_from: p.card, note: r.desc, import_ref: r.key };
-    });
-    if (!rows.length) return;
-    e.target.disabled = true;
-    var r = await sb.from("household_expenses").upsert(rows, { onConflict: "import_ref", ignoreDuplicates: true }).select();
-    if (r.error) { e.target.disabled = false; toast("Couldn't save: " + r.error.message); return; }
-    (r.data || []).forEach(function (x) { ex.list.push(x); });
-    ex.list.sort(function (a, b) { return a.exp_date < b.exp_date ? -1 : a.exp_date > b.exp_date ? 1 : 0; });
-    toast((r.data || []).length + " expenses saved to " + cardName(p.card));
-    cc.preview = null; $("cu-file").value = ""; $("cu-pass").value = ""; renderPreview(); renderExpenses(); render();
+  $("bu-cancel").addEventListener("click", function () { $("bu-form").hidden = true; });
+  $("bu-form").addEventListener("submit", function (e) {
+    e.preventDefault(); var file = $("bu-file").files[0], src = $("bu-acct").value; if (!file || !src) return;
+    readStatement("bank", src, file, $("bu-pass").value, $("bu-read"), "bu-form", "bu-preview");
   });
 
   // ---------- Prices: updated on the server every day; this button runs the same update now ----------
