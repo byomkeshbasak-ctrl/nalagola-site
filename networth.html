@@ -331,14 +331,10 @@
       </div>
       <div class="dash-grid" id="dash-grid"></div>
       <section class="card sec" aria-label="Net worth month by month">
-        <div class="list-h"><h2>Net worth month by month</h2>
-          <div class="seg" id="mbm-range"><button type="button" data-mode="12" aria-pressed="true">12 months</button><button type="button" data-mode="36" aria-pressed="false">3 years</button><button type="button" data-mode="all" aria-pressed="false">All</button></div>
-        </div>
-        <div class="area-wrap" id="mbm-chart"></div>
-        <div class="mf-note" id="mbm-note"></div>
-        <div class="table-wrap" style="margin-top:14px"><table id="mbm-table"></table></div>
+        <div class="list-h"><h2>Net worth month by month</h2></div>
+        <div class="table-wrap"><table id="mbm-table"></table></div>
         <div style="margin-top:10px"><button class="sec-link" type="button" id="mbm-more" hidden></button></div>
-        <div class="mf-note">Each month shows its last recorded day. Card dues are subtracted, and Loans &amp; advances is money lent minus money owed. The current month updates every time you open the tracker.</div>
+        <div class="mf-note">Tracking starts from 1 Nov 2026. Each month shows its last recorded day. Card dues are subtracted, and Loans &amp; advances is money lent minus money owed. The current month updates every time you open the tracker.</div>
       </section>
     </section>
 
@@ -703,7 +699,7 @@
 (function () {
   var SUPABASE_URL = "https://kikavlhdhdjeqqygfvbv.supabase.co";
   var SUPABASE_KEY = "sb_publishable_Xe16oJpxjHO31iWW_u9fNw_qtj2Vmc0";
-  var START_DATE = "2026-10-01";
+  var START_DATE = "2026-11-01"; // net worth, bank, income and expense tracking starts here
 
   var $ = function (id) { return document.getElementById(id); };
   var inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
@@ -923,14 +919,14 @@
   });
 
   // ---------- Opening balances (frozen once saved) ----------
-  var OPEN_FROM = "2026-11-01";
+  var OPEN_FROM = START_DATE;
   $("ob-open").addEventListener("click", function () {
     var f = $("ob-form"); $("tr-form").hidden = true; f.hidden = !f.hidden; if (f.hidden) return;
     var open = state.accounts.filter(function (a) { return !a.opening_locked; });
     $("ob-fields").innerHTML = state.accounts.map(function (a) {
       if (a.opening_locked) return '<label>' + esc(a.name) + '<input type="text" value="' + esc(inr2.format(a.opening_balance) + " on " + fmtDate(a.opening_date) + " · frozen") + '" disabled></label>';
-      return '<label>' + esc(a.name) + ' (₹)<input type="number" step="0.01" inputmode="decimal" data-ob="' + esc(a.code) + '" required></label>' +
-        '<label>' + esc(a.name) + ' as of<input type="date" data-obd="' + esc(a.code) + '" value="' + OPEN_FROM + '" required></label>';
+      return '<label>' + esc(a.name) + ' (₹)<input type="number" step="0.01" inputmode="decimal" data-ob="' + esc(a.code) + '" value="' + esc(a.opening_balance) + '" required></label>' +
+        '<label>' + esc(a.name) + ' as of<input type="date" data-obd="' + esc(a.code) + '" value="' + OPEN_FROM + '" min="' + OPEN_FROM + '" max="' + OPEN_FROM + '" readonly></label>';
     }).join("") + '<div class="hint">' + (open.length ? "Once you save, these balances are frozen and can't be changed. Everything from this date onwards is counted on top of them." : "All opening balances are frozen.") + "</div>";
     e_obSave().hidden = !open.length;
   });
@@ -1531,49 +1527,12 @@
   }
   function renderMonthly() {
     if (!$("mbm-table")) return;
-    var all = mbmMonths(), tm = todayISO().slice(0, 7);
+    var all = mbmMonths().filter(function (x) { return x.m >= START_DATE.slice(0, 7); }), tm = todayISO().slice(0, 7);
     all.forEach(function (x, i) { var pr = all[i - 1]; if (pr && pr.partial && !x.partial) pr = null; x.ch = pr ? x.t - pr.t : null; x.pct = pr && pr.t ? x.ch / Math.abs(pr.t) : null; });
-    // Chart: month-end net worth as bars, coloured by the change from the month before
-    var pts = mbm.range === "all" ? all : all.slice(-Number(mbm.range));
-    var el = $("mbm-chart");
-    if (!pts.length) { el.innerHTML = '<div class="empty">Month-end figures appear here as the tracker records them.</div>'; }
-    else {
-      var W = 640, H = 240, L = 52, R = 10, T = 14, B = 26, n = pts.length;
-      var max = Math.max.apply(null, pts.map(function (x) { return x.t; }).concat([1])), min = Math.min(0, Math.min.apply(null, pts.map(function (x) { return x.t; })));
-      var nice = Math.pow(10, Math.floor(Math.log10(max - min || 1))), top = Math.ceil(max / nice) * nice; if ((top - min) / nice > 6) { nice *= 2; top = Math.ceil(max / nice) * nice; }
-      var bot = min < 0 ? -Math.ceil(-min / nice) * nice : 0;
-      var Y = function (v) { return T + (H - T - B) * (top - v) / (top - bot || 1); };
-      var bw = (W - L - R) / n, short = function (v) { var a = Math.abs(v), s = v < 0 ? "−" : ""; return s + (a >= 1e7 ? (a / 1e7).toFixed(a % 1e7 ? 1 : 0) + " Cr" : a >= 1e5 ? (a / 1e5).toFixed(a % 1e5 ? 1 : 0) + " L" : a >= 1e3 ? Math.round(a / 1e3) + "k" : String(a)); };
-      var g = "";
-      for (var v = bot; v <= top + 1; v += nice) g += '<line class="gl" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(v).toFixed(1) + '" y2="' + Y(v).toFixed(1) + '"/><text class="ax" x="' + (L - 6) + '" y="' + (Y(v) + 3).toFixed(1) + '" text-anchor="end">₹' + short(v) + "</text>";
-      var every = Math.max(1, Math.ceil(n / 8)), bars = "";
-      pts.forEach(function (x, i) {
-        var x0 = L + i * bw + bw * 0.15, w = Math.max(1, bw * 0.7), y = Y(Math.max(0, x.t)), h = Math.abs(Y(0) - Y(x.t));
-        var col = x.partial ? "rgba(217,178,111,0.35)" : x.ch === null ? "#d9b26f" : x.ch >= 0 ? "#7fcf9a" : "#ef8f8f";
-        bars += '<rect x="' + x0.toFixed(1) + '" y="' + (x.t >= 0 ? y : Y(0)).toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + Math.max(0.5, h).toFixed(1) + '" rx="2" fill="' + col + '" data-mi="' + i + '"/>';
-        if (i % every === 0 || i === n - 1) bars += '<text class="ax" x="' + (x0 + w / 2).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle">' + new Date(x.m + "-01T00:00:00").toLocaleDateString("en-IN", { month: "short", year: "2-digit" }) + "</text>";
-      });
-      el.innerHTML = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Month-end net worth">' + g + bars + '</svg><div class="area-tip" id="mbm-tip" hidden></div>';
-      var svg = el.querySelector("svg"), tip = $("mbm-tip");
-      svg.addEventListener("mousemove", function (e) {
-        var r = svg.getBoundingClientRect(), xx = (e.clientX - r.left) * W / r.width, i = Math.floor((xx - L) / bw);
-        if (i < 0 || i >= n) { tip.hidden = true; return; }
-        var p = pts[i];
-        tip.innerHTML = "<b>" + mName(p.m) + (p.m === tm ? " (so far)" : "") + "</b><div><span>Net worth</span><span>" + inr.format(p.t) + "</span></div>" +
-          (p.ch === null ? "" : '<div><span>Change</span><span class="' + (p.ch >= 0 ? "pos" : "neg") + '">' + (p.ch >= 0 ? "+" : "−") + inr.format(Math.abs(p.ch)) + (p.pct !== null ? " (" + (p.pct >= 0 ? "+" : "") + (p.pct * 100).toFixed(1) + "%)" : "") + "</span></div>") +
-          (p.partial ? '<div><span style="color:var(--muted)">Shares and funds only</span><span></span></div>' : "");
-        tip.hidden = false; var left = ((L + (i + 0.5) * bw) / W) * r.width; tip.style.left = Math.min(Math.max(0, left + 12), r.width - tip.offsetWidth) + "px";
-      });
-      svg.addEventListener("mouseleave", function () { tip.hidden = true; });
-    }
-    var full = all.filter(function (x) { return !x.partial; });
-    if (full.length > 1) {
-      var f = full[0], l = full[full.length - 1], ch = l.t - f.t;
-      $("mbm-note").innerHTML = "Since " + mName(f.m) + ": " + inr.format(f.t) + " → " + inr.format(l.t) + ' (<span class="' + (ch >= 0 ? "pos" : "neg") + '">' + (ch >= 0 ? "+" : "−") + inr.format(Math.abs(ch)) + "</span>). Green bars grew on the month before, red bars fell. Faded bars are older months that count shares and funds only.";
-    } else $("mbm-note").textContent = "Green bars grew on the month before, red bars fell. Faded bars are older months that count shares and funds only.";
     // Table: latest month first
     var rows = all.slice().reverse(), shown = mbm.all ? rows : rows.slice(0, 12);
     var cell = function (x, k) { if (x.partial && k !== "stocks" && k !== "mf") return '<td class="num" style="color:var(--muted)">–</td>'; var v = x.v[k]; return '<td class="num' + (v < -0.5 ? " neg" : "") + '">' + (Math.abs(v) < 0.5 ? "₹0" : (v < 0 ? "−" : "") + inr.format(Math.abs(v))) + "</td>"; };
+    if (!rows.length) { $("mbm-table").innerHTML = '<tbody><tr><td class="empty">November 2026 appears here once the tracker records it.</td></tr></tbody>'; $("mbm-more").hidden = true; return; }
     $("mbm-table").innerHTML = '<thead><tr><th>Month</th>' + MBM_COLS.map(function (c) { return '<th class="num">' + c[1] + "</th>"; }).join("") + '<th class="num">Net worth</th><th class="num">Change</th></tr></thead><tbody>' +
       shown.map(function (x) {
         return "<tr><td>" + mName(x.m) + (x.m === tm ? ' <span class="tag">so far</span>' : "") + (x.partial ? ' <span class="tag">shares &amp; funds only</span>' : "") + "</td>" +
@@ -1583,7 +1542,6 @@
     $("mbm-more").hidden = rows.length <= 12;
     $("mbm-more").textContent = mbm.all ? "Show the last 12 months" : "Show all " + rows.length + " months";
   }
-  segToggle("mbm-range", function (m) { mbm.range = m; renderMonthly(); });
   $("mbm-more").addEventListener("click", function () { mbm.all = !mbm.all; renderMonthly(); });
 
   // ---------- Tabs ----------
