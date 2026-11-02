@@ -309,13 +309,8 @@
           <div>
             <div class="k">Net worth</div>
             <div class="v" id="nw-total">–</div>
-            <div class="s" id="nw-s"></div>
           </div>
-          <div class="spacer"></div>
-          <button class="ghost" id="px-refresh" type="button">Update prices now</button>
         </div>
-        <div class="nw-split" id="nw-split"></div>
-        <div class="alloc" id="nw-alloc"></div>
       </section>
       <div class="dash-charts">
         <section class="card" aria-label="Net worth growth">
@@ -1002,9 +997,9 @@
     });
     var units = lots.reduce(function (x, l) { return x + l.units; }, 0), invested = lots.reduce(function (x, l) { return x + l.cost; }, 0);
     if (units < 0.0005) { units = 0; invested = 0; }
-    var nav = Number(f.nav) || 0, value = units * nav;
+    var nav = Number(f.nav) || 0, value = units * nav, pnav = Number(f.prev_nav) || nav;
     var xf = flows.slice(); if (value > 0) xf.push([todayISO(), value]);
-    return { tx: tx, lots: lots, units: units, invested: invested, nav: nav, value: value, gain: value - invested, realised: realised, buys: buys, sells: sells,
+    return { tx: tx, lots: lots, units: units, invested: invested, nav: nav, pnav: pnav, day: units * (nav - pnav), value: value, gain: value - invested, realised: realised, buys: buys, sells: sells,
       flows: flows, xirr: xirr(xf), since: lots.length ? lots[0].date : null };
   }
   function xirr(flows) {
@@ -1021,18 +1016,19 @@
     var rows = mf.funds.map(function (f) { var c = fundCalc(f); c.f = f; return c; });
     var held = rows.filter(function (r) { return r.units > 0; }).sort(function (a, b) { return b.value - a.value; });
     var exited = rows.filter(function (r) { return !r.units && r.tx.length; });
-    var T = { inv: 0, val: 0, real: 0 }, allFlows = [];
-    rows.forEach(function (r) { T.inv += r.invested; T.val += r.value; T.real += r.realised; allFlows = allFlows.concat(r.flows); });
+    var T = { inv: 0, val: 0, real: 0, day: 0 }, allFlows = [];
+    rows.forEach(function (r) { T.inv += r.invested; T.val += r.value; T.real += r.realised; T.day += r.day; allFlows = allFlows.concat(r.flows); });
     allFlows.sort(function (a, b) { return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0; });
     if (T.val > 0) allFlows.push([todayISO(), T.val]);
     var X = xirr(allFlows), gain = T.val - T.inv;
     var navDate = held.reduce(function (d, r) { return r.f.nav_date && r.f.nav_date > d ? r.f.nav_date : d; }, "");
-    mf.total = T.val; mf.invested = T.inv; mf.count = held.length;
+    mf.total = T.val; mf.invested = T.inv; mf.count = held.length; mf.day = T.day;
 
     $("mf-total").textContent = inr.format(T.val);
     $("mf-total-s").textContent = held.length + " funds held" + (navDate ? " · NAV as of " + fmtDate(navDate) : "") + "";
     var k = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + (d || "") + "</div></div>"; };
-    $("mf-kpis").innerHTML = k("Invested", inr.format(T.inv), "Cost of units still held") + k("Current value", inr.format(T.val), "") +
+    $("mf-kpis").innerHTML = k("Invested", inr.format(T.inv), "Cost of units still held") +
+      k("Today's gain / loss", (T.day > 0 ? "+" : "") + inr.format(T.day), pct(T.val - T.day ? T.day / (T.val - T.day) : NaN) + (navDate ? " · NAV of " + fmtDate(navDate) : ""), T.day >= 0 ? "pos" : "neg") +
       k("Unrealised gain", inr.format(gain), pct(T.inv ? gain / T.inv : NaN), gain >= 0 ? "pos" : "neg") +
       k("Realised gain", inr.format(T.real), "From redemptions (FIFO)", T.real >= 0 ? "pos" : "neg") +
       k("XIRR", isFinite(X) ? (X * 100).toFixed(1) + "%" : "–", "All funds, since first buy", X >= 0 ? "pos" : "neg");
@@ -1078,7 +1074,8 @@
     var g = r.gain, w = tot ? r.value / tot : 0, open = mf.open[r.f.name];
     return '<tr class="fund" data-mffund="' + esc(r.f.name) + '"><td class="fn">' + esc(r.f.name) + "<small>" + esc(r.f.category || "") + (r.since ? " · holding since " + fmtDate(r.since) : "") +
       '</small></td><td class="num">' + num3.format(r.units) + '</td><td class="num">' + inr2.format(r.invested / r.units) + '</td><td class="num">' + inr.format(r.invested) +
-      '</td><td class="num">' + inr2.format(r.nav) + '</td><td class="num">' + inr.format(r.value) + '</td><td class="num ' + (g >= 0 ? "pos" : "neg") + '">' + inr.format(g) + "<br><small>" + pct(r.invested ? g / r.invested : NaN) +
+      '</td><td class="num">' + inr2.format(r.nav) + (r.pnav && r.nav !== r.pnav ? '<small class="dc ' + (r.nav >= r.pnav ? "pos" : "neg") + '">' + (r.nav >= r.pnav ? "+" : "") + (r.nav - r.pnav).toFixed(2) + " (" + pct((r.nav - r.pnav) / r.pnav) + ")</small>" : "") +
+      '</td><td class="num">' + inr.format(r.value) + (r.day ? '<small class="dc ' + (r.day >= 0 ? "pos" : "neg") + '">' + (r.day > 0 ? "+" : "") + inr.format(r.day) + " today</small>" : "") + '</td><td class="num ' + (g >= 0 ? "pos" : "neg") + '">' + inr.format(g) + "<br><small>" + pct(r.invested ? g / r.invested : NaN) +
       '</small></td><td class="num">' + (isFinite(r.xirr) ? (r.xirr * 100).toFixed(1) + "%" : "–") + '</td><td class="num">' + (w * 100).toFixed(1) + '%<span class="wt"><span style="width:' + (w * 100).toFixed(1) + '%"></span></span></td><td><span class="tog">' +
       (open ? "Hide ▴" : "Show ▾") + "</span></td></tr>" + (open ? txRows(r, 10) : "");
   }
@@ -1273,7 +1270,7 @@
     $("st-total-s").textContent = held.length + " stocks held" + (pdate ? " · closing prices of " + fmtDate(pdate) : "");
     var k = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + (d || "") + "</div></div>"; };
     $("st-kpis").innerHTML = k("Invested", inr.format(T.inv), "Cost of shares still held") +
-      k("Day's change", inr.format(T.day), pct(T.val - T.day ? T.day / (T.val - T.day) : NaN), T.day >= 0 ? "pos" : "neg") +
+      k("Today's gain / loss", (T.day > 0 ? "+" : "") + inr.format(T.day), pct(T.val - T.day ? T.day / (T.val - T.day) : NaN) + (pdate ? " · close of " + fmtDate(pdate) : ""), T.day >= 0 ? "pos" : "neg") +
       k("Unrealised gain", inr.format(gain), pct(T.inv ? gain / T.inv : NaN), gain >= 0 ? "pos" : "neg") +
       k("Realised gain", inr.format(T.real), "From sales (FIFO)", T.real >= 0 ? "pos" : "neg") +
       k("XIRR", isFinite(X) ? (X * 100).toFixed(1) + "%" : "–", "All trades, since first buy", X >= 0 ? "pos" : "neg");
@@ -1413,19 +1410,12 @@
     var liab = v.taken + cardDueTotal() + COMP.reduce(function (x, c) { return x + (c.k !== "loans" && v[c.k] < 0 ? -v[c.k] : 0); }, 0);
     var nw = assets - liab;
     $("nw-total").textContent = inr.format(nw);
-    $("nw-s").textContent = "Everything you own minus what you owe, as of " + fmtDate(todayISO());
     var sd = st.day || 0;
-    $("nw-split").innerHTML = '<div><div class="l">Assets</div><div class="a">' + inr.format(assets) + '</div><div class="d">' + COMP.filter(function (c) { return (c.k === "loans" ? v.given : v[c.k]) > 0; }).length + " components</div></div>" +
-      '<div><div class="l">Liabilities</div><div class="a ' + (liab ? "neg" : "") + '">' + inr.format(liab) + '</div><div class="d">Loans you owe and card dues</div></div>' +
-      '<div><div class="l">Market move today</div><div class="a ' + (sd >= 0 ? "pos" : "neg") + '">' + (sd >= 0 ? "+" : "") + inr.format(sd) + '</div><div class="d">Shares, at the last close</div></div>';
-    // Allocation of assets
     var parts = COMP.map(function (c) { return { c: c, a: c.k === "loans" ? v.given : Math.max(0, v[c.k]) }; }).filter(function (x) { return x.a > 0; }).sort(function (x, y) { return y.a - x.a; });
-    $("nw-alloc").innerHTML = assets ? '<div class="alloc-bar">' + parts.map(function (x) { return '<span title="' + esc(x.c.l) + '" style="width:' + (100 * x.a / assets).toFixed(2) + "%;background:" + x.c.c + '"></span>'; }).join("") +
-      '</div><div class="alloc-key">' + parts.map(function (x) { return '<span><i style="background:' + x.c.c + '"></i>' + esc(x.c.l) + " <b>" + (100 * x.a / assets).toFixed(1) + "%</b></span>"; }).join("") + "</div>" : "";
     // Tiles
     var sub = {
       stocks: (st.count || 0) + " stocks · " + (st.invested ? '<span class="' + (st.total >= st.invested ? "pos" : "neg") + '">' + pct((st.total - st.invested) / st.invested) + "</span> on cost" : "") + (sd ? ' · today <span class="' + (sd >= 0 ? "pos" : "neg") + '">' + (sd >= 0 ? "+" : "") + inr.format(sd) + "</span>" : ""),
-      mf: (mf.count || 0) + " funds · " + (mf.invested ? '<span class="' + (mf.total >= mf.invested ? "pos" : "neg") + '">' + pct((mf.total - mf.invested) / mf.invested) + "</span> on cost" : ""),
+      mf: (mf.count || 0) + " funds · " + (mf.invested ? '<span class="' + (mf.total >= mf.invested ? "pos" : "neg") + '">' + pct((mf.total - mf.invested) / mf.invested) + "</span> on cost" : "") + (mf.day ? ' · today <span class="' + (mf.day >= 0 ? "pos" : "neg") + '">' + (mf.day >= 0 ? "+" : "") + inr.format(mf.day) + "</span>" : ""),
       business: biz.latest ? "Shop capital as of " + fmtDate(biz.latest.as_of) : "Open the shop accounts once to bring this in",
       bank: state.accounts.map(function (a) { return esc(a.name) + " " + inr.format(balance(a.code)); }).join(" · "),
       epf: countLine("epf", "account"),
@@ -2452,7 +2442,7 @@
   });
 
   // ---------- Prices: updated on the server every day; this button runs the same update now ----------
-  $("px-refresh").addEventListener("click", async function () {
+  if ($("px-refresh")) $("px-refresh").addEventListener("click", async function () {
     var b = this; b.disabled = true; b.textContent = "Updating…";
     try {
       var r = await sb.functions.invoke("update-prices", { body: {} });
