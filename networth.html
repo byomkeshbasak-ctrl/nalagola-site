@@ -208,6 +208,8 @@
   #st-table td.fn b, #st-exited-table td.fn b { font-weight: 600; }
   #st-table td.fn small, #st-exited-table td.fn small { display: block; font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
   #st-table tr.tx > td, #st-exited-table tr.tx > td { padding: 0 0 12px 18px; background: var(--bg); }
+  .day-mv { margin-top: 2px; font-size: 1.05rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .day-mv small { font-size: 0.78rem; font-weight: 400; color: var(--muted); margin-left: 4px; }
   td small.dc { display: block; font-size: 0.72rem; }
 
   /* ---------- Mutual funds ---------- */
@@ -343,6 +345,7 @@
         <div>
           <div class="k">Stocks &amp; ETFs</div>
           <div class="v" id="st-total">–</div>
+          <div class="day-mv" id="st-day"></div>
           <div class="s" id="st-total-s"></div>
         </div>
         <div class="spacer"></div>
@@ -392,6 +395,7 @@
         <div>
           <div class="k">Mutual funds</div>
           <div class="v" id="mf-total">–</div>
+          <div class="day-mv" id="mf-day"></div>
           <div class="s" id="mf-total-s"></div>
         </div>
         <div class="spacer"></div>
@@ -1012,6 +1016,11 @@
     return (lo + hi) / 2;
   }
 
+  function dayLine(id, day, total, label) {
+    var base = total - day, el = $(id); if (!el) return;
+    el.className = "day-mv " + (day >= 0 ? "pos" : "neg");
+    el.innerHTML = (day > 0 ? "+" : "") + inr.format(day) + " (" + pct(base ? day / base : NaN) + ")<small>" + esc(label) + "</small>";
+  }
   function renderMF() {
     var rows = mf.funds.map(function (f) { var c = fundCalc(f); c.f = f; return c; });
     var held = rows.filter(function (r) { return r.units > 0; }).sort(function (a, b) { return b.value - a.value; });
@@ -1025,6 +1034,7 @@
     mf.total = T.val; mf.invested = T.inv; mf.count = held.length; mf.day = T.day;
 
     $("mf-total").textContent = inr.format(T.val);
+    dayLine("mf-day", T.day, T.val, "today's gain / loss" + (navDate ? " · NAV of " + fmtDate(navDate) : ""));
     $("mf-total-s").textContent = held.length + " funds held" + (navDate ? " · NAV as of " + fmtDate(navDate) : "") + "";
     var k = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + (d || "") + "</div></div>"; };
     $("mf-kpis").innerHTML = k("Invested", inr.format(T.inv), "Cost of units still held") +
@@ -1267,6 +1277,7 @@
     var pdate = held.reduce(function (d, r) { return r.pdate && r.pdate > d ? r.pdate : d; }, "");
     st.total = T.val; st.invested = T.inv; st.day = T.day; st.pdate = pdate; st.count = held.length;
     $("st-total").textContent = inr.format(T.val);
+    dayLine("st-day", T.day, T.val, "today's gain / loss" + (pdate ? " · close of " + fmtDate(pdate) : ""));
     $("st-total-s").textContent = held.length + " stocks held" + (pdate ? " · closing prices of " + fmtDate(pdate) : "");
     var k = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + (d || "") + "</div></div>"; };
     $("st-kpis").innerHTML = k("Invested", inr.format(T.inv), "Cost of shares still held") +
