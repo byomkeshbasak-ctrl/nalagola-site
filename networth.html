@@ -223,6 +223,8 @@
   #st-table tr.tx > td, #st-exited-table tr.tx > td { padding: 0 0 12px 18px; background: var(--bg); }
   .day-mv { margin-top: 2px; font-size: 1.05rem; font-weight: 600; font-variant-numeric: tabular-nums; }
   .day-mv small { font-size: 0.78rem; font-weight: 400; color: var(--muted); margin-left: 4px; }
+  .px-stamp { margin-top: 3px; font-size: 0.74rem; color: var(--muted); }
+  .px-stamp b { color: var(--text); font-weight: 500; }
   td small.dc { display: block; font-size: 0.72rem; }
 
   /* ---------- Mutual funds ---------- */
@@ -451,8 +453,10 @@
           <div class="v" id="st-total">–</div>
           <div class="day-mv" id="st-day"></div>
           <div class="s" id="st-total-s"></div>
+          <div class="px-stamp" id="st-stamp"></div>
         </div>
         <div class="spacer"></div>
+        <button class="ghost px-btn" type="button">Refresh prices</button>
         <button class="ghost" id="st-add" type="button">Add trade</button>
       </div>
 
@@ -501,8 +505,10 @@
           <div class="v" id="mf-total">–</div>
           <div class="day-mv" id="mf-day"></div>
           <div class="s" id="mf-total-s"></div>
+          <div class="px-stamp" id="mf-stamp"></div>
         </div>
         <div class="spacer"></div>
+        <button class="ghost px-btn" type="button">Refresh NAVs</button>
         <button class="ghost" id="mf-add" type="button">Add transaction</button>
       </div>
 
@@ -784,7 +790,7 @@
     state.transfers = (q[1].data || []).filter(function (t) { return isPersonal(t.from_account) || isPersonal(t.to_account); });
     fillSelects();
     render();
-    await Promise.all([loadMF(), loadStocks(), loadOthers(), loadHistory()]);
+    await Promise.all([loadMF(), loadStocks(), loadOthers(), loadHistory(), loadPxStamp()]);
     renderNetWorth();
     renderIncome();
   }
@@ -2542,9 +2548,34 @@
     readStatement("bank", src, file, $("bu-pass").value, $("bu-read"), "bu-form", "bu-preview");
   });
 
-  // ---------- Prices: updated on the server every day; this button runs the same update now ----------
-  if ($("px-refresh")) $("px-refresh").addEventListener("click", async function () {
-    var b = this; b.disabled = true; b.textContent = "Updating…";
+  // ---------- When prices were last fetched ----------
+  // Every run of the price update (nightly or from the buttons) is logged; show the latest one that worked
+  function stampText(iso) {
+    var d = new Date(iso), tz = { timeZone: "Asia/Kolkata" };
+    var t = d.toLocaleTimeString("en-IN", Object.assign({ hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true }, tz)).toLowerCase();
+    var day = Number(d.toLocaleDateString("en-IN", Object.assign({ day: "numeric" }, tz)));
+    var suf = day % 100 >= 11 && day % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][day % 10] || "th";
+    var mon = d.toLocaleDateString("en-IN", Object.assign({ month: "short" }, tz));
+    return t + " on " + day + suf + " " + mon;
+  }
+  async function loadPxStamp() {
+    var r = await sb.from("price_updates").select("ran_at, detail").order("ran_at", { ascending: false }).limit(40);
+    if (r.error) return;
+    var last = { mf: null, stocks: null };
+    (r.data || []).forEach(function (x) {
+      var d = {}; try { d = JSON.parse(x.detail || "{}"); } catch (e) {}
+      ["mf", "stocks"].forEach(function (k) { if (!last[k] && d[k] && !d[k].error) last[k] = x.ran_at; });
+    });
+    if ($("st-stamp")) $("st-stamp").innerHTML = last.stocks ? "All prices last updated at <b>" + stampText(last.stocks) + "</b>" : "Prices not updated yet";
+    if ($("mf-stamp")) $("mf-stamp").innerHTML = last.mf ? "All NAVs last updated at <b>" + stampText(last.mf) + "</b>" : "NAVs not updated yet";
+  }
+
+  // ---------- Prices: updated on the server every day; these buttons run the same update now ----------
+  document.querySelectorAll(".px-btn").forEach(function (b) { b.addEventListener("click", runPriceUpdate); });
+  if ($("px-refresh")) $("px-refresh").addEventListener("click", runPriceUpdate);
+  async function runPriceUpdate() {
+    var b = this, label = b.textContent, all = document.querySelectorAll(".px-btn, #px-refresh");
+    all.forEach(function (x) { x.disabled = true; }); b.textContent = "Updating…";
     try {
       var r = await sb.functions.invoke("update-prices", { body: {} });
       var d = r.data || {};
@@ -2554,9 +2585,11 @@
       if (d.mf && !d.mf.error) msg.push("fund NAVs to " + fmtDate(d.mf.latest));
       toast(msg.length ? "Prices updated: " + msg.join(", ") : "Couldn't reach the price sources. Try again later.");
       await Promise.all([loadMF(), loadStocks(), loadOthers()]);
+      renderNetWorth();
     } catch (e) { toast("Couldn't update prices: " + (e.message || e)); }
-    b.disabled = false; b.textContent = "Update prices now";
-  });
+    await loadPxStamp();
+    all.forEach(function (x) { x.disabled = false; }); b.textContent = label;
+  }
 
   $("signout").addEventListener("click", async function () { await sb.auth.signOut(); location.href = "admin.html"; });
 
