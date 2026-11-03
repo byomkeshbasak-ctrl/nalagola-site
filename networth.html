@@ -579,7 +579,10 @@
         <datalist id="in-cats"></datalist>
         <div class="mf-kpis" id="in-kpis"></div>
         <div id="in-pie" style="margin-top:14px"></div>
-        <div class="table-wrap" style="margin-top:14px"><table id="in-table"></table></div>
+        <div class="chart-h" id="in-auto-h" hidden style="margin-top:18px"><h3>Shares, mutual funds, PF, gold and the shop</h3></div>
+        <div class="table-wrap" style="margin-top:8px"><table id="in-auto"></table></div>
+        <div class="chart-h" style="margin-top:18px"><h3>Entered by you</h3></div>
+        <div class="table-wrap" style="margin-top:8px"><table id="in-table"></table></div>
       </section>
     </section>
 
@@ -765,6 +768,7 @@
     render();
     await Promise.all([loadMF(), loadStocks(), loadOthers(), loadHistory()]);
     renderNetWorth();
+    renderIncome();
   }
 
   // ---------- Month-by-month books ----------
@@ -1947,25 +1951,65 @@
     var cats = IN_CATS.slice(); state.income.forEach(function (x) { if (cats.indexOf(x.category) < 0) cats.push(x.category); });
     $("in-cats").innerHTML = cats.map(function (c) { return '<option value="' + esc(c) + '">'; }).join("");
   }
+  // Earnings that aren't typed in: market gain on shares and funds, and the shop's change in capital
+  function autoIncome(m) {
+    var start = m + "-01", cur = m === todayISO().slice(0, 7), out = [];
+    if (typeof hist === "undefined" || !hist || typeof biz === "undefined" || !biz) return out;
+    var before = hist.rows.filter(function (r) { return r.as_of < start; }), inM = hist.rows.filter(function (r) { return r.as_of.slice(0, 7) === m; });
+    var openRow = before.length ? before[before.length - 1] : inM[0], closeRow = inM.length ? inM[inM.length - 1] : null;
+    function part(r, k) { return r && r.parts && r.parts[k] != null ? Number(r.parts[k]) : null; }
+    function flows(list) { return list.filter(function (t) { return t.txn_date.slice(0, 7) === m; }).reduce(function (a, t) { return a + Number(t.amount); }, 0); }
+    if (cur || closeRow) [["Shares", "stocks", st.total, st.txns], ["Mutual funds", "mf", mf.total, mf.txns]].forEach(function (x) {
+      var o = part(openRow, x[1]), c = cur ? x[2] : part(closeRow, x[1]);
+      if (o == null || c == null) return;
+      var net = flows(x[3] || []);
+      out.push({ l: x[0], v: c - o - net, d: "Market gain, after money put in or taken out", open: o, close: c, net: net });
+    });
+    if (cur || closeRow) {
+      var live = cur ? compValues() : null;
+      var gBuy = itemsOf("gold").filter(function (i) { return ((i.details || {}).bought || "").slice(0, 7) === m; }).reduce(function (x, i) { return x + toNum(i.invested); }, 0);
+      [["PF / EPF", "epf", "Contributions and interest added to the balance", 0], ["Gold", "gold", "Change in gold value, after gold bought", gBuy]].forEach(function (x) {
+        var o = part(openRow, x[1]), c = cur ? live[x[1]] : part(closeRow, x[1]);
+        if (o == null || c == null) return;
+        out.push({ l: x[0], v: c - o - x[3], d: x[2], open: o, close: c, net: x[3] });
+      });
+    }
+    var bl = (biz.list || []).slice().sort(function (a, b) { return a.as_of < b.as_of ? -1 : 1; });
+    var bo = bl.filter(function (r) { return r.as_of < start; }), bm = bl.filter(function (r) { return r.as_of.slice(0, 7) === m; });
+    if (bm.length && (bo.length || bm.length > 1)) {
+      var o2 = Number((bo.length ? bo[bo.length - 1] : bm[0]).total), c2 = Number(bm[bm.length - 1].total);
+      out.push({ l: "Wine shop", v: c2 - o2, d: "Change in business capital", open: o2, close: c2, net: 0 });
+    }
+    return out;
+  }
   function renderIncome() {
     if (!$("in-table")) return;
-    var m = inc.month, list = inMonth(m).slice().reverse(), tot = sumAmt(list), prev = sumAmt(inMonth(prevMonth(m)));
+    var m = inc.month, list = inMonth(m).slice().reverse(), auto = autoIncome(m), autoPrev = autoIncome(prevMonth(m));
+    var sumV = function (l) { return l.reduce(function (a, x) { return a + x.v; }, 0); };
+    var tot = sumAmt(list) + sumV(auto), prev = sumAmt(inMonth(prevMonth(m))) + sumV(autoPrev);
     var c = {}; list.forEach(function (x) { c[x.category] = (c[x.category] || 0) + Number(x.amount); });
+    auto.forEach(function (x) { c[x.l] = (c[x.l] || 0) + x.v; });
     var cats = Object.keys(c).map(function (k) { return [k, c[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
     var intoBank = sumAmt(list.filter(function (x) { return /^p_/.test(x.received_into); }));
     $("in-title").textContent = "Income · " + monthName(m);
-    $("in-total").textContent = inr.format(tot);
-    $("in-total-s").textContent = list.length + (list.length === 1 ? " entry" : " entries");
+    $("in-total").textContent = (tot < 0 ? "−" : "") + inr.format(Math.abs(tot));
+    $("in-total-s").textContent = list.length + (list.length === 1 ? " entry" : " entries") + (auto.length ? " + " + auto.map(function (x) { return x.l.toLowerCase(); }).join(", ") : "");
     var k = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + (d || "") + "</div></div>"; };
-    $("in-kpis").innerHTML = k("This month", inr.format(tot), list.length + " entries") +
+    $("in-kpis").innerHTML = k("This month", (tot < 0 ? "−" : "") + inr.format(Math.abs(tot)), "All sources") +
       k("Last month", inr.format(prev), prev ? (tot >= prev ? "up " : "down ") + inr.format(Math.abs(tot - prev)) : "") +
-      k("Into bank", inr.format(intoBank), "The rest as cash") + k("Biggest category", cats.length ? esc(cats[0][0]) : "–", cats.length ? inr.format(cats[0][1]) : "");
-    if (cats.length) donut("in-pie", cats.map(function (x) { return { l: x[0], v: x[1] }; }), [inr.format(tot).replace("₹", "₹ "), cats.length + (cats.length > 1 ? " categories" : " category")]);
+      k("Into bank", inr.format(intoBank), "From the entries you added") + k("Biggest source", cats.length ? esc(cats[0][0]) : "–", cats.length ? inr.format(cats[0][1]) : "");
+    var posC = cats.filter(function (x) { return x[1] > 0; });
+    if (posC.length) donut("in-pie", posC.map(function (x) { return { l: x[0], v: x[1] }; }), [inr.format(sumV(posC.map(function (x) { return { v: x[1] }; }))).replace("₹", "₹ "), posC.length + (posC.length > 1 ? " sources" : " source") + (posC.length < cats.length ? " in profit" : "")]);
     else $("in-pie").innerHTML = '<div class="empty">No income recorded for this month yet.</div>';
     $("in-table").innerHTML = list.length ? '<thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Received into</th><th class="num">Amount</th><th></th></tr></thead><tbody>' + list.map(function (x) {
       return "<tr><td>" + fmtDate(x.inc_date) + "</td><td>" + esc(x.category) + "</td><td>" + esc(x.note || "") + "</td><td>" + esc(x.received_into === "cash" ? "Cash" : acctName(x.received_into)) +
         '</td><td class="num">' + inr2.format(x.amount) + '</td><td class="actions-c"><button class="icon-btn" type="button" data-inedit="' + x.id + '">Edit</button><button class="icon-btn del" type="button" data-indel="' + x.id + '">Delete</button></td></tr>';
-    }).join("") + '</tbody><tfoot><tr><td>Total</td><td></td><td></td><td></td><td class="num">' + inr2.format(tot) + "</td><td></td></tr></tfoot>" : "";
+    }).join("") + '</tbody><tfoot><tr><td>Total entered</td><td></td><td></td><td></td><td class="num">' + inr2.format(sumAmt(list)) + "</td><td></td></tr></tfoot>" : "";
+    var sg = function (v) { return (v < 0 ? "−" : "+") + inr.format(Math.abs(v)); };
+    $("in-auto").innerHTML = auto.length ? '<thead><tr><th>Source</th><th>How it is worked out</th><th class="num">Opening</th><th class="num">Bought / (sold)</th><th class="num">' + (m === todayISO().slice(0, 7) ? "Now" : "Closing") + '</th><th class="num">Earned</th></tr></thead><tbody>' + auto.map(function (x) {
+      return "<tr><td>" + esc(x.l) + "</td><td>" + esc(x.d) + '</td><td class="num">' + inr.format(x.open) + '</td><td class="num">' + (x.net ? (x.net < 0 ? "(" + inr.format(-x.net) + ")" : inr.format(x.net)) : "–") + '</td><td class="num">' + inr.format(x.close) + '</td><td class="num ' + (x.v >= 0 ? "pos" : "neg") + '">' + sg(x.v) + "</td></tr>";
+    }).join("") + '</tbody><tfoot><tr><td>Total</td><td></td><td></td><td></td><td></td><td class="num ' + (sumV(auto) >= 0 ? "pos" : "neg") + '">' + sg(sumV(auto)) + "</td></tr></tfoot>" : "";
+    $("in-auto-h").hidden = !auto.length;
     fillInTo();
   }
   function openInForm(x) {
