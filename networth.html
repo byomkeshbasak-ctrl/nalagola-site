@@ -224,6 +224,14 @@
   .day-mv { margin-top: 2px; font-size: 1.05rem; font-weight: 600; font-variant-numeric: tabular-nums; }
   .day-mv small { font-size: 0.78rem; font-weight: 400; color: var(--muted); margin-left: 4px; }
   #in-auto tr.can-open { cursor: pointer; }
+  .hl-facts td:first-child { color: var(--muted); white-space: nowrap; width: 1%; padding-right: 18px; }
+  #hl-sched tr.hl-year { cursor: pointer; }
+  #hl-sched .caret { display: inline-block; width: 14px; color: var(--gold); font-size: 0.75rem; }
+  #hl-sched tr.hl-m td { font-size: 0.8rem; color: var(--muted); }
+  #hl-sched tr.hl-m td:first-child { padding-left: 28px; }
+  #hl-sched tr.hl-m.done td { color: var(--green); }
+  #hl-sched tr.hl-m.late td { color: var(--red); }
+  #hl-sched tr.hl-m small { display: block; font-size: 0.7rem; opacity: 0.85; }
   #in-auto tr.src-row td:first-child { white-space: nowrap; }
   #in-auto .caret { display: inline-block; width: 14px; color: var(--gold); font-size: 0.75rem; }
   #in-auto tr.sub td { font-size: 0.8rem; color: var(--muted); padding-left: 28px; }
@@ -712,11 +720,15 @@
         <div class="head">
           <div>
             <div class="k">Home loan outstanding</div>
-            <div class="v" id="hl-total">₹0</div>
-            <div class="s">Counted as a liability in net worth</div>
+            <div class="v" id="hl-total">–</div>
+            <div class="s" id="hl-total-s"></div>
           </div>
         </div>
-        <div class="empty" style="margin-top:14px">Home loan details will be added here.</div>
+        <div class="mf-kpis" id="hl-kpis"></div>
+        <div class="chart-h" style="margin-top:18px"><h3>Loan details</h3></div>
+        <div class="table-wrap" style="margin-top:8px"><table id="hl-facts" class="hl-facts"></table></div>
+        <div class="chart-h" style="margin-top:18px"><h3>Repayment schedule</h3></div>
+        <div class="table-wrap" style="margin-top:8px"><table id="hl-sched"></table></div>
       </section>
     </section>
 
@@ -1461,15 +1473,93 @@
     return { stocks: st.total || 0, mf: mf.total || 0, business: biz.latest ? Number(biz.latest.total) : 0, bank: bank, epf: it("epf"),
       gold: it("gold"), loans: given - taken, given: given, taken: taken, insurance: it("insurance"), trading: it("trading") };
   }
-  // Home loan outstanding: filled in once the loan details are added (nw_items, kind home_loan)
-  function homeLoanTotal() { return itemsOf("home_loan").reduce(function (x, i) { return x + itemValue(i); }, 0); }
+  // ---------- Home loan (kept separate from net worth) ----------
+  // From the Bank of India sanction letter of 25 Sep 2026. Monthly rests, EMI on the 5th from Nov 2026.
+  var HL = {
+    homeValue: 22500000, own: [3000000, 2500000, 200000], lender: "Bank of India, Shyamnagar branch", scheme: "Star Samriddhi Home Loan",
+    amount: 17065000, rate: 7.15, rateNote: "Floating: repo-based lending rate 8.10% − 0.95%; resets when RBI changes the repo rate",
+    emi: 115350, emis: 359, firstEmi: "2026-11-05", sanctioned: "2026-09-25", disbursed: "2026-10-12", creditLife: 265000,
+    property: "ONE 10 Phase I, Tower 5, Flat 14A (14th floor), New Town, Rajarhat, Kolkata 700102", foreclosure: "Nil (floating rate)", penal: "2% p.a. on overdue amount"
+  };
+  function addMonths(iso, n) { var p = iso.split("-"), d = new Date(Date.UTC(+p[0], +p[1] - 1 + n, +p[2])); return d.toISOString().slice(0, 10); }
+  function hlSchedule() {
+    var r = HL.rate / 1200, bal = HL.amount, out = [];
+    for (var k = 0; k < HL.emis && bal > 0.5; k++) {
+      var int = bal * r, pay = Math.min(HL.emi, bal + int), prin = pay - int;
+      bal = Math.max(0, bal - prin);
+      out.push({ n: k + 1, date: addMonths(HL.firstEmi, k), emi: pay, int: int, prin: prin, bal: bal });
+    }
+    return out;
+  }
+  // EMIs actually paid: expenses with category "EMI" and a note mentioning the home loan (or category "Home loan EMI")
+  function hlPayments() {
+    var list = (typeof ex !== "undefined" && ex.list) || [];
+    return list.filter(function (x) { return /home\s*loan/i.test(x.category || "") || (/^emi$/i.test(x.category || "") && /home\s*loan/i.test(x.note || "")); })
+      .slice().sort(function (a, b) { return a.exp_date < b.exp_date ? -1 : a.exp_date > b.exp_date ? 1 : 0; });
+  }
+  function hlNow() {
+    var sch = hlSchedule(), t = todayISO(), pays = hlPayments();
+    sch.forEach(function (x, i) { x.pay = pays[i] || null; });
+    var paid = sch.slice(0, Math.min(pays.length, sch.length));
+    var o = paid.length ? paid[paid.length - 1].bal : HL.amount;
+    var overdue = sch.filter(function (x, i) { return i >= paid.length && x.date < t; }).length;
+    return { sch: sch, paid: paid, outstanding: o, next: sch[paid.length] || null, last: sch[sch.length - 1], overdue: overdue,
+      intPaid: paid.reduce(function (a, x) { return a + x.int; }, 0), prinPaid: paid.reduce(function (a, x) { return a + x.prin; }, 0),
+      intTotal: sch.reduce(function (a, x) { return a + x.int; }, 0) };
+  }
+  function homeLoanTotal() { return hlNow().outstanding; }
+  function renderHomeLoan() {
+    if (!$("hl-total")) return;
+    var h = hlNow(), own = HL.own.reduce(function (a, x) { return a + x; }, 0), equity = HL.homeValue - h.outstanding;
+    var lakh = function (v) { return "₹" + (v % 100000 ? (v / 100000).toFixed(2) : String(v / 100000)) + " L"; };
+    $("hl-total").textContent = inr.format(h.outstanding);
+    $("hl-total-s").textContent = h.paid.length + " of " + h.sch.length + " EMIs paid" + (h.overdue ? " · " + h.overdue + " overdue" : "") + " · kept separate from net worth";
+    var k = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + (d || "") + "</div></div>"; };
+    $("hl-kpis").innerHTML =
+      k("Home value", inr.format(HL.homeValue), "Purchase price") +
+      k("Paid by you", inr.format(own), HL.own.map(lakh).join(" + ")) +
+      k("Loan from the bank", inr.format(HL.amount), "Includes " + inr.format(HL.creditLife) + " credit life cover") +
+      k("Your equity in the home", inr.format(equity), "Home value − loan outstanding", "pos") +
+      k("EMI", inr.format(HL.emi), h.next ? "Next due " + fmtDate(h.next.date) : "Loan repaid") +
+      k("Interest paid so far", inr.format(h.intPaid), "Principal repaid " + inr.format(h.prinPaid));
+    var row = function (a, b) { return "<tr><td>" + a + "</td><td>" + b + "</td></tr>"; };
+    $("hl-facts").innerHTML = "<tbody>" +
+      row("Lender", esc(HL.lender)) + row("Scheme", esc(HL.scheme)) + row("Property", esc(HL.property)) +
+      row("Interest rate", HL.rate + "% p.a. · " + esc(HL.rateNote)) +
+      row("Tenure", HL.emis + " EMIs of " + inr.format(HL.emi) + ", " + fmtDate(HL.firstEmi) + " to " + fmtDate(h.last.date)) +
+      row("Sanctioned / disbursed", fmtDate(HL.sanctioned) + " / " + fmtDate(HL.disbursed)) +
+      row("Total interest over the loan", inr.format(h.intTotal) + " at today's rate") +
+      row("Prepayment / foreclosure", esc(HL.foreclosure)) + row("Late payment", esc(HL.penal)) + "</tbody>";
+    // Year by year; click a year for its months
+    var years = {}, order = [];
+    h.sch.forEach(function (x) { var y = x.date.slice(0, 4); if (!years[y]) { years[y] = { int: 0, prin: 0, emi: 0, n: 0, bal: 0, rows: [] }; order.push(y); } var Y = years[y]; Y.int += x.int; Y.prin += x.prin; Y.emi += x.emi; Y.n++; Y.bal = x.bal; Y.rows.push(x); });
+    hlSchedOpen = hlSchedOpen || {};
+    var t = todayISO();
+    $("hl-sched").innerHTML = '<thead><tr><th>Year</th><th class="num">EMIs</th><th class="num">Paid</th><th class="num">Principal</th><th class="num">Interest</th><th class="num">Balance at year end</th></tr></thead><tbody>' +
+      order.map(function (y) {
+        var Y = years[y], open = hlSchedOpen[y];
+        return '<tr class="hl-year" data-hly="' + y + '"><td><span class="caret">' + (open ? "▾" : "▸") + "</span>" + y + '</td><td class="num">' + Y.n + '</td><td class="num">' + inr.format(Y.emi) + '</td><td class="num">' + inr.format(Y.prin) +
+          '</td><td class="num">' + inr.format(Y.int) + '</td><td class="num">' + inr.format(Y.bal) + "</td></tr>" +
+          (open ? Y.rows.map(function (x) {
+            var st2 = x.pay ? "Paid " + fmtDate(x.pay.exp_date) + (x.pay.paid_from ? " from " + esc(acctName(x.pay.paid_from)) : "") : x.date < t ? "Overdue" : "";
+            return '<tr class="hl-m' + (x.pay ? " done" : x.date < t ? " late" : "") + '"><td>' + fmtDate(x.date) + " · EMI " + x.n + (st2 ? "<small>" + st2 + "</small>" : "") + '</td><td class="num"></td><td class="num">' + inr.format(x.emi) + '</td><td class="num">' + inr.format(x.prin) +
+              '</td><td class="num">' + inr.format(x.int) + '</td><td class="num">' + inr.format(x.bal) + "</td></tr>";
+          }).join("") : "");
+      }).join("") + "</tbody>";
+  }
+  var hlSchedOpen = null;
+  $("hl-sched").addEventListener("click", function (e) {
+    var r = e.target.closest("[data-hly]"); if (!r) return;
+    hlSchedOpen = hlSchedOpen || {}; hlSchedOpen[r.dataset.hly] = !hlSchedOpen[r.dataset.hly]; renderHomeLoan();
+  });
   function renderNetWorth() {
     if (!$("nw-total") || !oth.loaded) return;
     var v = compValues(), assets = 0;
     COMP.forEach(function (c) { if (c.k === "loans") assets += v.given; else assets += Math.max(0, v[c.k]); });
     var hl = homeLoanTotal(), ccDue = cardDueTotal();
-    if ($("hl-total")) $("hl-total").textContent = inr.format(hl);
-    var liab = v.taken + ccDue + hl + COMP.reduce(function (x, c) { return x + (c.k !== "loans" && v[c.k] < 0 ? -v[c.k] : 0); }, 0);
+    renderHomeLoan();
+    // The home loan is kept separate: not taken off net worth
+    var liab = v.taken + ccDue + COMP.reduce(function (x, c) { return x + (c.k !== "loans" && v[c.k] < 0 ? -v[c.k] : 0); }, 0);
     var nw = assets - liab;
     $("nw-total").textContent = inr.format(nw);
     var sd = st.day || 0;
@@ -1492,7 +1582,7 @@
     }).join("") +
       // Liabilities: what's owed on credit cards and the home loan comes off net worth
       '<button type="button" class="dtile' + (ccDue > 0.5 ? " liab" : "") + '" data-go="cards"><div class="l"><i style="background:#ef8f8f"></i>Credit cards</div><div class="a' + (ccDue > 0.5 ? " neg" : "") + '">' + (ccDue > 0.5 ? "−" : "") + inr.format(ccDue) + "</div></button>" +
-      '<button type="button" class="dtile' + (hl > 0.5 ? " liab" : "") + '" data-go="homeloan"><div class="l"><i style="background:#c47a7a"></i>Home loan</div><div class="a' + (hl > 0.5 ? " neg" : "") + '">' + (hl > 0.5 ? "−" : "") + inr.format(hl) + "</div></button>" +
+      '<button type="button" class="dtile' + (hl > 0.5 ? " liab" : "") + '" data-go="homeloan"><div class="l"><i style="background:#c47a7a"></i>Home loan (separate)</div><div class="a' + (hl > 0.5 ? " neg" : "") + '">' + (hl > 0.5 ? "−" : "") + inr.format(hl) + "</div></button>" +
       '<button type="button" class="dtile" data-go="expenses"><div class="l"><i style="background:#ef8f8f"></i>Expenses this month</div><div class="a">' + inr.format(exMonthTotal(todayISO().slice(0, 7))) + "</div></button>";
     // Net worth by category (assets); loans owed shown underneath
     donut("nw-pie", parts.map(function (x) { return { l: x.c.l, v: x.a, c: x.c.c }; }), [inr.format(nw).replace("₹", "₹ "), "net worth"]);
