@@ -264,6 +264,8 @@
   .pfs-note { margin-top: 8px; font-size: 0.75rem; color: var(--muted); white-space: normal; line-height: 1.5; }
   .mf-note { margin-top: 10px; font-size: 0.75rem; color: var(--muted); }
   td:first-child { white-space: nowrap; }
+  tr.inote td, tr.inote td:first-child { white-space: normal; line-height: 1.5; }
+  .xp, .xp > .card { min-width: 0; }
   @media (max-width: 560px) { .head .v { font-size: 1.6rem; } .topbar .title { font-size: 1.15rem; } .who { display: none; } }
 </style>
 </head>
@@ -1727,7 +1729,7 @@
       list.map(function (i) {
         return "<tr>" + c.cols.map(function (x) { return "<td" + (x[2] ? ' class="num"' : ' class="fn"') + ">" + x[1](i) + "</td>"; }).join("") +
           '<td class="actions-c"><button class="icon-btn" type="button" data-itemedit="' + i.id + '">Edit</button><button class="icon-btn del" type="button" data-itemdel="' + i.id + '">Delete</button></td></tr>' +
-          (i.notes ? '<tr class="bf"><td colspan="' + (c.cols.length + 1) + '">' + esc(i.notes) + "</td></tr>" : "");
+          (i.notes ? '<tr class="bf inote"><td colspan="' + (c.cols.length + 1) + '">' + esc(i.notes) + "</td></tr>" : "");
       }).join("") + "</tbody>" : '<tbody><tr><td class="empty">Nothing added yet. Use the button above to add one.</td></tr></tbody>';
     $(tab + "-note").textContent = tab === "gold" ? "Gold value moves with the 24k rate every day; 22k is counted at 22/24 and 18k at 18/24 of it." :
       tab === "epf" ? "Months in italics are estimated: each month's contribution is added on the 20th of the next month, with interest at the PF rate. When the statement arrives, enter that month's real figures in the last line and the estimate is replaced." :
