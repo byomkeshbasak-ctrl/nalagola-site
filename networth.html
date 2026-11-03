@@ -313,6 +313,7 @@
         <button type="button" class="tab" data-tab="business">Business</button>
         <button type="button" class="tab" data-tab="bank">Bank</button>
         <button type="button" class="tab" data-tab="cards">Credit cards</button>
+        <button type="button" class="tab" data-tab="homeloan">Home loan</button>
         <button type="button" class="tab" data-tab="income">Income</button>
         <button type="button" class="tab" data-tab="expenses">Expenses</button>
       </div>
@@ -704,6 +705,20 @@
 
 
 
+
+    <!-- ===== Home loan ===== -->
+    <section class="pane" id="pane-homeloan" hidden>
+      <section class="card" aria-label="Home loan">
+        <div class="head">
+          <div>
+            <div class="k">Home loan outstanding</div>
+            <div class="v" id="hl-total">₹0</div>
+            <div class="s">Counted as a liability in net worth</div>
+          </div>
+        </div>
+        <div class="empty" style="margin-top:14px">Home loan details will be added here.</div>
+      </section>
+    </section>
 
     <!-- ===== Expenses ===== -->
     <section class="pane" id="pane-expenses" hidden>
@@ -1446,11 +1461,15 @@
     return { stocks: st.total || 0, mf: mf.total || 0, business: biz.latest ? Number(biz.latest.total) : 0, bank: bank, epf: it("epf"),
       gold: it("gold"), loans: given - taken, given: given, taken: taken, insurance: it("insurance"), trading: it("trading") };
   }
+  // Home loan outstanding: filled in once the loan details are added (nw_items, kind home_loan)
+  function homeLoanTotal() { return itemsOf("home_loan").reduce(function (x, i) { return x + itemValue(i); }, 0); }
   function renderNetWorth() {
     if (!$("nw-total") || !oth.loaded) return;
     var v = compValues(), assets = 0;
     COMP.forEach(function (c) { if (c.k === "loans") assets += v.given; else assets += Math.max(0, v[c.k]); });
-    var liab = v.taken + cardDueTotal() + COMP.reduce(function (x, c) { return x + (c.k !== "loans" && v[c.k] < 0 ? -v[c.k] : 0); }, 0);
+    var hl = homeLoanTotal(), ccDue = cardDueTotal();
+    if ($("hl-total")) $("hl-total").textContent = inr.format(hl);
+    var liab = v.taken + ccDue + hl + COMP.reduce(function (x, c) { return x + (c.k !== "loans" && v[c.k] < 0 ? -v[c.k] : 0); }, 0);
     var nw = assets - liab;
     $("nw-total").textContent = inr.format(nw);
     var sd = st.day || 0;
@@ -1471,6 +1490,9 @@
       var val = v[c.k];
       return '<button type="button" class="dtile' + (val < 0 ? " liab" : "") + '" data-go="' + c.k + '"><div class="l"><i style="background:' + c.c + '"></i>' + esc(c.l) + '</div><div class="a' + (val < 0 ? " neg" : "") + '">' + inr.format(val) + "</div></button>";
     }).join("") +
+      // Liabilities: what's owed on credit cards and the home loan comes off net worth
+      '<button type="button" class="dtile' + (ccDue > 0.5 ? " liab" : "") + '" data-go="cards"><div class="l"><i style="background:#ef8f8f"></i>Credit cards</div><div class="a' + (ccDue > 0.5 ? " neg" : "") + '">' + (ccDue > 0.5 ? "−" : "") + inr.format(ccDue) + "</div></button>" +
+      '<button type="button" class="dtile' + (hl > 0.5 ? " liab" : "") + '" data-go="homeloan"><div class="l"><i style="background:#c47a7a"></i>Home loan</div><div class="a' + (hl > 0.5 ? " neg" : "") + '">' + (hl > 0.5 ? "−" : "") + inr.format(hl) + "</div></button>" +
       '<button type="button" class="dtile" data-go="expenses"><div class="l"><i style="background:#ef8f8f"></i>Expenses this month</div><div class="a">' + inr.format(exMonthTotal(todayISO().slice(0, 7))) + "</div></button>";
     // Net worth by category (assets); loans owed shown underneath
     donut("nw-pie", parts.map(function (x) { return { l: x.c.l, v: x.a, c: x.c.c }; }), [inr.format(nw).replace("₹", "₹ "), "net worth"]);
@@ -1591,7 +1613,7 @@
   $("mbm-more").addEventListener("click", function () { mbm.all = !mbm.all; renderMonthly(); });
 
   // ---------- Tabs ----------
-  var TABS = ["dash", "stocks", "mf", "business", "bank", "cards", "income", "expenses"];
+  var TABS = ["dash", "stocks", "mf", "business", "bank", "cards", "homeloan", "income", "expenses"];
   var DASH_X = ["epf", "gold", "loans", "insurance", "trading"];
   function showTab(t, push) {
     if (DASH_X.indexOf(t) >= 0) {
