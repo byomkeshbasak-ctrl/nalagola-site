@@ -223,6 +223,11 @@
   #st-table tr.tx > td, #st-exited-table tr.tx > td { padding: 0 0 12px 18px; background: var(--bg); }
   .day-mv { margin-top: 2px; font-size: 1.05rem; font-weight: 600; font-variant-numeric: tabular-nums; }
   .day-mv small { font-size: 0.78rem; font-weight: 400; color: var(--muted); margin-left: 4px; }
+  #in-auto tr.can-open { cursor: pointer; }
+  #in-auto tr.src-row td:first-child { white-space: nowrap; }
+  #in-auto .caret { display: inline-block; width: 14px; color: var(--gold); font-size: 0.75rem; }
+  #in-auto tr.sub td { font-size: 0.8rem; color: var(--muted); padding-left: 28px; }
+  #in-auto tr.sub td.num { color: var(--text); padding-left: 10px; }
   .px-stamp { margin-top: 3px; font-size: 0.74rem; color: var(--muted); }
   .px-stamp b { color: var(--text); font-weight: 500; }
   td small.dc { display: block; font-size: 0.72rem; }
@@ -689,10 +694,9 @@
         <datalist id="in-cats"></datalist>
         <div class="mf-kpis" id="in-kpis"></div>
         <div id="in-pie" style="margin-top:14px"></div>
-        <div class="chart-h" id="in-auto-h" hidden style="margin-top:18px"><h3>Shares, mutual funds, PF, gold and the shop</h3></div>
+        <div class="chart-h" id="in-auto-h" hidden style="margin-top:18px"><h3>Sources of income</h3></div>
         <div class="table-wrap" style="margin-top:8px"><table id="in-auto"></table></div>
-        <div class="chart-h" style="margin-top:18px"><h3>Entered by you</h3></div>
-        <div class="table-wrap" style="margin-top:8px"><table id="in-table"></table></div>
+        <div hidden><table id="in-table"></table></div>
       </section>
     </section>
 
@@ -2041,6 +2045,9 @@
     var tot = sumAmt(list) + sumV(auto), prev = sumAmt(inMonth(prevMonth(m))) + sumV(autoPrev);
     var c = {}; list.forEach(function (x) { c[x.category] = (c[x.category] || 0) + Number(x.amount); });
     auto.forEach(function (x) { c[x.l] = (c[x.l] || 0) + x.v; });
+    // PF / EPF counts with salary
+    var salKey = Object.keys(c).find(function (k) { return /^salary$/i.test(k); }) || "Salary";
+    if (c["PF / EPF"] != null) { c[salKey] = (c[salKey] || 0) + c["PF / EPF"]; delete c["PF / EPF"]; }
     var cats = Object.keys(c).map(function (k) { return [k, c[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
     var intoBank = sumAmt(list.filter(function (x) { return /^p_/.test(x.received_into); }));
     $("in-title").textContent = "Income · " + monthName(m);
@@ -2053,15 +2060,38 @@
     var posC = cats.filter(function (x) { return x[1] > 0; });
     if (posC.length) donut("in-pie", posC.map(function (x) { return { l: x[0], v: x[1] }; }), [inr.format(sumV(posC.map(function (x) { return { v: x[1] }; }))).replace("₹", "₹ "), posC.length + (posC.length > 1 ? " sources" : " source") + (posC.length < cats.length ? " in profit" : "")]);
     else $("in-pie").innerHTML = '<div class="empty">No income recorded for this month yet.</div>';
-    $("in-table").innerHTML = list.length ? '<thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Received into</th><th class="num">Amount</th><th></th></tr></thead><tbody>' + list.map(function (x) {
-      return "<tr><td>" + fmtDate(x.inc_date) + "</td><td>" + esc(x.category) + "</td><td>" + esc(x.note || "") + "</td><td>" + esc(x.received_into === "cash" ? "Cash" : acctName(x.received_into)) +
-        '</td><td class="num">' + inr2.format(x.amount) + '</td><td class="actions-c"><button class="icon-btn" type="button" data-inedit="' + x.id + '">Edit</button><button class="icon-btn del" type="button" data-indel="' + x.id + '">Delete</button></td></tr>';
-    }).join("") + '</tbody><tfoot><tr><td>Total entered</td><td></td><td></td><td></td><td class="num">' + inr2.format(sumAmt(list)) + "</td><td></td></tr></tfoot>" : "";
+    $("in-table").innerHTML = "";
+    // One table: market sources, salary (with PF) and everything entered by hand, grouped by source
     var sg = function (v) { return (v < 0 ? "−" : "+") + inr.format(Math.abs(v)); };
-    $("in-auto").innerHTML = auto.length ? '<thead><tr><th>Source</th><th>How it is worked out</th><th class="num">Opening</th><th class="num">Bought / (sold)</th><th class="num">' + (m === todayISO().slice(0, 7) ? "Now" : "Closing") + '</th><th class="num">Earned</th></tr></thead><tbody>' + auto.map(function (x) {
-      return "<tr><td>" + esc(x.l) + "</td><td>" + esc(x.d) + '</td><td class="num">' + inr.format(x.open) + '</td><td class="num">' + (x.net ? (x.net < 0 ? "(" + inr.format(-x.net) + ")" : inr.format(x.net)) : "–") + '</td><td class="num">' + inr.format(x.close) + '</td><td class="num ' + (x.v >= 0 ? "pos" : "neg") + '">' + sg(x.v) + "</td></tr>";
-    }).join("") + '</tbody><tfoot><tr><td>Total</td><td></td><td></td><td></td><td></td><td class="num ' + (sumV(auto) >= 0 ? "pos" : "neg") + '">' + sg(sumV(auto)) + "</td></tr></tfoot>" : "";
-    $("in-auto-h").hidden = !auto.length;
+    var money = function (v) { return v == null ? "–" : inr.format(v); };
+    var groups = [], byName = {};
+    var grp = function (name) { var k = name.toLowerCase(); return byName[k] || (byName[k] = groups[groups.push({ name: name, open: null, close: null, net: null, v: 0, entries: [], pf: null }) - 1]); };
+    auto.forEach(function (x) {
+      if (x.l === "PF / EPF") { var g = grp(salKey); g.pf = x; g.open = x.open; g.close = x.close; g.net = x.net; g.v += x.v; return; }
+      var a = grp(x.l); a.open = x.open; a.close = x.close; a.net = x.net; a.v += x.v; a.desc = x.d;
+    });
+    list.forEach(function (x) { var g = grp(x.category); g.entries.push(x); g.v += Number(x.amount); });
+    groups.sort(function (a, b) { return b.v - a.v; });
+    inc.open = inc.open || {};
+    var totV = groups.reduce(function (a, g) { return a + g.v; }, 0);
+    $("in-auto").innerHTML = groups.length ? '<thead><tr><th>Source</th><th class="num">Opening</th><th class="num">Bought / (sold)</th><th class="num">Present value</th><th class="num">Net earning</th></tr></thead><tbody>' +
+      groups.map(function (g) {
+        var canOpen = g.entries.length || g.pf, open = canOpen && inc.open[g.name.toLowerCase()];
+        var label = esc(g.name) + (g.pf ? " (incl. PF)" : "");
+        var row = '<tr class="src-row' + (canOpen ? " can-open" : "") + '"' + (canOpen ? ' data-insrc="' + esc(g.name.toLowerCase()) + '"' : "") + (g.desc ? ' title="' + esc(g.desc) + '"' : "") + "><td>" +
+          (canOpen ? '<span class="caret">' + (open ? "▾" : "▸") + "</span>" : '<span class="caret"></span>') + label + '</td><td class="num">' + money(g.open) +
+          '</td><td class="num">' + (g.net ? (g.net < 0 ? "(" + inr.format(-g.net) + ")" : inr.format(g.net)) : "–") + '</td><td class="num">' + money(g.close) +
+          '</td><td class="num ' + (g.v >= 0 ? "pos" : "neg") + '">' + sg(g.v) + "</td></tr>";
+        if (open) {
+          row += g.entries.map(function (x) {
+            return '<tr class="sub"><td colspan="4">' + fmtDate(x.inc_date) + " · " + esc(x.received_into === "cash" ? "Cash" : acctName(x.received_into)) + (x.note ? " · " + esc(x.note) : "") +
+              ' <button class="icon-btn" type="button" data-inedit="' + x.id + '">Edit</button><button class="icon-btn del" type="button" data-indel="' + x.id + '">Delete</button></td><td class="num">' + sg(Number(x.amount)) + "</td></tr>";
+          }).join("") + (g.pf ? '<tr class="sub"><td colspan="4">PF / EPF · contributions and interest added (' + inr.format(g.pf.open) + " → " + inr.format(g.pf.close) + ')</td><td class="num">' + sg(g.pf.v) + "</td></tr>" : "");
+        }
+        return row;
+      }).join("") + '</tbody><tfoot><tr><td>Total</td><td></td><td></td><td></td><td class="num ' + (totV >= 0 ? "pos" : "neg") + '">' + sg(totV) + "</td></tr></tfoot>" : "";
+    $("in-auto-h").hidden = !groups.length;
+
     fillInTo();
   }
   function openInForm(x) {
@@ -2081,6 +2111,12 @@
   }
   $("in-add").addEventListener("click", function () { if (!$("in-form").hidden && !inc.editing) { $("in-form").hidden = true; return; } openInForm(null); });
   $("in-cancel").addEventListener("click", function () { $("in-form").hidden = true; inc.editing = null; });
+  $("in-auto").addEventListener("click", function (e) {
+    var ed = e.target.getAttribute("data-inedit"); if (ed) { openInForm(state.income.find(function (x) { return x.id === ed; })); return; }
+    var dl = e.target.getAttribute("data-indel"); if (dl) { delIncome(dl); return; }
+    var r = e.target.closest("[data-insrc]"); if (!r) return;
+    inc.open = inc.open || {}; inc.open[r.dataset.insrc] = !inc.open[r.dataset.insrc]; renderIncome();
+  });
   $("in-table").addEventListener("click", function (e) {
     var ed = e.target.getAttribute("data-inedit"); if (ed) { openInForm(state.income.find(function (x) { return x.id === ed; })); return; }
     var dl = e.target.getAttribute("data-indel"); if (dl) delIncome(dl);
