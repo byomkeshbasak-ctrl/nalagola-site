@@ -1846,7 +1846,7 @@
   }
 
   // ---------- Expenses ----------
-  var EX_CATS = ["Groceries", "Rent", "Electricity", "Mobile & internet", "Fuel", "Transport", "Eating out", "Medical", "Education", "Household help", "Shopping", "Travel", "EMI", "Insurance premium", "Gifts", "Subscriptions", "Bank charges", "Other"];
+  var EX_CATS = ["Groceries", "Rent", "Electricity", "Mobile & internet", "Fuel", "Transport", "Eating out", "Medical", "Education", "Tuition fees", "Household help", "Shopping", "Travel", "EMI", "Insurance premium", "Gifts", "Subscriptions", "Bank charges", "Other"];
   $("ex-month").value = ex.month;
   $("ex-month").addEventListener("change", function () { if (this.value) { ex.month = this.value; renderExpenses(); } });
   function exMonthTotal(m) { return ex.list.filter(function (x) { return x.exp_date.slice(0, 7) === m; }).reduce(function (a, x) { return a + Number(x.amount); }, 0); }
@@ -2186,7 +2186,8 @@
     ["Medical", /pharm|chemist|apollo|medplus|1mg|netmeds|pharmeasy|hospital|clinic|diagnostic|pathlab|lal path/i],
     ["Subscriptions", /netflix|spotify|hotstar|disney|prime video|amazon prime|youtube|apple\.com|google play|sonyliv|zee5|jiocinema|audible|openai|anthropic|claude/i],
     ["Insurance premium", /insurance|lic of india|policybazaar|hdfc life|icici pru|max life|star health|niva bupa|care health/i],
-    ["Education", /school|college|university|udemy|coursera|byju|unacademy|tuition/i],
+    ["Tuition fees", /tuition|tution|coaching|tutor/i],
+    ["Education", /school|college|university|udemy|coursera|byju|unacademy/i],
     ["Shopping", /amazon|flipkart|myntra|ajio|nykaa|meesho|tata cliq|croma|reliance digital|decathlon|lifestyle|westside|pantaloons|shoppers stop|ikea|pepperfry|lenskart/i],
     ["EMI", /\bemi\b|\bloan\b/i]
   ];
