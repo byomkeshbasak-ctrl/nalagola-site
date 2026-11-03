@@ -1058,10 +1058,10 @@
     plBars("mf-pl", mrows, (plMode.mf === "all" ? "Realised + unrealised, all funds ever held" : "Unrealised gain on units held now") + " · net " + (mTot >= 0 ? "+" : "−") + inr.format(Math.abs(mTot)));
 
     // Holdings
-    $("mf-table").innerHTML = '<thead><tr><th>Fund</th><th class="num">Units</th><th class="num">Avg NAV</th><th class="num">Invested</th><th class="num">NAV</th><th class="num">Current value</th><th class="num">Gain</th><th class="num">XIRR</th><th class="num">Weight</th><th></th></tr></thead><tbody>' +
+    $("mf-table").innerHTML = '<thead><tr><th>Fund</th><th>Category</th><th class="num">Units</th><th class="num">Avg NAV</th><th class="num">Invested</th><th class="num">NAV</th><th class="num">Current value</th><th class="num">Gain</th><th class="num">XIRR</th><th class="num">Weight</th></tr></thead><tbody>' +
       (held.length ? held.map(function (r) { return fundRow(r, T.val); }).join("") : '<tr><td class="empty" colspan="10">No funds held.</td></tr>') +
-      '</tbody><tfoot><tr><td>Total</td><td></td><td></td><td class="num">' + inr.format(T.inv) + '</td><td></td><td class="num">' + inr.format(T.val) + '</td><td class="num ' + (gain >= 0 ? "pos" : "neg") + '">' + inr.format(gain) +
-      '</td><td class="num">' + (isFinite(X) ? (X * 100).toFixed(1) + "%" : "–") + '</td><td class="num">100%</td><td></td></tr></tfoot>';
+      '</tbody><tfoot><tr><td>Total</td><td></td><td></td><td></td><td class="num">' + inr.format(T.inv) + '</td><td></td><td class="num">' + inr.format(T.val) + '</td><td class="num ' + (gain >= 0 ? "pos" : "neg") + '">' + inr.format(gain) +
+      '</td><td class="num">' + (isFinite(X) ? (X * 100).toFixed(1) + "%" : "–") + '</td><td class="num">100%</td></tr></tfoot>';
 
     // Exited funds
     var eb = $("mf-exited-btn");
@@ -1069,12 +1069,12 @@
     var er = exited.reduce(function (s, r) { return s + r.realised; }, 0);
     eb.textContent = (mf.showExited ? "Hide" : "Show") + " exited funds (" + exited.length + ") · realised " + inr.format(er);
     $("mf-exited").hidden = !mf.showExited || !exited.length;
-    $("mf-exited-table").innerHTML = '<thead><tr><th>Fund</th><th class="num">Bought</th><th class="num">Redeemed</th><th class="num">Realised gain</th><th class="num">XIRR</th><th>Exited on</th><th></th></tr></thead><tbody>' +
+    $("mf-exited-table").innerHTML = '<thead><tr><th>Fund</th><th class="num">Bought</th><th class="num">Redeemed</th><th class="num">Realised gain</th><th class="num">XIRR</th><th>Exited on</th></tr></thead><tbody>' +
       exited.sort(function (a, b) { return b.realised - a.realised; }).map(function (r) {
         var last = r.tx[r.tx.length - 1].txn_date, open = mf.open[r.f.name];
         return '<tr class="fund" data-mffund="' + esc(r.f.name) + '"><td class="fn">' + esc(r.f.name) + "<small>" + esc(r.f.category || "") + '</small></td><td class="num">' + inr.format(r.buys) + '</td><td class="num">' + inr.format(r.sells) +
           '</td><td class="num ' + (r.realised >= 0 ? "pos" : "neg") + '">' + inr.format(r.realised) + '</td><td class="num">' + (isFinite(r.xirr) ? (r.xirr * 100).toFixed(1) + "%" : "–") + "</td><td>" + fmtDate(last) +
-          '</td><td><span class="tog">' + (open ? "Hide ▴" : "Show ▾") + "</span></td></tr>" + (open ? txRows(r, 7) : "");
+          "</td></tr>" + (open ? txRows(r, 6) : "");
       }).join("") + "</tbody>";
     $("mf-note").textContent = "NAVs update automatically every night from AMFI. Gains are before tax; redemptions use the oldest units first (FIFO).";
     renderNetWorth();
@@ -1082,12 +1082,11 @@
   }
   function fundRow(r, tot) {
     var g = r.gain, w = tot ? r.value / tot : 0, open = mf.open[r.f.name];
-    return '<tr class="fund" data-mffund="' + esc(r.f.name) + '"><td class="fn">' + esc(r.f.name) + "<small>" + esc(r.f.category || "") + (r.since ? " · holding since " + fmtDate(r.since) : "") +
-      '</small></td><td class="num">' + num3.format(r.units) + '</td><td class="num">' + inr2.format(r.invested / r.units) + '</td><td class="num">' + inr.format(r.invested) +
+    return '<tr class="fund" data-mffund="' + esc(r.f.name) + '" title="Click to ' + (open ? "hide" : "see") + ' transactions"><td class="fn">' + esc(r.f.name) + (r.since ? "<small>Holding since " + fmtDate(r.since) + "</small>" : "") +
+      "</td><td>" + esc(r.f.category || "") + '</td><td class="num">' + num3.format(r.units) + '</td><td class="num">' + inr2.format(r.invested / r.units) + '</td><td class="num">' + inr.format(r.invested) +
       '</td><td class="num">' + inr2.format(r.nav) + (r.pnav && r.nav !== r.pnav ? '<small class="dc ' + (r.nav >= r.pnav ? "pos" : "neg") + '">' + (r.nav >= r.pnav ? "+" : "") + (r.nav - r.pnav).toFixed(2) + " (" + pct((r.nav - r.pnav) / r.pnav) + ")</small>" : "") +
       '</td><td class="num">' + inr.format(r.value) + (r.day ? '<small class="dc ' + (r.day >= 0 ? "pos" : "neg") + '">' + (r.day > 0 ? "+" : "") + inr.format(r.day) + " today</small>" : "") + '</td><td class="num ' + (g >= 0 ? "pos" : "neg") + '">' + inr.format(g) + "<br><small>" + pct(r.invested ? g / r.invested : NaN) +
-      '</small></td><td class="num">' + (isFinite(r.xirr) ? (r.xirr * 100).toFixed(1) + "%" : "–") + '</td><td class="num">' + (w * 100).toFixed(1) + '%<span class="wt"><span style="width:' + (w * 100).toFixed(1) + '%"></span></span></td><td><span class="tog">' +
-      (open ? "Hide ▴" : "Show ▾") + "</span></td></tr>" + (open ? txRows(r, 10) : "");
+      '</small></td><td class="num">' + (isFinite(r.xirr) ? (r.xirr * 100).toFixed(1) + "%" : "–") + '</td><td class="num">' + (w * 100).toFixed(1) + "%</td></tr>" + (open ? txRows(r, 10) : "");
   }
   function txRows(r, span) {
     return '<tr class="tx"><td colspan="' + span + '"><table class="tx-inner"><thead><tr><th>Date</th><th>Type</th><th class="num">NAV</th><th class="num">Units</th><th class="num">Amount</th><th></th></tr></thead><tbody>' +
