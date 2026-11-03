@@ -1469,10 +1469,9 @@
     };
     $("dash-grid").innerHTML = COMP.map(function (c) {
       var val = v[c.k];
-      return '<button type="button" class="dtile' + (val < 0 ? " liab" : "") + '" data-go="' + c.k + '"><div class="l"><i style="background:' + c.c + '"></i>' + esc(c.l) + '</div><div class="a' + (val < 0 ? " neg" : "") + '">' + inr.format(val) +
-        '</div><div class="d">' + sub[c.k] + "</div></button>";
+      return '<button type="button" class="dtile' + (val < 0 ? " liab" : "") + '" data-go="' + c.k + '"><div class="l"><i style="background:' + c.c + '"></i>' + esc(c.l) + '</div><div class="a' + (val < 0 ? " neg" : "") + '">' + inr.format(val) + "</div></button>";
     }).join("") +
-      '<button type="button" class="dtile" data-go="expenses"><div class="l"><i style="background:#ef8f8f"></i>Expenses this month</div><div class="a">' + inr.format(exMonthTotal(todayISO().slice(0, 7))) + '</div><div class="d">Not part of net worth · ' + exCompare() + "</div></button>";
+      '<button type="button" class="dtile" data-go="expenses"><div class="l"><i style="background:#ef8f8f"></i>Expenses this month</div><div class="a">' + inr.format(exMonthTotal(todayISO().slice(0, 7))) + "</div></button>";
     // Net worth by category (assets); loans owed shown underneath
     donut("nw-pie", parts.map(function (x) { return { l: x.c.l, v: x.a, c: x.c.c }; }), [inr.format(nw).replace("₹", "₹ "), "net worth"]);
     $("nw-pie-note").textContent = liab ? "Assets " + inr.format(assets) + " less loans owed and card dues " + inr.format(liab) + " = net worth " + inr.format(nw) + "." : "No loans owed, so net worth equals total assets.";
