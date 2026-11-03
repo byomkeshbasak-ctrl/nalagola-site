@@ -170,6 +170,12 @@
   .tab[aria-selected="true"] { color: var(--gold); border-bottom-color: var(--gold); }
   .dash-grid { margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
   .xp-wrap { margin-top: 18px; display: grid; gap: 10px; }
+  /* The PF, gold, loans, insurance and trading sections only open from their dashboard tile */
+  #pane-dash:not(.xp-mode) .xp-wrap { display: none; }
+  #pane-dash.xp-mode > :not(.xp-wrap) { display: none; }
+  #pane-dash.xp-mode .xp-wrap { margin-top: 0; }
+  #pane-dash.xp-mode .xp:not(.show) { display: none; }
+  #pane-dash.xp-mode .xp > summary { pointer-events: none; }
   .xp-wrap .list-h { display: flex; align-items: baseline; gap: 10px; }
   .xp-wrap .list-h .sub { color: var(--muted); font-size: 0.78rem; }
   .xp { border: 1px solid var(--line-strong); border-radius: 14px; background: var(--panel); }
@@ -224,6 +230,11 @@
   .day-mv { margin-top: 2px; font-size: 1.05rem; font-weight: 600; font-variant-numeric: tabular-nums; }
   .day-mv small { font-size: 0.78rem; font-weight: 400; color: var(--muted); margin-left: 4px; }
   #in-auto tr.can-open { cursor: pointer; }
+  .hl-more summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; }
+  .hl-more summary::-webkit-details-marker { display: none; }
+  .hl-more summary::before { content: "▸"; color: var(--gold); font-size: 0.75rem; width: 12px; }
+  .hl-more[open] summary::before { content: "▾"; }
+  .hl-more summary h3 { margin: 0; font-size: 0.86rem; font-weight: 600; }
   .hl-facts td:first-child { color: var(--muted); white-space: nowrap; width: 1%; padding-right: 18px; }
   #hl-sched tr.hl-year { cursor: pointer; }
   #hl-sched .caret { display: inline-block; width: 14px; color: var(--gold); font-size: 0.75rem; }
@@ -363,7 +374,7 @@
         <div class="mf-note">Tracking starts from 1 Nov 2026. Each month shows its last recorded day. Change is against the previous month's close; for November 2026 it is against the 1 Nov opening value. Card dues are subtracted, and Loans &amp; advances is money lent minus money owed. The current month updates every time you open the tracker.</div>
       </section>
       <section class="xp-wrap" aria-label="Other holdings">
-        <div class="list-h"><h2>Other holdings</h2><span class="sub">Click one to open it</span></div>
+        <div class="list-h"><button class="ghost xp-back" type="button" data-go="dash">&larr; Dashboard</button></div>
       <details class="xp" id="pane-epf">
         <summary><span class="xp-l">PF / EPF</span><span class="xp-v" id="epf-sum">–</span></summary>
         <section class="card">
@@ -725,8 +736,10 @@
           </div>
         </div>
         <div class="mf-kpis" id="hl-kpis"></div>
-        <div class="chart-h" style="margin-top:18px"><h3>Loan details</h3></div>
-        <div class="table-wrap" style="margin-top:8px"><table id="hl-facts" class="hl-facts"></table></div>
+        <details class="hl-more" style="margin-top:18px">
+          <summary><h3>Loan details</h3></summary>
+          <div class="table-wrap" style="margin-top:8px"><table id="hl-facts" class="hl-facts"></table></div>
+        </details>
         <div class="chart-h" style="margin-top:18px"><h3>Repayment schedule</h3></div>
         <div class="table-wrap" style="margin-top:8px"><table id="hl-sched"></table></div>
       </section>
@@ -1706,12 +1719,17 @@
   var TABS = ["dash", "stocks", "mf", "business", "bank", "cards", "homeloan", "income", "expenses"];
   var DASH_X = ["epf", "gold", "loans", "insurance", "trading"];
   function showTab(t, push) {
+    var pd = $("pane-dash");
     if (DASH_X.indexOf(t) >= 0) {
-      var dx = $("pane-" + t); showTab("dash", false); dx.open = true;
+      // Show just that section, opened, with a way back to the dashboard
+      showTab("dash", false);
+      pd.classList.add("xp-mode");
+      DASH_X.forEach(function (x) { var d = $("pane-" + x); d.classList.toggle("show", x === t); if (x === t) d.open = true; });
       if (push && location.hash !== "#" + t) history.replaceState(null, "", "#" + t);
-      setTimeout(function () { dx.scrollIntoView({ behavior: "smooth", block: "start" }); }, 30);
+      window.scrollTo(0, 0);
       return;
     }
+    pd.classList.remove("xp-mode");
     if (TABS.indexOf(t) < 0) t = "dash";
     TABS.forEach(function (x) { $("pane-" + x).hidden = x !== t; });
     document.querySelectorAll("#tabs .tab").forEach(function (b) { b.setAttribute("aria-selected", b.dataset.tab === t ? "true" : "false"); if (b.dataset.tab === t) b.scrollIntoView({ block: "nearest", inline: "nearest" }); });
