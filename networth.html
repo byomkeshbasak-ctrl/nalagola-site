@@ -169,6 +169,19 @@
   .tab:hover { color: var(--text); }
   .tab[aria-selected="true"] { color: var(--gold); border-bottom-color: var(--gold); }
   .dash-grid { margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+  .xp-wrap { margin-top: 18px; display: grid; gap: 10px; }
+  .xp-wrap .list-h { display: flex; align-items: baseline; gap: 10px; }
+  .xp-wrap .list-h .sub { color: var(--muted); font-size: 0.78rem; }
+  .xp { border: 1px solid var(--line-strong); border-radius: 14px; background: var(--panel); }
+  .xp > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 14px 18px; font-weight: 600; }
+  .xp > summary::-webkit-details-marker { display: none; }
+  .xp > summary::before { content: "▸"; color: var(--muted); transition: transform .15s; }
+  .xp[open] > summary::before { transform: rotate(90deg); }
+  .xp > summary .xp-l { flex: 1; }
+  .xp > summary .xp-v { font-variant-numeric: tabular-nums; }
+  .xp > summary:hover { background: var(--panel-2); border-radius: 14px; }
+  .xp > .card { margin: 0 10px 10px; }
+  .xp .head > div:first-child .k, .xp .head > div:first-child .v { display: none; }
   .dtile { background: var(--panel); border: 1px solid var(--line-strong); border-radius: 14px; padding: 14px 16px; text-align: left; cursor: pointer; width: 100%; display: grid; gap: 4px; }
   .dtile:hover { border-color: var(--gold); }
   .dtile:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); }
@@ -291,11 +304,6 @@
         <button type="button" class="tab" data-tab="business">Business</button>
         <button type="button" class="tab" data-tab="bank">Bank</button>
         <button type="button" class="tab" data-tab="cards">Credit cards</button>
-        <button type="button" class="tab" data-tab="epf">PF / EPF</button>
-        <button type="button" class="tab" data-tab="gold">Gold</button>
-        <button type="button" class="tab" data-tab="loans">Loans &amp; advances</button>
-        <button type="button" class="tab" data-tab="insurance">Insurance</button>
-        <button type="button" class="tab" data-tab="trading">Trading balance</button>
         <button type="button" class="tab" data-tab="income">Income</button>
         <button type="button" class="tab" data-tab="expenses">Expenses</button>
       </div>
@@ -335,6 +343,100 @@
         <div class="table-wrap"><table id="mbm-table"></table></div>
         <div style="margin-top:10px"><button class="sec-link" type="button" id="mbm-more" hidden></button></div>
         <div class="mf-note">Tracking starts from 1 Nov 2026. Each month shows its last recorded day. Change is against the previous month's close; for November 2026 it is against the 1 Nov opening value. Card dues are subtracted, and Loans &amp; advances is money lent minus money owed. The current month updates every time you open the tracker.</div>
+      </section>
+      <section class="xp-wrap" aria-label="Other holdings">
+        <div class="list-h"><h2>Other holdings</h2><span class="sub">Click one to open it</span></div>
+      <details class="xp" id="pane-epf">
+        <summary><span class="xp-l">PF / EPF</span><span class="xp-v" id="epf-sum">–</span></summary>
+        <section class="card">
+        <div class="head">
+          <div>
+            <div class="k">PF / EPF</div>
+            <div class="v" id="epf-total">–</div>
+            <div class="s" id="epf-total-s">Provident Fund balance</div>
+          </div>
+          <div class="spacer"></div>
+          <button class="ghost" type="button" data-itemadd="epf">Add PF account</button>
+        </div>
+        <form class="form" id="epf-form" data-itemform="epf" hidden></form>
+        <div class="mf-kpis" id="epf-kpis"></div>
+        <div id="epf-table" style="margin-top:14px"></div>
+        <div class="mf-note" id="epf-note"></div>
+        </section>
+      </details>
+      <details class="xp" id="pane-gold">
+        <summary><span class="xp-l">Gold</span><span class="xp-v" id="gold-sum">–</span></summary>
+        <section class="card">
+        <div class="head">
+          <div>
+            <div class="k">Gold</div>
+            <div class="v" id="gold-total">–</div>
+            <div class="s" id="gold-total-s">Valued at today's gold rate</div>
+          </div>
+          <div class="spacer"></div>
+          <button class="ghost" type="button" data-itemadd="gold">Add gold</button>
+        </div>
+        <form class="form" id="gold-form" data-itemform="gold" hidden></form>
+        <div class="mf-kpis" id="gold-kpis"></div>
+        <div class="table-wrap" style="margin-top:14px"><table id="gold-table"></table></div>
+        <div class="mf-note" id="gold-note"></div>
+        </section>
+      </details>
+      <details class="xp" id="pane-loans">
+        <summary><span class="xp-l">Loans &amp; advances</span><span class="xp-v" id="loans-sum">–</span></summary>
+        <section class="card">
+        <div class="head">
+          <div>
+            <div class="k">Loans &amp; advances</div>
+            <div class="v" id="loans-total">–</div>
+            <div class="s" id="loans-total-s">Money you have lent, less money you owe</div>
+          </div>
+          <div class="spacer"></div>
+          <button class="ghost" type="button" data-itemadd="loans" data-kind="loan_given">Add money I lent</button>
+          <button class="ghost" type="button" data-itemadd="loans" data-kind="loan_taken">Add money I owe</button>
+        </div>
+        <form class="form" id="loans-form" data-itemform="loans" hidden></form>
+        <div class="mf-kpis" id="loans-kpis"></div>
+        <div class="table-wrap" style="margin-top:14px"><table id="loans-table"></table></div>
+        <div class="mf-note" id="loans-note"></div>
+        </section>
+      </details>
+      <details class="xp" id="pane-insurance">
+        <summary><span class="xp-l">Insurance</span><span class="xp-v" id="insurance-sum">–</span></summary>
+        <section class="card">
+        <div class="head">
+          <div>
+            <div class="k">Insurance</div>
+            <div class="v" id="insurance-total">–</div>
+            <div class="s" id="insurance-total-s">Policies and their current value</div>
+          </div>
+          <div class="spacer"></div>
+          <button class="ghost" type="button" data-itemadd="insurance">Add policy</button>
+        </div>
+        <form class="form" id="insurance-form" data-itemform="insurance" hidden></form>
+        <div class="mf-kpis" id="insurance-kpis"></div>
+        <div class="table-wrap" style="margin-top:14px"><table id="insurance-table"></table></div>
+        <div class="mf-note" id="insurance-note"></div>
+        </section>
+      </details>
+      <details class="xp" id="pane-trading">
+        <summary><span class="xp-l">Trading balance</span><span class="xp-v" id="trading-sum">–</span></summary>
+        <section class="card">
+        <div class="head">
+          <div>
+            <div class="k">Trading balance</div>
+            <div class="v" id="trading-total">–</div>
+            <div class="s" id="trading-total-s">Cash lying with your brokers</div>
+          </div>
+          <div class="spacer"></div>
+          <button class="ghost" type="button" data-itemadd="trading">Add broker balance</button>
+        </div>
+        <form class="form" id="trading-form" data-itemform="trading" hidden></form>
+        <div class="mf-kpis" id="trading-kpis"></div>
+        <div class="table-wrap" style="margin-top:14px"><table id="trading-table"></table></div>
+        <div class="mf-note" id="trading-note"></div>
+        </section>
+      </details>
       </section>
     </section>
 
@@ -586,96 +688,10 @@
       </section>
     </section>
 
-    <section class="pane" id="pane-epf" hidden>
-      <section class="card">
-        <div class="head">
-          <div>
-            <div class="k">PF / EPF</div>
-            <div class="v" id="epf-total">–</div>
-            <div class="s" id="epf-total-s">Provident Fund balance</div>
-          </div>
-          <div class="spacer"></div>
-          <button class="ghost" type="button" data-itemadd="epf">Add PF account</button>
-        </div>
-        <form class="form" id="epf-form" data-itemform="epf" hidden></form>
-        <div class="mf-kpis" id="epf-kpis"></div>
-        <div id="epf-table" style="margin-top:14px"></div>
-        <div class="mf-note" id="epf-note"></div>
-      </section>
-    </section>
 
-    <section class="pane" id="pane-gold" hidden>
-      <section class="card">
-        <div class="head">
-          <div>
-            <div class="k">Gold</div>
-            <div class="v" id="gold-total">–</div>
-            <div class="s" id="gold-total-s">Valued at today's gold rate</div>
-          </div>
-          <div class="spacer"></div>
-          <button class="ghost" type="button" data-itemadd="gold">Add gold</button>
-        </div>
-        <form class="form" id="gold-form" data-itemform="gold" hidden></form>
-        <div class="mf-kpis" id="gold-kpis"></div>
-        <div class="table-wrap" style="margin-top:14px"><table id="gold-table"></table></div>
-        <div class="mf-note" id="gold-note"></div>
-      </section>
-    </section>
 
-    <section class="pane" id="pane-loans" hidden>
-      <section class="card">
-        <div class="head">
-          <div>
-            <div class="k">Loans &amp; advances</div>
-            <div class="v" id="loans-total">–</div>
-            <div class="s" id="loans-total-s">Money you have lent, less money you owe</div>
-          </div>
-          <div class="spacer"></div>
-          <button class="ghost" type="button" data-itemadd="loans" data-kind="loan_given">Add money I lent</button>
-          <button class="ghost" type="button" data-itemadd="loans" data-kind="loan_taken">Add money I owe</button>
-        </div>
-        <form class="form" id="loans-form" data-itemform="loans" hidden></form>
-        <div class="mf-kpis" id="loans-kpis"></div>
-        <div class="table-wrap" style="margin-top:14px"><table id="loans-table"></table></div>
-        <div class="mf-note" id="loans-note"></div>
-      </section>
-    </section>
 
-    <section class="pane" id="pane-insurance" hidden>
-      <section class="card">
-        <div class="head">
-          <div>
-            <div class="k">Insurance</div>
-            <div class="v" id="insurance-total">–</div>
-            <div class="s" id="insurance-total-s">Policies and their current value</div>
-          </div>
-          <div class="spacer"></div>
-          <button class="ghost" type="button" data-itemadd="insurance">Add policy</button>
-        </div>
-        <form class="form" id="insurance-form" data-itemform="insurance" hidden></form>
-        <div class="mf-kpis" id="insurance-kpis"></div>
-        <div class="table-wrap" style="margin-top:14px"><table id="insurance-table"></table></div>
-        <div class="mf-note" id="insurance-note"></div>
-      </section>
-    </section>
 
-    <section class="pane" id="pane-trading" hidden>
-      <section class="card">
-        <div class="head">
-          <div>
-            <div class="k">Trading balance</div>
-            <div class="v" id="trading-total">–</div>
-            <div class="s" id="trading-total-s">Cash lying with your brokers</div>
-          </div>
-          <div class="spacer"></div>
-          <button class="ghost" type="button" data-itemadd="trading">Add broker balance</button>
-        </div>
-        <form class="form" id="trading-form" data-itemform="trading" hidden></form>
-        <div class="mf-kpis" id="trading-kpis"></div>
-        <div class="table-wrap" style="margin-top:14px"><table id="trading-table"></table></div>
-        <div class="mf-note" id="trading-note"></div>
-      </section>
-    </section>
 
     <!-- ===== Expenses ===== -->
     <section class="pane" id="pane-expenses" hidden>
@@ -1564,8 +1580,15 @@
   $("mbm-more").addEventListener("click", function () { mbm.all = !mbm.all; renderMonthly(); });
 
   // ---------- Tabs ----------
-  var TABS = ["dash", "stocks", "mf", "business", "bank", "cards", "epf", "gold", "loans", "insurance", "trading", "income", "expenses"];
+  var TABS = ["dash", "stocks", "mf", "business", "bank", "cards", "income", "expenses"];
+  var DASH_X = ["epf", "gold", "loans", "insurance", "trading"];
   function showTab(t, push) {
+    if (DASH_X.indexOf(t) >= 0) {
+      var dx = $("pane-" + t); showTab("dash", false); dx.open = true;
+      if (push && location.hash !== "#" + t) history.replaceState(null, "", "#" + t);
+      setTimeout(function () { dx.scrollIntoView({ behavior: "smooth", block: "start" }); }, 30);
+      return;
+    }
     if (TABS.indexOf(t) < 0) t = "dash";
     TABS.forEach(function (x) { $("pane-" + x).hidden = x !== t; });
     document.querySelectorAll("#tabs .tab").forEach(function (b) { b.setAttribute("aria-selected", b.dataset.tab === t ? "true" : "false"); if (b.dataset.tab === t) b.scrollIntoView({ block: "nearest", inline: "nearest" }); });
@@ -1678,6 +1701,7 @@
     list.forEach(function (i) { i.details = i.details || {}; });
     var tot = 0; list.forEach(function (i) { tot += (i.kind === "loan_taken" ? -1 : 1) * itemValue(i); });
     $(tab + "-total").textContent = inr.format(tot);
+    var sm = $(tab + "-sum"); if (sm) { sm.textContent = (tot < 0 ? "−" : "") + inr.format(Math.abs(tot)); sm.classList.toggle("neg", tot < 0); }
     var k = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + (d || "") + "</div></div>"; };
     var kp = "";
     if (tab === "gold") {
