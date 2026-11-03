@@ -334,7 +334,7 @@
         <div class="list-h"><h2>Net worth month by month</h2></div>
         <div class="table-wrap"><table id="mbm-table"></table></div>
         <div style="margin-top:10px"><button class="sec-link" type="button" id="mbm-more" hidden></button></div>
-        <div class="mf-note">Tracking starts from 1 Nov 2026. Each month shows its last recorded day. Card dues are subtracted, and Loans &amp; advances is money lent minus money owed. The current month updates every time you open the tracker.</div>
+        <div class="mf-note">Tracking starts from 1 Nov 2026. Each month shows its last recorded day. Change is against the previous month's close; for November 2026 it is against the 1 Nov opening value. Card dues are subtracted, and Loans &amp; advances is money lent minus money owed. The current month updates every time you open the tracker.</div>
       </section>
     </section>
 
@@ -1531,19 +1531,19 @@
     ["loans", "Loans & advances"], ["insurance", "Insurance"], ["trading", "Trading"], ["cards", "Card dues"]];
   var mbm = { range: "12", all: false };
   function mbmMonths() {
-    var byM = {};
-    hist.rows.forEach(function (r) { var m = r.as_of.slice(0, 7); if (!byM[m] || r.as_of >= byM[m].as_of) byM[m] = r; });
+    var byM = {}, firstM = {};
+    hist.rows.forEach(function (r) { var m = r.as_of.slice(0, 7); if (!byM[m] || r.as_of >= byM[m].as_of) byM[m] = r; if (!firstM[m] || r.as_of < firstM[m].as_of) firstM[m] = r; });
     return Object.keys(byM).sort().map(function (m) {
       var r = byM[m], p = r.parts || {};
       var v = { stocks: +p.stocks || 0, mf: +p.mf || 0, business: +p.business || 0, bank: +p.bank || 0, epf: +p.epf || 0, gold: +p.gold || 0,
         loans: (+p.loans_given || 0) - (+p.loans_taken || 0), insurance: +p.insurance || 0, trading: +p.trading || 0, cards: -(+p.cards || 0) };
-      return { m: m, d: r.as_of, v: v, t: Number(r.total), partial: r.source === "backfill" };
+      return { m: m, d: r.as_of, v: v, t: Number(r.total), partial: r.source === "backfill", open: firstM[m] && firstM[m].source !== "backfill" ? Number(firstM[m].total) : null };
     });
   }
   function renderMonthly() {
     if (!$("mbm-table")) return;
     var all = mbmMonths().filter(function (x) { return x.m >= START_DATE.slice(0, 7); }), tm = todayISO().slice(0, 7);
-    all.forEach(function (x, i) { var pr = all[i - 1]; if (pr && pr.partial && !x.partial) pr = null; x.ch = pr ? x.t - pr.t : null; x.pct = pr && pr.t ? x.ch / Math.abs(pr.t) : null; });
+    all.forEach(function (x, i) { var pr = all[i - 1]; if (pr && pr.partial && !x.partial) pr = null; var base = pr ? pr.t : x.open; x.ch = base != null ? x.t - base : null; x.pct = base ? x.ch / Math.abs(base) : null; });
     // Table: latest month first
     var rows = all.slice().reverse(), shown = mbm.all ? rows : rows.slice(0, 12);
     var cell = function (x, k) { if (x.partial && k !== "stocks" && k !== "mf") return '<td class="num" style="color:var(--muted)">–</td>'; var v = x.v[k]; return '<td class="num' + (v < -0.5 ? " neg" : "") + '">' + (Math.abs(v) < 0.5 ? "₹0" : (v < 0 ? "−" : "") + inr.format(Math.abs(v))) + "</td>"; };
