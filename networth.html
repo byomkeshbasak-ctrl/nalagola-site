@@ -1846,7 +1846,7 @@
   }
 
   // ---------- Expenses ----------
-  var EX_CATS = ["Groceries", "Rent", "Electricity", "Mobile & internet", "Fuel", "Transport", "Eating out", "Medical", "Education", "Tuition fees", "Household help", "Shopping", "Travel", "EMI", "Insurance premium", "Gifts", "Subscriptions", "Bank charges", "Other"];
+  var EX_CATS = ["Groceries", "Rent", "Electricity", "Mobile & internet", "Fuel", "Transport", "Eating out", "Medical", "Education", "Tuition fees", "Household help", "Shopping", "Travel", "EMI", "Insurance premium", "Gifts", "Subscriptions", "Bank charges", "Credit card payment", "Other"];
   $("ex-month").value = ex.month;
   $("ex-month").addEventListener("change", function () { if (this.value) { ex.month = this.value; renderExpenses(); } });
   function exMonthTotal(m) { return ex.list.filter(function (x) { return x.exp_date.slice(0, 7) === m; }).reduce(function (a, x) { return a + Number(x.amount); }, 0); }
