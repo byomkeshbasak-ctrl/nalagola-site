@@ -872,6 +872,7 @@
     }).join("");
     if (typeof renderCards === "function") renderCards();
     if (typeof renderIncome === "function") renderIncome();
+    if (typeof ex !== "undefined" && typeof renderExpenses === "function") renderExpenses();
     if (typeof renderNetWorth === "function") renderNetWorth();
   }
 
@@ -1852,7 +1853,24 @@
   var EX_CATS = ["Groceries", "Rent", "Electricity", "Mobile & internet", "Fuel", "Transport", "Eating out", "Medical", "Education", "Tuition fees", "Household help", "Shopping", "Travel", "EMI", "Insurance premium", "Gifts", "Subscriptions", "Bank charges", "Credit card payment", "Other"];
   $("ex-month").value = ex.month;
   $("ex-month").addEventListener("change", function () { if (this.value) { ex.month = this.value; renderExpenses(); } });
-  function exMonthTotal(m) { return ex.list.filter(function (x) { return x.exp_date.slice(0, 7) === m; }).reduce(function (a, x) { return a + Number(x.amount); }, 0); }
+  // Card bill payments count as expenses only for the part that clears the card's opening due:
+  // spends from before tracking began were never entered, so the bill is the only record of them.
+  // Later spends are entered as expenses on the card, so paying for them is not counted again.
+  function cardBillExpenses() {
+    var out = [];
+    (state.cards || []).forEach(function (c) {
+      var left = Number(c.opening_due) || 0;
+      state.cardPays.filter(function (p) { return p.card_code === c.code && p.pay_date >= c.opening_date; })
+        .sort(function (a, b) { return a.pay_date < b.pay_date ? -1 : a.pay_date > b.pay_date ? 1 : 0; })
+        .forEach(function (p) {
+          var part = Math.min(Number(p.amount), Math.max(0, left)); left -= part;
+          if (part > 0.004) out.push({ id: "cp:" + p.id, cp: p.id, exp_date: p.pay_date, category: "Credit card payment", note: cardName(c.code) + " bill", paid_from: p.paid_from, amount: Math.round(part * 100) / 100 });
+        });
+    });
+    return out;
+  }
+  function exAll() { return ex.list.concat(cardBillExpenses()); }
+  function exMonthTotal(m) { return exAll().filter(function (x) { return x.exp_date.slice(0, 7) === m; }).reduce(function (a, x) { return a + Number(x.amount); }, 0); }
   function prevMonth(m) { var p = m.split("-"), d = new Date(+p[0], +p[1] - 2, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
   function monthName(m) { var p = m.split("-"); return new Date(+p[0], +p[1] - 1, 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" }); }
   function exCompare() {
@@ -1860,7 +1878,7 @@
     return b ? "last month " + inr.format(b) : "nothing last month";
   }
   function exByCat(m) {
-    var c = {}; ex.list.forEach(function (x) { if (x.exp_date.slice(0, 7) === m) c[x.category] = (c[x.category] || 0) + Number(x.amount); });
+    var c = {}; exAll().forEach(function (x) { if (x.exp_date.slice(0, 7) === m) c[x.category] = (c[x.category] || 0) + Number(x.amount); });
     return Object.keys(c).map(function (k) { return [k, c[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
   }
   function barsHtml(rows, empty) {
@@ -1879,12 +1897,12 @@
     $("ex-cats").innerHTML = cats.map(function (c) { return '<option value="' + esc(c) + '">'; }).join("");
   }
   function renderExpenses() {
-    var m = ex.month, list = ex.list.filter(function (x) { return x.exp_date.slice(0, 7) === m; }).slice().reverse();
+    var m = ex.month, list = exAll().filter(function (x) { return x.exp_date.slice(0, 7) === m; }).sort(function (a, b) { return a.exp_date < b.exp_date ? 1 : a.exp_date > b.exp_date ? -1 : 0; });
     var tot = exMonthTotal(m), prev = exMonthTotal(prevMonth(m)), cats = exByCat(m);
     var days = m === todayISO().slice(0, 7) ? Number(todayISO().slice(8, 10)) : new Date(+m.slice(0, 4), +m.slice(5, 7), 0).getDate();
     $("ex-title").textContent = "Expenses · " + monthName(m);
     $("ex-total").textContent = inr.format(tot);
-    $("ex-total-s").textContent = list.length + " entries · not part of net worth";
+    $("ex-total-s").textContent = list.length + " entries · already taken off your bank or card balances";
     var k = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + (d || "") + "</div></div>"; };
     var fromBank = list.filter(function (x) { return /^p_/.test(x.paid_from); }).reduce(function (a, x) { return a + Number(x.amount); }, 0);
     var onCards = list.filter(function (x) { return /^cc_/.test(x.paid_from) || x.paid_from === "card"; }).reduce(function (a, x) { return a + Number(x.amount); }, 0);
@@ -1896,7 +1914,7 @@
     else $("ex-pie").innerHTML = '<div class="empty">No expenses for this month yet.</div>';
     $("ex-table").innerHTML = list.length ? '<thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Paid from</th><th class="num">Amount</th><th></th></tr></thead><tbody>' + list.map(function (x) {
       return "<tr><td>" + fmtDate(x.exp_date) + "</td><td>" + esc(x.category) + "</td><td>" + esc(x.note || "") + "</td><td>" + esc(payName(x.paid_from)) + '</td><td class="num">' + inr2.format(x.amount) +
-        '</td><td class="actions-c"><button class="icon-btn" type="button" data-exedit="' + x.id + '">Edit</button><button class="icon-btn del" type="button" data-exdel="' + x.id + '">Delete</button></td></tr>';
+        '</td><td class="actions-c"><button class="icon-btn" type="button" ' + (x.cp ? 'data-cpedit="' + x.cp + '" title="Edit this payment in Credit cards"' : 'data-exedit="' + x.id + '"') + '>Edit</button><button class="icon-btn del" type="button" ' + (x.cp ? 'data-cpdel="' + x.cp + '"' : 'data-exdel="' + x.id + '"') + '>Delete</button></td></tr>';
     }).join("") + '</tbody><tfoot><tr><td>Total</td><td></td><td></td><td></td><td class="num">' + inr2.format(tot) + "</td><td></td></tr></tfoot>" : "";
     fillExFrom();
   }
@@ -1911,6 +1929,8 @@
   $("ex-add").addEventListener("click", function () { if (!$("ex-form").hidden && !ex.editing) { $("ex-form").hidden = true; return; } openExForm(null); });
   $("ex-cancel").addEventListener("click", function () { $("ex-form").hidden = true; ex.editing = null; });
   $("ex-table").addEventListener("click", async function (e) {
+    var ced = e.target.getAttribute("data-cpedit"); if (ced) { showTab("cards", true); openPay(state.cardPays.find(function (x) { return x.id === ced; })); return; }
+    var cdl = e.target.getAttribute("data-cpdel"); if (cdl) { delPay(cdl); return; }
     var ed = e.target.getAttribute("data-exedit"); if (ed) { openExForm(ex.list.find(function (x) { return x.id === ed; })); return; }
     var dl = e.target.getAttribute("data-exdel"); if (dl) delExpense(dl);
   });
