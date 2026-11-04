@@ -561,10 +561,30 @@
           <div id="st-pl"></div>
         </div>
       </div>
-      <div class="table-wrap" style="margin-top:14px"><table id="st-table"></table></div>
+      <div class="sec-h"><h3>Current Holdings</h3></div>
+      <div class="table-wrap"><table id="st-table"></table></div>
       <button class="ghost exited-btn" id="st-exited-btn" type="button" hidden></button>
       <div class="table-wrap" id="st-exited" hidden style="margin-top:10px"><table id="st-exited-table"></table></div>
       <div class="mf-note" id="st-note"></div>
+    </section>
+
+    <section class="card ips-card" id="sips-box" aria-label="Recommended Portfolio Allocation">
+      <div class="ips-top">
+        <div>
+          <div class="k">Per your Stocks Investment Policy Statement v4.9</div>
+          <h2 class="ips-title">Recommended Portfolio Allocation</h2>
+          <div class="ips-dates" id="sips-dates"></div>
+        </div>
+        <div class="spacer"></div>
+        <button class="ghost" id="sips-run" type="button">Run review now</button>
+      </div>
+      <div class="ips-flow" id="sips-flow"></div>
+      <div class="ips-buckets" id="sips-buckets"></div>
+      <div class="ips-sec"><span class="ips-dot buy"></span><h3>Buy</h3><span class="ips-sum" id="sips-buy-sum"></span></div>
+      <div class="table-wrap"><table class="ips-t" id="sips-buy"></table></div>
+      <div class="ips-sec"><span class="ips-dot sell"></span><h3>Sell / trim</h3><span class="ips-sum" id="sips-sell-sum"></span></div>
+      <div class="table-wrap"><table class="ips-t" id="sips-sell"></table></div>
+      <div class="mf-note">Reviewed on the 1st and 15th of every month. Every stock in the top 250 by market cap is checked against the Core quality gate (ROE, ROCE, debt, cash conversion) and ranked; the target list is the best 12 that fit the sector cap, keeping holdings that pass. Cap breaches are fixed by redirecting new money first and trimming only shares held over a year, inside the household ₹1.25 L long-term gains exemption shared with the mutual funds. The P/E band (Euphoria filter), governance and the 200-DMA freeze still need a manual check before buying. This applies your IPS rules mechanically; it is not investment advice.</div>
     </section>
     </section>
 
@@ -905,6 +925,7 @@
     await Promise.all([loadMF(), loadStocks(), loadOthers(), loadHistory(), loadPxStamp()]);
     renderNetWorth();
     renderIncome();
+    sipsCheck(false);
   }
 
   // ---------- Month-by-month books ----------
@@ -1380,6 +1401,219 @@
     });
   });
   $("ips-run").addEventListener("click", function () { ipsCheck(true); });
+  // ---------- Stocks IPS v4.9 review: screen-driven Core list, cap-breach transition and household checks ----------
+  var SIPS = {
+    version: "v4.9", adoption: "2026-11-04", planEnd: "2027-10-31",
+    nameCap: 10, sectorCap: 25, targetW: 7.5, targetNames: 12,
+    ballast: /^(NIFTYBEES|LIQUIDBEES)$/,
+    gate: { roe: 15, roce: 15, de: 2.0, cfo: 70, floor: 10 },
+    hh: { target: 40, lo: 30, hi: 50, sector: 10, exemption: 125000 },
+    exitIfFail: ["IOC"] // §J of v4.9: exit if it fails the Core gate
+  };
+  var sips = { latest: null, loading: false, checked: false, fund: null, open: {} };
+  function sipsGate(d, fin) {
+    var avg = function (a) { return a && a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : null; };
+    var roe = d.roe3 != null ? d.roe3 : avg(d.roeY) != null ? avg(d.roeY) : d.roe_ttm;
+    var roce = avg(d.roce3) != null ? avg(d.roce3) : d.roce_ttm;
+    var de = d.borrow != null && d.equity ? d.borrow / d.equity : null;
+    var ps = d.pat3 ? d.pat3.reduce(function (x, y) { return x + y; }, 0) : null, cs = d.cfo3 ? d.cfo3.reduce(function (x, y) { return x + y; }, 0) : null;
+    var cfo = ps > 0 && cs != null ? 100 * cs / ps : null;
+    var fails = [], gaps = [];
+    var chk = function (v, ok, label) { if (v == null) gaps.push(label); else if (!ok(v)) fails.push(label); };
+    // "Sustained" (§2): the 3-year average must clear the bar and no single year may fall below the floor
+    var yrs = fin ? d.roeY : d.roce3, low = yrs && yrs.length > 1 ? Math.min.apply(null, yrs) : null;
+    if (low != null && low < SIPS.gate.floor) fails.push("weakest year " + (fin ? "ROE " : "ROCE ") + low + "% (floor " + SIPS.gate.floor + "%)");
+    chk(roe, function (v) { return v >= SIPS.gate.roe; }, "ROE " + (roe != null ? Math.round(roe) + "%" : "n/a") + " (needs " + SIPS.gate.roe + "%)");
+    if (!fin) {
+      chk(roce, function (v) { return v >= SIPS.gate.roce; }, "ROCE " + (roce != null ? Math.round(roce) + "%" : "n/a") + " (needs " + SIPS.gate.roce + "%)");
+      chk(de, function (v) { return v <= SIPS.gate.de; }, "debt/equity " + (de != null ? de.toFixed(2) : "n/a") + " (max " + SIPS.gate.de + ")");
+      chk(cfo, function (v) { return v >= SIPS.gate.cfo; }, "cash conversion " + (cfo != null ? Math.round(cfo) + "%" : "n/a") + " (needs " + SIPS.gate.cfo + "%)");
+    }
+    return { roe: roe, roce: roce, de: de, cfo: cfo, fails: fails, gaps: gaps, pass: !fails.length && !gaps.length, q: fin ? roe : roce };
+  }
+  async function sipsLoadFund() {
+    var q = await sb.from("stock_fund").select("symbol,name,industry,in_universe,fetched_at,ok,data").limit(1000);
+    if (q.error) return;
+    sips.fund = {}; (q.data || []).forEach(function (r) { sips.fund[r.symbol] = r; });
+  }
+  function sipsFY(d) { var y = +d.slice(0, 4), m = +d.slice(5, 7); return m >= 4 ? y : y - 1; }
+  function sipsAddDays(d, n) { var t = new Date(d + "T00:00:00Z"); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); }
+  function sipsRun() {
+    if (!sips.fund) return null;
+    var today = todayISO(), action = ipsIsAction(today), nextAct = ipsNextAction(today), fy = sipsFY(today), nextFY = (fy + 1) + "-04-01";
+    var syms = []; st.txns.forEach(function (t) { if (syms.indexOf(t.symbol) < 0) syms.push(t.symbol); });
+    var held = syms.map(stockCalc).filter(function (r) { return r.qty > 0; });
+    var book = held.reduce(function (a, r) { return a + r.value; }, 0); if (!book) return null;
+    var pct = function (v) { return 100 * v / book; }, F = sips.fund;
+    var indOf = function (s) { return (F[s] && F[s].industry) || sectorOf(s); };
+    var short = function (n) { return String(n || "").replace(/\s+(Ltd\.?|Limited)$/i, "").replace(/\s+Ltd\.?\s*$/i, "").trim(); };
+    // 1. Score the universe (§7)
+    var scored = Object.keys(F).map(function (s) { var r = F[s]; if (!r.ok || !r.data) return null; var fin = r.industry === "Financial Services"; var g = sipsGate(r.data, fin); g.sym = s; g.name = r.name; g.ind = r.industry; g.inUni = r.in_universe; g.d = r.data; return g; }).filter(Boolean);
+    var pool = scored.filter(function (g) { return g.pass && g.inUni; });
+    var rank = function (key, hi) { var v = pool.map(function (g) { return key(g); }); var idx = v.map(function (x, i) { return [x, i]; }).filter(function (x) { return x[0] != null && isFinite(x[0]); }).sort(function (a, b) { return hi ? a[0] - b[0] : b[0] - a[0]; }); var out = v.map(function () { return 50; }); idx.forEach(function (x, k) { out[x[1]] = idx.length > 1 ? 100 * k / (idx.length - 1) : 50; }); return out; };
+    var rq = rank(function (g) { return g.q; }, true), rgw = rank(function (g) { return g.d.profit5 != null ? g.d.profit5 : g.d.profit3; }, true), rc = rank(function (g) { return g.cfo; }, true), rv = rank(function (g) { return g.d.pe > 0 ? 100 / g.d.pe : null; }, true);
+    pool.forEach(function (g, i) { g.score = 0.4 * rq[i] + 0.3 * rgw[i] + 0.15 * (g.ind === "Financial Services" ? 50 : rc[i]) + 0.15 * rv[i]; });
+    pool.sort(function (a, b) { return b.score - a.score; });
+    pool.forEach(function (g, i) { g.rank = i + 1; });
+    var gOf = function (s) { return scored.filter(function (g) { return g.sym === s; })[0] || null; };
+    var pOf = function (s) { return pool.filter(function (g) { return g.sym === s; })[0] || null; };
+    held.forEach(function (r) {
+      r.w = pct(r.value); r.after = r.value; r.ballast = SIPS.ballast.test(r.sym); r.ind = indOf(r.sym); r.g = gOf(r.sym); r.p = pOf(r.sym);
+      r.lots = []; Object.keys(r.books || {}).forEach(function (k) { r.books[k].forEach(function (l) { if (l.qty > 0) r.lots.push({ date: l.date, qty: l.qty, cost: l.cost }); }); });
+      r.lots.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    });
+    var scTxt = function (r) {
+      if (!r.g) return "No fundamentals on file yet.";
+      var g = r.g, bits = ["ROE " + (g.roe != null ? Math.round(g.roe) + "%" : "n/a")];
+      if (r.ind !== "Financial Services") bits.push("ROCE " + (g.roce != null ? Math.round(g.roce) + "%" : "n/a"), "debt/equity " + (g.de != null ? g.de.toFixed(2) : "n/a"), "cash conversion " + (g.cfo != null ? Math.round(g.cfo) + "%" : "n/a"));
+      return bits.join(", ") + (r.p ? ". Screen rank " + r.p.rank + " of " + pool.length + "." : g.pass ? "." : ". Fails the Core gate: " + g.fails.concat(g.gaps).join("; ") + ".");
+    };
+    // 2. Target Core list (§7): held names that pass, then the best-ranked new names, max per industry by the sector cap
+    // planned weight: held names keep their weight up to the name cap, new names enter at the target weight
+    var target = [], indW = {};
+    var addT = function (sym, ind, w) { if (target.length >= SIPS.targetNames || target.indexOf(sym) >= 0) return false; if ((indW[ind] || 0) + w > SIPS.sectorCap + 0.01) return false; target.push(sym); indW[ind] = (indW[ind] || 0) + w; return true; };
+    held.filter(function (r) { return !r.ballast && r.p; }).sort(function (a, b) { return b.value - a.value; }).forEach(function (r) { addT(r.sym, r.ind, Math.max(SIPS.targetW, Math.min(r.w, SIPS.nameCap))); });
+    pool.forEach(function (g) { addT(g.sym, g.ind, SIPS.targetW); });
+    // Tax budget for this financial year (§H household): MF consolidations planned in the latest MF review come first
+    var mfGain = 0;
+    if (typeof ips !== "undefined" && ips.latest && ips.latest.sells) ips.latest.sells.forEach(function (x) {
+      if (x.kind !== "sell" || !x.full) return; var f = mf.funds.filter(function (z) { return z.name === x.full; })[0]; if (!f) return; var c = fundCalc(f); if (c.value > c.invested) mfGain += Math.min(c.value - c.invested, (x.amount || c.value) * (c.value - c.invested) / c.value);
+    });
+    var budget = Math.max(0, SIPS.hh.exemption - mfGain), stGain = 0;
+    var lotSplit = function (r, amt) { // FIFO across lots: what can go now as long-term vs what waits
+      var now = 0, nowGain = 0, later = [], left = amt;
+      r.lots.forEach(function (l) {
+        if (left <= 1) return; var lv = l.qty * r.price, take = Math.min(left, lv), gain = take - l.cost * take / lv, mature = sipsAddDays(l.date, 366);
+        if (mature <= today) {
+          var room = gain > 0 ? Math.max(0, budget - stGain) : Infinity, frac = gain > 0 ? Math.min(1, room / gain) : 1;
+          now += take * frac; nowGain += gain * frac; stGain += gain > 0 ? gain * frac : 0;
+          if (frac < 1) later.push({ date: nextFY, amt: take * (1 - frac), why: "next financial year's ₹1.25 L exemption" });
+        } else later.push({ date: mature, amt: take, why: "lot bought " + fmtDate(l.date) + " turns long-term" });
+        left -= take;
+      });
+      return { now: now, nowGain: nowGain, later: later };
+    };
+    // 3. Sells: exits, probation, cap trims (§2, §5, transition plan §T)
+    var sells = [], cash = 0;
+    var row = function (r, kind, act, why, amt, extra) { var o = { fund: r ? r.sym : null, full: r ? r.name : null, category: r ? r.ind : "", units: r ? r.qty : null, avg_nav: r && r.qty ? r.invested / r.qty : null, kind: kind, action: act, why: why, amount: amt ? Math.round(amt) : null }; if (extra) for (var k in extra) o[k] = extra[k]; return o; };
+    var ordered = held.slice().sort(function (a, b) { var ea = SIPS.exitIfFail.indexOf(a.sym) >= 0 ? 0 : 1, eb = SIPS.exitIfFail.indexOf(b.sym) >= 0 ? 0 : 1; return ea - eb; });
+    ordered.forEach(function (r) {
+      if (r.ballast) return;
+      var g = r.g, gain = r.value - r.invested, gt = " Gain in it: " + (gain >= 0 ? "+" : "−") + inr.format(Math.abs(gain)) + ".";
+      var mustExit = SIPS.exitIfFail.indexOf(r.sym) >= 0 && (!g || !g.pass || target.indexOf(r.sym) < 0);
+      if (mustExit) {
+        var lt = 0, stv = 0; r.lots.forEach(function (l) { var gv = l.qty * r.price - l.cost; if (sipsAddDays(l.date, 366) <= today) lt += gv; else stv += gv; });
+        sells.push(row(r, "sell", action ? "Exit in full" : "Exit at action review", "Fails the Core quality gate, so it misses the portfolio goal (v4.9 §T.3). " + scTxt(r) + " Tax: about " + inr.format(Math.max(lt, 0)) + " long-term and " + inr.format(Math.max(stv, 0)) + " short-term gain." + gt + (action ? "" : " Act on " + fmtDate(nextAct) + "."), r.value));
+        cash += r.value; r.after = 0; if (lt > 0) stGain += lt; return;
+      }
+      if (g && !g.pass && g.fails.length) sells.push(row(r, "hold", "Probation", "Fails the Core gate on " + g.fails.join("; ") + ". No new money for 2 quarters; exit at the third quarterly review if it hasn't recovered (§2.1). " + scTxt(r) + gt));
+      var capV = SIPS.nameCap * book / 100;
+      if (r.after > capV + 1) {
+        var x = r.after - capV, sp = lotSplit(r, x);
+        if (sp.now > 1 && action) { sells.push(row(r, "sell", "Trim now", "At " + r.w.toFixed(1) + "% it is above the " + SIPS.nameCap + "% name cap (§5). These shares are over a year old, so the gain (" + inr.format(sp.nowGain) + ") is long-term and fits this year's exemption. " + scTxt(r), sp.now)); cash += sp.now; r.after -= sp.now; }
+        else if (sp.now > 1) sp.later.unshift({ date: nextAct, amt: sp.now, why: "next action review" });
+        var byDate = {}; sp.later.forEach(function (l) { byDate[l.date] = byDate[l.date] || { amt: 0, why: l.why }; byDate[l.date].amt += l.amt; });
+        Object.keys(byDate).sort().forEach(function (d) {
+          sells.push(row(r, "plan", "Trim from " + fmtDate(d), "Part of the " + SIPS.nameCap + "% cap fix. Waits until " + byDate[d].why + ", so the gain is taxed as long-term within the exemption (§T.2). Until then no new money goes into it.", byDate[d].amt, { due: d }));
+        });
+      }
+    });
+    // 4. Buys: redeploy sale proceeds into the target list, furthest below target first (§T.1); the rest is the new-money plan
+    var tv = {}; held.forEach(function (r) { tv[r.sym] = r.after; });
+    var gapOf = function (s) { return SIPS.targetW * book / 100 - (tv[s] || 0); };
+    var buys = [], left = cash, guard = 0;
+    while (left > 1 && guard++ < 50) {
+      var c = target.filter(function (s) { return gapOf(s) > 1; }).sort(function (a, b) { return gapOf(b) - gapOf(a); })[0];
+      if (!c) break; var amt = Math.min(left, gapOf(c)); tv[c] = (tv[c] || 0) + amt; left -= amt;
+      var ex = buys.filter(function (b) { return b.fund === c; })[0]; if (ex) ex.amount += Math.round(amt); else buys.push({ sym: c, amount: Math.round(amt) });
+    }
+    var mkBuy = function (s, kind, act, amt, lead) {
+      var r = held.filter(function (h) { return h.sym === s; })[0], g = pOf(s) || gOf(s);
+      var detail = g ? "Screen rank " + (g.rank || "–") + " of " + pool.length + ": ROE " + (g.roe != null ? Math.round(g.roe) + "%" : "n/a") + (g.ind !== "Financial Services" ? ", ROCE " + (g.roce != null ? Math.round(g.roce) + "%" : "n/a") + ", cash conversion " + (g.cfo != null ? Math.round(g.cfo) + "%" : "n/a") : "") + ", 5-yr profit growth " + (g.d.profit5 != null ? g.d.profit5 + "%" : "n/a") + ", P/E " + (g.d.pe != null ? g.d.pe : "n/a") + "." : "";
+      var o = r ? row(r, kind, act, lead + " " + detail, amt) : { fund: s, full: g ? g.name : s, category: indOf(s), units: null, avg_nav: null, kind: kind, isNew: true, action: act, why: lead + " " + detail + " Check the 5-year P/E band (Euphoria filter, §3) and governance before buying.", amount: amt ? Math.round(amt) : null };
+      return o;
+    };
+    var outBuys = buys.map(function (b) { return mkBuy(b.sym, "buy", held.some(function (h) { return h.sym === b.sym; }) ? "Buy" : "Buy new stock", b.amount, "Funded by the sales above. Brings it toward its " + SIPS.targetW + "% target." + (action ? "" : " Moves on " + fmtDate(nextAct) + ".")); });
+    var newMoney = 0;
+    target.forEach(function (s) { var gp = gapOf(s); if (gp > 1000 && !buys.some(function (b) { return b.sym === s; })) { newMoney += gp; outBuys.push(mkBuy(s, "watch", "With new money", gp, "On the target Core list but " + inr.format(gp) + " short of its " + SIPS.targetW + "% target. Fund it from new money, largest gap first (§T.1).")); } });
+    // 5. Household checks (§H)
+    var mfv = mf.total || 0, hhv = book + mfv, share = hhv ? 100 * book / hhv : 0;
+    var indV = {}; held.forEach(function (r) { if (!r.ballast) indV[r.ind] = (indV[r.ind] || 0) + r.value; });
+    var indAfter = {}; held.forEach(function (r) { if (!r.ballast) indAfter[r.ind] = (indAfter[r.ind] || 0) + r.after; });
+    var topInd = Object.keys(indV).sort(function (a, b) { return indV[b] - indV[a]; })[0];
+    var breaches = held.filter(function (r) { return !r.ballast && r.w > SIPS.nameCap; }).length;
+    var lastFix = sells.filter(function (x) { return x.kind === "plan"; }).map(function (x) { return x.due; }).sort().pop();
+    var buckets = [
+      { l: "Name cap breaches", txt: breaches + " now", sub: lastFix ? "cleared by " + fmtDate(lastFix) : "cleared now", st: breaches ? "above" : "in" },
+      { l: "Largest sector (" + (topInd || "–") + ")", cur: Math.round(pct(indV[topInd] || 0) * 10) / 10, after: Math.round(pct(indAfter[topInd] || 0) * 10) / 10, t: SIPS.sectorCap, lo: 0, hi: SIPS.sectorCap },
+      { l: "Stocks share of household equity", cur: Math.round(share * 10) / 10, after: Math.round(share * 10) / 10, t: SIPS.hh.target, lo: SIPS.hh.lo, hi: SIPS.hh.hi },
+      { l: topInd + " in household equity", cur: Math.round((hhv ? 100 * (indV[topInd] || 0) / hhv : 0) * 10) / 10, after: Math.round((hhv ? 100 * (indAfter[topInd] || 0) / hhv : 0) * 10) / 10, t: SIPS.hh.sector, lo: 0, hi: SIPS.hh.sector },
+      { l: "Tax-free LTCG used (FY " + fy + "–" + String(fy + 1).slice(2) + ")", txt: inr.format(Math.round(mfGain + stGain)), sub: "of " + inr.format(SIPS.hh.exemption) + " · MF " + inr.format(Math.round(mfGain)) + ", stocks " + inr.format(Math.round(stGain)), st: mfGain + stGain > SIPS.hh.exemption ? "above" : "in" }
+    ];
+    sells.sort(function (a, b) { var o = { sell: 0, plan: 1, hold: 2 }; return (o[a.kind] - o[b.kind]) || ((a.due || "") < (b.due || "") ? -1 : 1) || (b.amount || 0) - (a.amount || 0); });
+    return { run_date: today, buys: outBuys, sells: sells, book_value: Math.round(book), buckets: buckets,
+      meta: { cash: Math.round(cash), new_money: Math.round(newMoney), action_review: action, target: target, version: SIPS.version, screened: scored.length, passed: pool.length, mf_gain: Math.round(mfGain), st_gain: Math.round(stGain) } };
+  }
+  async function sipsCheck(force) {
+    if (sips.loading || !st.txns.length) return;
+    sips.loading = true;
+    try {
+      if (!sips.checked) {
+        var q = await sb.from("st_reviews").select("*").order("run_date", { ascending: false }).order("created_at", { ascending: false }).limit(1);
+        sips.latest = !q.error && q.data && q.data.length ? q.data[0] : null; sips.checked = true;
+      }
+      var t = todayISO();
+      if (force || !sips.latest || sips.latest.run_date < ipsSlot(t)) {
+        await sipsLoadFund();
+        if (typeof ips !== "undefined" && !ips.latest && !ips.checked) { try { var mq = await sb.from("mf_reviews").select("*").order("run_date", { ascending: false }).limit(1); if (!mq.error && mq.data && mq.data.length) ips.latest = mq.data[0]; } catch (e) {} }
+        var r = sipsRun();
+        if (r) {
+          await sb.from("st_reviews").delete().eq("run_date", t);
+          var ins = await sb.from("st_reviews").insert(r).select().single();
+          sips.latest = ins.error ? r : ins.data;
+          if (force) toast("Review updated");
+        }
+      }
+    } finally { sips.loading = false; renderSIPS(); }
+  }
+  function renderSIPS() {
+    if (!$("sips-box")) return;
+    var L = sips.latest, t = todayISO(), meta = L ? L.meta || {} : {};
+    $("sips-dates").innerHTML = L ? "Last review <b>" + fmtDate(L.run_date) + "</b> (" + (meta.action_review ? "action review" : "signal review, next action " + fmtDate(ipsNextAction(L.run_date))) + ") · Next review <b>" + fmtDate(ipsNext(t)) + "</b>" +
+      (meta.screened ? " · " + meta.passed + " of " + meta.screened + " stocks pass the Core gate" : "") : "No review yet";
+    var sumK = function (l, k) { return (l || []).reduce(function (a, x) { return a + (x.kind === k && x.amount ? x.amount : 0); }, 0); };
+    var sOut = L ? sumK(L.sells, "sell") : 0, bIn = L ? sumK(L.buys, "buy") : 0, nm = L ? sumK(L.buys, "watch") : 0, later = L ? sumK(L.sells, "plan") : 0;
+    $("sips-flow").innerHTML = L ? '<div><div class="l">Freed by sells now</div><div class="a">' + inr.format(sOut) + '</div><div class="s">exits and long-term trims</div></div>' +
+      '<div><div class="l">Reinvested now</div><div class="a">' + inr.format(bIn) + '</div><div class="s">left idle ' + inr.format(Math.max(0, sOut - bIn)) + "</div></div>" +
+      '<div><div class="l">Scheduled trims · new money</div><div class="a">' + inr.format(later) + " · " + inr.format(nm) + '</div><div class="s">over the 12-month plan to ' + fmtDate(SIPS.planEnd) + "</div></div>" : "";
+    $("sips-buckets").innerHTML = L && L.buckets ? L.buckets.map(function (b) {
+      if (b.txt != null) return '<div class="ips-b ' + b.st + '"><span class="n">' + esc(b.l) + '</span><span class="w"><b>' + esc(b.txt) + "</b></span><small>" + esc(b.sub) + "</small></div>";
+      var a = b.after != null ? b.after : b.cur, s = a < b.lo ? "below" : a > b.hi ? "above" : "in";
+      return '<div class="ips-b ' + s + '"><span class="n">' + esc(b.l) + '</span><span class="w">' + b.cur.toFixed(1) + "%<i>→</i><b>" + a.toFixed(1) + "%</b></span><small>" + (b.lo ? "target " + b.t + "% · band " + b.lo + "–" + b.hi + "%" : "cap " + b.hi + "%") + "</small></div>";
+    }).join("") : "";
+    var cols = '<colgroup><col class="c-fund"><col class="c-cat"><col class="c-u"><col class="c-nav"><col class="c-act"><col class="c-amt"></colgroup>';
+    var head = cols + '<thead><tr><th>Stock</th><th>Sector</th><th class="num">Qty</th><th class="num">Avg cost</th><th>Action</th><th class="num">Amount</th></tr></thead><tbody>';
+    var line = function (x, key) {
+      var open = !!sips.open[key];
+      return '<tr class="ips-row' + (open ? " open" : "") + '" data-sipsrow="' + key + '" title="Click to ' + (open ? "hide" : "see") + ' the rationale"><td class="fn"><span class="chev">' + (open ? "▾" : "▸") + "</span><b>" + esc(x.fund || "–") + "</b>" + (x.isNew ? '<span class="ips-new">New</span>' : "") + "</td><td>" + esc(x.category || "") + '</td><td class="num">' + (x.units ? num3.format(x.units) : "–") +
+        '</td><td class="num">' + (x.avg_nav ? inr2.format(x.avg_nav) : "–") + '</td><td><span class="ips-act ' + (x.kind === "plan" ? "hold" : x.kind || "") + '">' + esc(x.action) + '</span></td><td class="num">' + (x.amount ? inr.format(x.amount) : "–") + "</td></tr>" +
+        (open ? '<tr class="ips-detail"><td colspan="6">' + (x.full && x.full !== x.fund ? "<b>" + esc(x.full) + ".</b> " : "") + esc(x.why) + "</td></tr>" : "");
+    };
+    var tbl = function (list, pre, empty, k) {
+      if (!list || !list.length) return '<tbody><tr><td class="empty">' + empty + "</td></tr></tbody>";
+      var tot = sumK(list, k);
+      return head + list.map(function (x, i) { return line(x, pre + i); }).join("") + "</tbody>" + (tot ? '<tfoot><tr><td>Total now</td><td></td><td></td><td></td><td></td><td class="num">' + inr.format(tot) + "</td></tr></tfoot>" : "");
+    };
+    $("sips-buy").innerHTML = L ? tbl(L.buys, "b", "Every target name is at its weight. Nothing to buy.", "buy") : '<tbody><tr><td class="empty">Loading…</td></tr></tbody>';
+    $("sips-sell").innerHTML = L ? tbl(L.sells, "s", "Nothing to sell or trim.", "sell") : "";
+    $("sips-buy-sum").innerHTML = L ? "Now <b>" + inr.format(bIn) + "</b> · new money <b>" + inr.format(nm) + "</b>" : "";
+    $("sips-sell-sum").innerHTML = L ? "Now <b>" + inr.format(sOut) + "</b> · scheduled <b>" + inr.format(later) + "</b>" : "";
+  }
+  ["sips-buy", "sips-sell"].forEach(function (id) {
+    $(id).addEventListener("click", function (e) { var tr = e.target.closest("[data-sipsrow]"); if (!tr) return; var k = tr.dataset.sipsrow; sips.open[k] = !sips.open[k]; renderSIPS(); });
+  });
+  $("sips-run").addEventListener("click", function () { sipsCheck(true); });
+
 
   // FIFO lots, realised gain and XIRR for one fund
   function fundCalc(f) {
@@ -1660,7 +1894,7 @@
     var p = st.prices[sym] || {}, price = Number(p.price) || 0, prev = Number(p.prev_close) || price, value = qty * price;
     var xf = flows.slice().sort(function (a, b) { return a[0] < b[0] ? -1 : 1; }); if (value > 0) xf.push([todayISO(), value]);
     return { sym: sym, name: p.name || "", tx: tx, qty: qty, invested: inv, price: price, prev: prev, value: value, day: qty * (price - prev),
-      gain: value - inv, realised: realised, buys: buys, sells: sells, flows: flows, xirr: xirr(xf), brokers: brokers, since: since, short: short, pdate: p.price_date };
+      gain: value - inv, realised: realised, buys: buys, sells: sells, flows: flows, xirr: xirr(xf), brokers: brokers, since: since, short: short, pdate: p.price_date, books: books };
   }
   function renderStocks() {
     var syms = []; st.txns.forEach(function (t) { if (syms.indexOf(t.symbol) < 0) syms.push(t.symbol); });
