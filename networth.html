@@ -325,7 +325,12 @@
   .ips-t td { vertical-align: top; }
   .ips-t td.fn, .ips-t td.fn:first-child { white-space: normal; }
   .ips-t td.fn b { font-weight: 600; }
-  .ips-t td.fn small { display: block; margin-top: 4px; color: var(--muted); font-size: 0.75rem; line-height: 1.45; }
+  .ips-row { cursor: pointer; }
+  .ips-row:hover td { background: var(--panel-2); }
+  .ips-t td.fn .chev { display: inline-block; width: 14px; color: var(--muted); font-size: 0.75rem; }
+  .ips-new { margin-left: 8px; padding: 1px 7px; border-radius: 999px; font-size: 0.66rem; font-weight: 600; letter-spacing: 0.04em; background: rgba(217,178,111,.16); color: var(--gold); vertical-align: 1px; }
+  .ips-detail td { white-space: normal; padding: 4px 14px 14px 30px; font-size: 0.78rem; line-height: 1.5; color: var(--muted); border-top: 0; }
+  .ips-act.watch { background: rgba(140,170,230,.15); color: #9db6e8; }
   .ips-t tfoot td { font-weight: 600; }
   .ips-act { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; white-space: nowrap; }
   .ips-act.buy { background: rgba(143,209,158,.15); color: #8fd19e; }
@@ -620,7 +625,7 @@
     <section class="card ips-card" id="ips-box" aria-label="Recommended Portfolio Allocation">
       <div class="ips-top">
         <div>
-          <div class="k">Per your Investment Policy Statement</div>
+          <div class="k">Per your Investment Policy Statement v1.1</div>
           <h2 class="ips-title">Recommended Portfolio Allocation</h2>
           <div class="ips-dates" id="ips-dates"></div>
         </div>
@@ -633,7 +638,7 @@
       <div class="table-wrap"><table class="ips-t" id="ips-buy"></table></div>
       <div class="ips-sec"><span class="ips-dot sell"></span><h3>Sell / consolidate</h3><span class="ips-sum" id="ips-sell-sum"></span></div>
       <div class="table-wrap"><table class="ips-t" id="ips-sell"></table></div>
-      <div class="mf-note">Reviewed on the 1st and 15th of every month. Money freed by sells is put straight back into the buckets furthest below target, so nothing is left idle. Fund-quality checks (Sharpe, Sortino, alpha, AUM, manager), the Nifty 200-DMA regime and overseas subscription windows need live data from Value Research or the AMC, so check those before acting. This applies your IPS rules mechanically; it is not investment advice.</div>
+      <div class="mf-note">Reviewed on the 1st and 15th of every month, with a fresh screen of every Direct–Growth fund in each slot's category plus the matching index fund. Sells and switches are acted on at the quarterly action reviews (January, April, July, October). Money freed by sells goes straight back into the buckets furthest below target, so nothing is left idle. Click any fund to see the rationale. Expense ratio, AUM and manager tenure (§D.4), the Nifty 200-DMA regime and overseas subscription windows still need a manual check before acting. This applies your IPS rules mechanically; it is not investment advice.</div>
     </section>
     </section>
 
@@ -1120,9 +1125,9 @@
     ipsCheck(false);
   }
 
-  // ---------- IPS review: buy / sell signals, refreshed on the 1st and 15th ----------
-  // Applies the allocation, cap and consolidation rules of the Mutual Fund IPS (v1.0) to current holdings.
+  // ---------- IPS v1.1 review: buy / sell signals on the 1st and 15th, with a whole-universe fund screen ----------
   var IPS = {
+    version: "v1.1",
     buckets: [
       { k: "core", l: "Core anchor", t: 30, lo: 25, hi: 35 },
       { k: "mid", l: "Mid cap", t: 20, lo: 16, hi: 24, cap: 26 },
@@ -1130,106 +1135,189 @@
       { k: "lm", l: "Large & multi", t: 8, lo: 5, hi: 11 },
       { k: "intl", l: "International", t: 22, lo: 15, hi: 25, cap: 25 }
     ],
-    // role: keep (go-forward fund), pair (duplicate, winner not chosen yet), consolidate, review, frozen
-    funds: [
-      { m: /parag\s*parikh\s*flexi/i, b: "core", sub: 18, role: "keep" },
-      { m: /invesco\s*india\s*contra/i, b: "core", sub: 12, role: "keep" },
-      { m: /motilal\s*oswal\s*mid\s*cap/i, b: "mid", role: "pair" },
-      { m: /edelweiss\s*mid\s*cap/i, b: "mid", role: "pair" },
-      { m: /invesco\s*india\s*small\s*cap/i, b: "small", sub: 20, role: "keep" },
-      { m: /bandhan\s*small\s*cap/i, b: "small", role: "consolidate", into: "Invesco India Smallcap" },
-      { m: /kotak\s*large\s*&\s*mid/i, b: "lm", sub: 8, role: "review" },
-      { m: /franklin\s*u\.?\s*s\.?\s*opportunities/i, b: "intl", sub: 8, role: "keep", window: true },
-      { m: /edelweiss\s*us\s*technology/i, b: "intl", sub: 6, role: "keep", window: true },
-      { m: /axis\s*greater\s*china/i, b: "intl", role: "frozen" },
-      { m: /edelweiss\s*greater\s*china/i, b: "intl", role: "frozen", into: "Axis Greater China" }
+    // slots (§B.1): one fund each; "screen" = slot key in mf_screen
+    slots: [
+      { k: "flexi", b: "core", l: "Flexi", sub: 18, screen: "flexi" },
+      { k: "contra", b: "core", l: "Contra / value", sub: 12, screen: "contra" },
+      { k: "mid", b: "mid", l: "Mid cap", sub: 20, screen: "mid" },
+      { k: "small", b: "small", l: "Small cap", sub: 20, screen: "small" },
+      { k: "lm", b: "lm", l: "Large & mid", sub: 8, screen: "lm" },
+      { k: "us", b: "intl", l: "US broad", sub: 8, screen: "us", window: true },
+      { k: "ustech", b: "intl", l: "US thematic", sub: 6, window: true },
+      { k: "china", b: "intl", l: "China / EM", sub: 8, frozen: true }
     ],
-    midWinner: null, // set to "motilal" or "edelweiss" once the mid-cap pair is decided (§C.3)
-    fundCap: 22
+    // held funds -> slot and role (keep, pair, consolidate, review, frozen)
+    funds: [
+      { m: /parag\s*parikh\s*flexi/i, s: "flexi", role: "keep" },
+      { m: /invesco\s*india\s*contra/i, s: "contra", role: "keep" },
+      { m: /motilal\s*oswal\s*mid\s*cap/i, s: "mid", role: "pair", key: "motilal" },
+      { m: /edelweiss\s*mid\s*cap/i, s: "mid", role: "pair", key: "edelweiss" },
+      { m: /invesco\s*india\s*small\s*cap/i, s: "small", role: "keep" },
+      { m: /bandhan\s*small\s*cap/i, s: "small", role: "consolidate" },
+      { m: /kotak\s*large\s*&\s*mid/i, s: "lm", role: "review" },
+      { m: /franklin\s*u\.?\s*s\.?\s*opportunities/i, s: "us", role: "keep" },
+      { m: /edelweiss\s*us\s*technology/i, s: "ustech", role: "keep" },
+      { m: /axis\s*greater\s*china/i, s: "china", role: "frozen" },
+      { m: /edelweiss\s*greater\s*china/i, s: "china", role: "frozen", into: "Axis Greater China" }
+    ],
+    midWinner: null, // "motilal" or "edelweiss" if you decide before the deadline (§J)
+    decideBy: "2027-01-01", // §J default applies from the 1 Jan 2027 action review
+    adoption: "2026-11-04", // the v1.1 adoption review counts as an action review (§K)
+    fundCap: 22, lead: 10
   };
-  var ips = { latest: null, loading: false, checked: false };
+  var ips = { latest: null, loading: false, checked: false, screen: null, prev: null, open: {} };
   function ipsSlot(d) { return d.slice(0, 8) + (Number(d.slice(8, 10)) >= 15 ? "15" : "01"); }
   function ipsNext(d) {
     if (Number(d.slice(8, 10)) < 15) return d.slice(0, 8) + "15";
     var y = +d.slice(0, 4), m = +d.slice(5, 7) + 1; if (m > 12) { m = 1; y++; }
     return y + "-" + (m < 10 ? "0" : "") + m + "-01";
   }
+  function ipsIsAction(d) { return d === IPS.adoption || ([1, 4, 7, 10].indexOf(+d.slice(5, 7)) >= 0 && +d.slice(8, 10) < 15); }
+  function ipsNextAction(d) {
+    var y = +d.slice(0, 4), m = +d.slice(5, 7);
+    var q = [1, 4, 7, 10].filter(function (x) { return x > m; })[0]; if (!q) { q = 1; y++; }
+    return y + "-" + (q < 10 ? "0" : "") + q + "-01";
+  }
   function ipsMap(name) { for (var i = 0; i < IPS.funds.length; i++) if (IPS.funds[i].m.test(name)) return IPS.funds[i]; return null; }
+  function ipsSlotDef(k) { return IPS.slots.filter(function (s) { return s.k === k; })[0]; }
+  async function ipsLoadScreen() {
+    var d = await sb.from("mf_screen").select("run_date").order("run_date", { ascending: false }).limit(1);
+    if (d.error || !d.data || !d.data.length) return;
+    var last = d.data[0].run_date;
+    var p = await sb.from("mf_screen").select("run_date").lt("run_date", last).order("run_date", { ascending: false }).limit(1);
+    var prev = !p.error && p.data && p.data.length ? p.data[0].run_date : null;
+    var q = await sb.from("mf_screen").select("run_date,slot,scheme_code,name,is_index,held,score,rank,n,metrics").in("run_date", prev ? [last, prev] : [last]).limit(2000);
+    if (q.error) return;
+    ips.screen = { date: last, rows: q.data.filter(function (r) { return r.run_date === last; }) };
+    ips.prev = prev ? { date: prev, rows: q.data.filter(function (r) { return r.run_date === prev; }) } : null;
+  }
   function ipsRun() {
     var held = mf.funds.map(function (f) { var c = fundCalc(f); c.f = f; return c; }).filter(function (r) { return r.units > 0; });
     var total = held.reduce(function (a, r) { return a + r.value; }, 0);
     if (!total) return null;
-    var pctOf = function (v) { return 100 * v / total; }, bv = {}, buys = [], sells = [];
-    IPS.buckets.forEach(function (b) { bv[b.k] = 0; });
-    held.forEach(function (r) { r.map = ipsMap(r.f.name); r.w = pctOf(r.value); r.after = r.value; if (r.map) bv[r.map.b] += r.value; });
+    var today = todayISO(), action = ipsIsAction(today), nextAct = ipsNextAction(today), pastDeadline = today >= IPS.decideBy;
+    var pctOf = function (v) { return 100 * v / total; }, bv = {}, sv = {}, buys = [], sells = [];
+    IPS.buckets.forEach(function (b) { bv[b.k] = 0; }); IPS.slots.forEach(function (s) { sv[s.k] = 0; });
+    var scr = ips.screen ? ips.screen.rows : [], prv = ips.prev ? ips.prev.rows : [];
+    var scoreOf = function (rows, slot, code) { var r = rows.filter(function (x) { return x.slot === slot && Number(x.scheme_code) === Number(code); })[0]; return r || null; };
+    held.forEach(function (r) {
+      r.map = ipsMap(r.f.name); r.w = pctOf(r.value); r.after = r.value;
+      r.slot = r.map ? ipsSlotDef(r.map.s) : null;
+      if (r.slot) { bv[r.slot.b] += r.value; sv[r.slot.k] += r.value; }
+      r.sc = r.slot && r.slot.screen ? scoreOf(scr, r.slot.screen, r.f.scheme_code) : null;
+    });
     var cur = {}; IPS.buckets.forEach(function (b) { cur[b.k] = pctOf(bv[b.k]); });
-    var short = function (n) { return n.replace(/\s*(-\s*)?(direct|growth|plan|option|fund of funds?|equity|active)\b.*$/i, "").replace(/\s+fund$/i, "").trim(); };
-    var row = function (r, kind, action, why, amt) {
-      return { fund: r ? short(r.f.name) : null, full: r ? r.f.name : null, category: r ? r.f.category || "" : "", units: r ? r.units : null, avg_nav: r && r.units ? r.invested / r.units : null,
+    var short = function (n) { return String(n).replace(/\s*(-\s*)?(direct|growth|plan|option|fund of funds?|equity|active|regular)\b.*$/i, "").replace(/\s+fund$/i, "").trim(); };
+    var shortNew = function (n) { return String(n).replace(/\s*(-\s*)?(direct|growth|regular)\b.*$/i, "").replace(/\s*\(erstwhile.*$/i, "").replace(/\s+fund$/i, "").trim(); };
+    var scTxt = function (x) { return x ? "score " + Math.round(x.score) + ", rank " + x.rank + " of " + x.n : "not scored (under 5 years of history)"; };
+    var row = function (r, kind, action, why, amt, extra) {
+      var o = { fund: r ? short(r.f.name) : null, full: r ? r.f.name : null, category: r ? r.f.category || "" : "", units: r ? r.units : null, avg_nav: r && r.units ? r.invested / r.units : null,
         kind: kind, action: action, why: why, amount: amt ? Math.round(amt) : null };
+      if (extra) for (var k in extra) o[k] = extra[k];
+      return o;
     };
-    var midOk = function (r) { return IPS.midWinner && new RegExp(IPS.midWinner, "i").test(r.f.name); };
-    // 1. Sells. Only consolidations and trims free up cash; the rest are flagged for a decision.
+    var defer = action ? "" : " Signal only: act at the next action review on " + fmtDate(nextAct) + " (§K).";
+    // Mid-cap pair (§J): your choice, else after the deadline the higher screener score keeps the slot
+    var pair = held.filter(function (r) { return r.map && r.map.role === "pair"; });
+    var midWin = IPS.midWinner ? pair.filter(function (r) { return r.map.key === IPS.midWinner; })[0] : null;
+    if (!midWin && pastDeadline && pair.length > 1 && pair.every(function (r) { return r.sc; })) midWin = pair.slice().sort(function (a, c) { return c.sc.score - a.sc.score; })[0];
+    var midLean = pair.length > 1 && pair.every(function (r) { return r.sc; }) ? pair.slice().sort(function (a, c) { return c.sc.score - a.sc.score; })[0] : null;
+    // Kotak L&M (§J): keep if score >= 50 after the deadline
+    var lmFold = false;
+    held.forEach(function (r) { if (r.map && r.map.role === "review" && pastDeadline && r.sc && r.sc.score < 50) lmFold = true; });
+    // 1. Sells
     var cash = 0;
     held.forEach(function (r) {
       var m = r.map, g = r.value - r.invested, gt = " Gain sitting in it: " + (g >= 0 ? "+" : "−") + inr.format(Math.abs(g)) + ".";
-      if (!m) { sells.push(row(r, "hold", "Review", "Not part of any IPS bucket (§B.1). Decide whether to exit." + gt)); return; }
-      if (m.role === "consolidate" || (m.role === "pair" && IPS.midWinner && !midOk(r))) {
-        sells.push(row(r, "sell", "Redeem in full", (m.role === "consolidate" ? "Duplicate small-cap fund; the IPS keeps " + m.into + " (§C.3, §J.3)." : "Mid-cap duplicate; the chosen mid-cap fund is kept (§J.2).") + " Keep realised long-term gains under ₹1.25 L this financial year." + gt, r.value));
-        cash += r.value; bv[m.b] -= r.value; r.after = 0; return;
+      if (!m) { sells.push(row(r, "hold", "Review", "Not part of any IPS slot (§B.1). Decide whether to exit." + gt)); return; }
+      var redeem = m.role === "consolidate" || (m.role === "pair" && midWin && midWin !== r) || (m.role === "review" && lmFold);
+      if (redeem) {
+        var why = m.role === "consolidate" ? "Duplicate small-cap fund. The small-cap slot keeps one fund (§B.1, §J)."
+          : m.role === "pair" ? "Mid-cap duplicate. " + short(midWin.f.name) + " keeps the slot (" + (IPS.midWinner ? "your choice" : "higher screener score at the deadline") + ", §J)."
+          : "Scored below 50 in its slot at the deadline, so the 8% slot is folded into Core and Mid (§J).";
+        sells.push(row(r, "sell", action ? "Redeem in full" : "Redeem at action review", why + " " + scTxt(r.sc) + ". Use the ₹1.25 L LTCG exemption this financial year (§H)." + gt + defer, r.value));
+        cash += r.value; bv[r.slot.b] -= r.value; sv[r.slot.k] -= r.value; r.after = 0; return;
       }
-      if (m.role === "pair") sells.push(row(r, "hold", "Keep one", "Overlaps the other mid-cap fund (§C.3). Choose the one with the better 5-yr rolling returns and Sortino; the other is then redeemed into it." + gt));
-      else if (m.role === "frozen" && m.into) sells.push(row(r, "hold", "Hold", "China funds are closed to fresh money. When a window reopens, merge into " + m.into + " if it is the lower-cost fund (§J.4)." + gt));
-      else if (m.role === "review") sells.push(row(r, "hold", "Review", "Overlaps the core and mid-cap funds (§J.5). Keep it as the 8% stabiliser or fold it into Core / Mid." + gt));
+      if (m.role === "pair" && !midWin) sells.push(row(r, "hold", "Keep one", "Overlaps the other mid-cap fund. Decide by " + fmtDate("2026-12-31") + "; if not, the higher screener score keeps the slot at the " + fmtDate(IPS.decideBy) + " review (§J). This fund: " + scTxt(r.sc) + "." + (midLean ? " Current lean: " + short(midLean.f.name) + "." : "") + gt));
+      else if (m.role === "frozen" && m.into) sells.push(row(r, "hold", "Hold", "China funds are closed to fresh money. Merge into " + m.into + " when a window reopens and each lot is past 24 months, so the gain is long-term (§H.3, §J)." + gt));
+      else if (m.role === "review" && !pastDeadline) sells.push(row(r, "hold", "Review", "Keep or fold the 8% slot by " + fmtDate("2026-12-31") + ". Default: keep if it scores 50 or more in its slot at the " + fmtDate(IPS.decideBy) + " review (§J). Now: " + scTxt(r.sc) + "." + gt));
       var capV = IPS.fundCap * total / 100;
-      if (r.after > capV) { var x = r.after - capV; sells.push(row(r, "sell", "Trim", "At " + r.w.toFixed(1) + "% it is above the " + IPS.fundCap + "% single-fund ceiling (§B.2).", x)); cash += x; bv[m.b] -= x; r.after -= x; }
+      if (r.after > capV) { var x = r.after - capV; sells.push(row(r, "sell", action ? "Trim" : "Trim at action review", "At " + r.w.toFixed(1) + "% it is above the " + IPS.fundCap + "% single-fund ceiling (§B.2)." + defer, x)); cash += x; bv[r.slot.b] -= x; sv[r.slot.k] -= x; r.after -= x; }
     });
     IPS.buckets.forEach(function (b) {
       var capV = (b.cap || 100) * total / 100;
       if (bv[b.k] > capV + 1) {
-        var x = bv[b.k] - capV, big = held.filter(function (r) { return r.map && r.map.b === b.k && r.after > 0; }).sort(function (a, c) { return c.after - a.after; })[0];
-        if (big) { sells.push(row(big, "sell", "Trim", b.l + " is " + pctOf(bv[b.k]).toFixed(1) + "%, above its " + b.cap + "% cap (§B.2).", x)); cash += x; bv[b.k] -= x; big.after -= x; }
+        var x = bv[b.k] - capV, big = held.filter(function (r) { return r.slot && r.slot.b === b.k && r.after > 0; }).sort(function (a, c) { return c.after - a.after; })[0];
+        if (big) { sells.push(row(big, "sell", action ? "Trim" : "Trim at action review", b.l + " is " + pctOf(bv[b.k]).toFixed(1) + "%, above its " + b.cap + "% cap (§B.2)." + defer, x)); cash += x; bv[b.k] -= x; sv[big.slot.k] -= x; big.after -= x; }
       }
     });
-    // 2. Buys. Put every rupee freed back to work: buckets below band first, then the largest gaps to target.
-    var buyable = function (b) {
-      if (b.k === "lm") return [];
-      return IPS.funds.filter(function (f) { return f.b === b.k && (f.role === "keep" ? !!f.sub : f.role === "pair" && IPS.midWinner && new RegExp(IPS.midWinner, "i").test(String(f.m))); });
+    // 2. Challengers from the universe screen (§E)
+    var chal = {}, watch = [], heldCodes = {};
+    held.forEach(function (r) { if (r.f.scheme_code) heldCodes[Number(r.f.scheme_code)] = 1; });
+    IPS.slots.forEach(function (s) {
+      if (!s.screen || !scr.length) return;
+      var inc = held.filter(function (r) { return r.slot === s && r.after > 0 && r.map.role !== "consolidate"; }).sort(function (a, c) { return (c.sc ? c.sc.score : -1) - (a.sc ? a.sc.score : -1); })[0];
+      var incScore = inc && inc.sc ? inc.sc.score : 0;
+      var cands = scr.filter(function (x) { return x.slot === s.screen && !heldCodes[Number(x.scheme_code)] && x.rank <= Math.ceil(x.n / 4) && x.score >= incScore + IPS.lead; }).sort(function (a, c) { return c.score - a.score; });
+      if (!cands.length) return;
+      var c = cands[0], p = scoreOf(prv, s.screen, c.scheme_code), pInc = inc ? scoreOf(prv, s.screen, inc.f.scheme_code) : null;
+      var qualified = !!p && p.rank <= Math.ceil(p.n / 4) && p.score >= (pInc ? pInc.score : 0) + IPS.lead;
+      var mtx = c.metrics || {};
+      var detail = (c.is_index ? "Index fund (passive option, §E.4). " : "") + "Top quartile in " + s.l + ": " + scTxt(c) + " vs " + (inc ? short(inc.f.name) + " " + Math.round(incScore) : "no incumbent") + ". " +
+        "3-yr rolling return " + (mtx.r3 != null ? (mtx.r3 * 100).toFixed(1) + "%" : "–") + ", beat the index in " + (mtx.beat != null ? Math.round(mtx.beat * 100) + "%" : "–") + " of windows, Sortino " + (mtx.sortino != null ? mtx.sortino.toFixed(2) : "–") +
+        ", downside capture " + (mtx.dcap != null ? Math.round(mtx.dcap) : "–") + ", max drawdown " + (mtx.mdd != null ? (mtx.mdd * 100).toFixed(1) + "%" : "–") + ".";
+      if (qualified) chal[s.k] = { c: c, detail: detail + " Held this lead in two screens in a row, so new money for this slot goes here (§E.3). Check TER, AUM and manager tenure before buying (§D.4)." };
+      else watch.push({ s: s, c: c, detail: detail + " Becomes a buy if it keeps this lead at the next screen on " + fmtDate(ipsNext(ips.screen.date)) + " and passes the manual checks (§E.3, §D.4)." });
+    });
+    // 3. Buys: put every rupee freed back to work (§F.2); slots below band first, then the largest gaps
+    var buyable = function (s) {
+      if (s.frozen || s.k === "lm") return false;
+      if (s.k === "mid" && !midWin && !chal.mid) return false;
+      return true;
     };
-    var fundVal = function (f) { return held.filter(function (r) { return r.map === f; }).reduce(function (a, r) { return a + r.after; }, 0); };
-    var got = {}, add = function (f, amt) { got[f.m] = got[f.m] || { f: f, amt: 0 }; got[f.m].amt += amt; bv[f.b] += amt; };
+    var got = {}, add = function (s, amt) { got[s.k] = (got[s.k] || 0) + amt; bv[s.b] += amt; sv[s.k] += amt; };
     var newMoney = cash < 1;
     var pool = newMoney ? IPS.buckets.reduce(function (a, b) { return a + Math.max(0, b.t * total / 100 - bv[b.k]); }, 0) : cash;
     var left = pool, guard = 0;
-    while (left > 1 && guard++ < 40) {
-      var order = IPS.buckets.filter(function (b) { return buyable(b).length; }).map(function (b) {
-        var w = pctOf(bv[b.k]); return { b: b, w: w, below: w < b.lo, gap: b.t - w };
-      }).sort(function (a, c) { return a.below !== c.below ? (a.below ? -1 : 1) : c.gap - a.gap; });
+    while (left > 1 && guard++ < 60) {
+      var order = IPS.buckets.map(function (b) { var w = pctOf(bv[b.k]); return { b: b, w: w, below: w < b.lo, gap: b.t - w }; })
+        .filter(function (o) { return IPS.slots.some(function (s) { return s.b === o.b.k && buyable(s); }); })
+        .sort(function (a, c) { return a.below !== c.below ? (a.below ? -1 : 1) : c.gap - a.gap; });
       if (!order.length) break;
       var o = order[0];
-      var fs = buyable(o.b).map(function (f) { var v = fundVal(f) + (got[f.m] ? got[f.m].amt : 0); return { f: f, v: v, gap: (f.sub || o.b.t) * total / 100 - v }; })
-        .filter(function (x) { return x.v < IPS.fundCap * total / 100; }).sort(function (a, c) { return c.gap - a.gap; });
-      if (!fs.length) break;
+      var ss = IPS.slots.filter(function (s) { return s.b === o.b.k && buyable(s) && sv[s.k] < IPS.fundCap * total / 100; })
+        .map(function (s) { return { s: s, gap: s.sub * total / 100 - sv[s.k] }; }).sort(function (a, c) { return c.gap - a.gap; });
+      if (!ss.length) break;
       var bucketGap = o.b.t * total / 100 - bv[o.b.k], step;
-      if (o.gap > 0.05) step = Math.min(left, Math.max(bucketGap, 0), Math.max(fs[0].gap, 0) || bucketGap);
-      else step = left; // every bucket is at target: the rest goes to the fund furthest below its share
+      if (o.gap > 0.05) step = Math.min(left, Math.max(bucketGap, 0), ss[0].gap > 0 ? ss[0].gap : bucketGap);
+      else step = left;
       if (!(step > 1)) step = Math.min(left, Math.max(bucketGap, 1));
-      add(fs[0].f, step); left -= step;
+      add(ss[0].s, step); left -= step;
       if (newMoney && o.gap <= 0.05) break;
     }
     Object.keys(got).forEach(function (k) {
-      var g = got[k], f = g.f, r = held.filter(function (h) { return h.map === f; })[0], b = IPS.buckets.filter(function (x) { return x.k === f.b; })[0];
-      var before = cur[f.b], after = pctOf(bv[f.b]);
-      buys.push(row(r, "buy", newMoney ? "Buy with new money" : "Buy", b.l + " goes from " + before.toFixed(1) + "% to " + after.toFixed(1) + "% (target " + b.t + "%, band " + b.lo + "–" + b.hi + "%)." +
-        (f.window ? " Only if the AMC's overseas window is open that day; otherwise put this into the next most under-target domestic bucket (§F step 4)." : ""), g.amt));
-      if (!r) buys[buys.length - 1].fund = String(f.m).replace(/[\/\\]|\\s\*|i$/g, " ").trim();
+      var s = ipsSlotDef(k), b = IPS.buckets.filter(function (x) { return x.k === s.b; })[0], amt = got[k];
+      var head = b.l + " goes from " + cur[s.b].toFixed(1) + "% to " + pctOf(bv[s.b]).toFixed(1) + "% (target " + b.t + "%, band " + b.lo + "–" + b.hi + "%).";
+      var win = s.window ? " Only if the AMC's overseas window is open that day; otherwise put this into the next most under-target domestic bucket (§F.1 step 5)." : "";
+      var fundTiming = newMoney ? "" : (action ? "" : " Funded by sells, so it moves on " + fmtDate(nextAct) + ".");
+      if (chal[k]) {
+        var c = chal[k].c;
+        buys.push({ fund: shortNew(c.name), full: c.name, category: (c.is_index ? "Index fund" : s.l) + " · new", units: null, avg_nav: null, kind: "buy", isNew: true,
+          action: newMoney ? "Buy new fund (new money)" : "Buy new fund", why: head + " " + chal[k].detail + win + fundTiming, amount: Math.round(amt) });
+        return;
+      }
+      var r = s.k === "mid" ? midWin : held.filter(function (h) { return h.slot === s && h.map.role === "keep"; })[0];
+      buys.push(row(r, "buy", newMoney ? "Buy with new money" : "Buy", head + (r ? " " + scTxt(r.sc) + "." : "") + win + fundTiming, amt));
     });
     buys.sort(function (a, c) { return (c.amount || 0) - (a.amount || 0); });
+    watch.forEach(function (w) {
+      buys.push({ fund: shortNew(w.c.name), full: w.c.name, category: (w.c.is_index ? "Index fund" : w.s.l) + " · new", units: null, avg_nav: null, kind: "watch", isNew: true, action: "Candidate", why: w.detail, amount: null });
+    });
+    if (!midWin && !chal.mid && cur.mid < 20) buys.push(row(null, "hold", "Decide first", "Mid cap is under target, but one mid-cap fund must be chosen before adding (§J)."));
     sells.sort(function (a, c) { return (c.amount || 0) - (a.amount || 0); });
-    if (!IPS.midWinner && cur.mid < IPS.buckets[1].t) buys.push(row(null, "hold", "Decide first", "Mid cap is under target, but the IPS asks you to pick one mid-cap fund before adding (§C.3)."));
-    return { run_date: todayISO(), buys: buys, sells: sells, book_value: Math.round(total),
+    return { run_date: today, buys: buys, sells: sells, book_value: Math.round(total),
       buckets: IPS.buckets.map(function (b) { return { l: b.l, cur: Math.round(cur[b.k] * 10) / 10, after: Math.round(pctOf(bv[b.k]) * 10) / 10, t: b.t, lo: b.lo, hi: b.hi }; }),
-      cash: Math.round(cash), new_money: newMoney };
+      cash: Math.round(cash), new_money: newMoney, action_review: action, screen_date: ips.screen ? ips.screen.date : null, version: IPS.version };
   }
   async function ipsCheck(force) {
     if (ips.loading || !mf.funds.length) return;
@@ -1241,10 +1329,12 @@
       }
       var t = todayISO();
       if (force || !ips.latest || ips.latest.run_date < ipsSlot(t)) {
+        await ipsLoadScreen();
         var r = ipsRun();
         if (r) {
           await sb.from("mf_reviews").delete().eq("run_date", t);
-          var ins = await sb.from("mf_reviews").insert(r).select().single();
+          var ins = await sb.from("mf_reviews").insert({ run_date: r.run_date, buys: r.buys, sells: r.sells, buckets: r.buckets, book_value: r.book_value,
+            meta: { cash: r.cash, new_money: r.new_money, action_review: r.action_review, screen_date: r.screen_date, version: r.version } }).select().single();
           ips.latest = ins.error ? r : ins.data;
           if (force) toast("Review updated");
         }
@@ -1253,10 +1343,11 @@
   }
   function renderIPS() {
     var box = $("ips-box"); if (!box) return;
-    var L = ips.latest, t = todayISO();
-    $("ips-dates").innerHTML = L ? "Last review <b>" + fmtDate(L.run_date) + "</b> · Next review <b>" + fmtDate(ipsNext(t)) + "</b>" : "No review yet";
-    var sumAmt = function (l) { return (l || []).reduce(function (a, x) { return a + (x.kind !== "hold" && x.amount ? x.amount : 0); }, 0); };
-    var sOut = L ? sumAmt(L.sells) : 0, bIn = L ? sumAmt(L.buys) : 0, nm = L && (L.new_money || !sOut);
+    var L = ips.latest, t = todayISO(), meta = L ? (L.meta || L) : {};
+    $("ips-dates").innerHTML = L ? "Last review <b>" + fmtDate(L.run_date) + "</b> (" + (meta.action_review ? "action review" : "signal review, next action " + fmtDate(ipsNextAction(L.run_date))) + ") · Next review <b>" + fmtDate(ipsNext(t)) + "</b>" +
+      (meta.screen_date ? " · Fund screen of " + fmtDate(meta.screen_date) : "") : "No review yet";
+    var sumAmt = function (l) { return (l || []).reduce(function (a, x) { return a + ((x.kind === "buy" || x.kind === "sell") && x.amount ? x.amount : 0); }, 0); };
+    var sOut = L ? sumAmt(L.sells) : 0, bIn = L ? sumAmt(L.buys) : 0, nm = L && (meta.new_money || !sOut);
     $("ips-flow").innerHTML = L ? '<div><div class="l">Freed by sells</div><div class="a">' + inr.format(sOut) + '</div><div class="s">' + (sOut ? "consolidations and trims" : "nothing to redeem") + "</div></div>" +
       '<div><div class="l">' + (nm ? "Suggested new money" : "Reinvested by buys") + '</div><div class="a">' + inr.format(bIn) + '</div><div class="s">' + (nm ? "to bring buckets up to target" : "into the most under-target buckets") + "</div></div>" +
       '<div><div class="l">Left idle</div><div class="a">' + inr.format(nm ? 0 : Math.max(0, sOut - bIn)) + '</div><div class="s">book value ' + inr.format(L.book_value || 0) + " stays fully invested</div></div>" : "";
@@ -1266,20 +1357,28 @@
     }).join("") : "";
     var cols = '<colgroup><col class="c-fund"><col class="c-cat"><col class="c-u"><col class="c-nav"><col class="c-act"><col class="c-amt"></colgroup>';
     var head = cols + '<thead><tr><th>Fund</th><th>Category</th><th class="num">Units</th><th class="num">Avg NAV</th><th>Action</th><th class="num">Amount</th></tr></thead><tbody>';
-    var line = function (x) {
-      return '<tr><td class="fn"><b>' + (x.fund ? esc(x.fund) : "–") + "</b><small>" + esc(x.why) + "</small></td><td>" + esc(x.category || "") + '</td><td class="num">' + (x.units ? num3.format(x.units) : "–") +
-        '</td><td class="num">' + (x.avg_nav ? inr2.format(x.avg_nav) : "–") + '</td><td><span class="ips-act ' + (x.kind || "") + '">' + esc(x.action) + '</span></td><td class="num">' + (x.amount ? inr.format(x.amount) : "–") + "</td></tr>";
+    var line = function (x, key) {
+      var open = !!ips.open[key];
+      return '<tr class="ips-row' + (open ? " open" : "") + '" data-ipsrow="' + key + '" title="Click to ' + (open ? "hide" : "see") + ' the rationale"><td class="fn"><span class="chev">' + (open ? "▾" : "▸") + "</span><b>" + (x.fund ? esc(x.fund) : "–") + "</b>" + (x.isNew ? '<span class="ips-new">New</span>' : "") + "</td><td>" + esc(x.category || "") + '</td><td class="num">' + (x.units ? num3.format(x.units) : "–") +
+        '</td><td class="num">' + (x.avg_nav ? inr2.format(x.avg_nav) : "–") + '</td><td><span class="ips-act ' + (x.kind || "") + '">' + esc(x.action) + '</span></td><td class="num">' + (x.amount ? inr.format(x.amount) : "–") + "</td></tr>" +
+        (open ? '<tr class="ips-detail"><td colspan="6">' + esc(x.why) + "</td></tr>" : "");
     };
-    var tbl = function (list, empty) {
+    var tbl = function (list, pre, empty) {
       if (!list || !list.length) return '<tbody><tr><td class="empty">' + empty + "</td></tr></tbody>";
       var tot = sumAmt(list);
-      return head + list.map(line).join("") + "</tbody>" + (tot ? '<tfoot><tr><td>Total</td><td></td><td></td><td></td><td></td><td class="num">' + inr.format(tot) + "</td></tr></tfoot>" : "");
+      return head + list.map(function (x, i) { return line(x, pre + i); }).join("") + "</tbody>" + (tot ? '<tfoot><tr><td>Total</td><td></td><td></td><td></td><td></td><td class="num">' + inr.format(tot) + "</td></tr></tfoot>" : "");
     };
-    $("ips-buy").innerHTML = L ? tbl(L.buys, "Every bucket is at or above its target. No buys needed.") : '<tbody><tr><td class="empty">Loading…</td></tr></tbody>';
-    $("ips-sell").innerHTML = L ? tbl(L.sells, "Nothing to sell or consolidate.") : "";
+    $("ips-buy").innerHTML = L ? tbl(L.buys, "b", "Every bucket is at or above its target. No buys needed.") : '<tbody><tr><td class="empty">Loading…</td></tr></tbody>';
+    $("ips-sell").innerHTML = L ? tbl(L.sells, "s", "Nothing to sell or consolidate.") : "";
     $("ips-buy-sum").innerHTML = L && bIn ? "Total <b>" + inr.format(bIn) + "</b>" : "";
     $("ips-sell-sum").innerHTML = L && sOut ? "Total <b>" + inr.format(sOut) + "</b>" : "";
   }
+  ["ips-buy", "ips-sell"].forEach(function (id) {
+    $(id).addEventListener("click", function (e) {
+      var tr = e.target.closest("[data-ipsrow]"); if (!tr) return;
+      var k = tr.dataset.ipsrow; ips.open[k] = !ips.open[k]; renderIPS();
+    });
+  });
   $("ips-run").addEventListener("click", function () { ipsCheck(true); });
 
   // FIFO lots, realised gain and XIRR for one fund
