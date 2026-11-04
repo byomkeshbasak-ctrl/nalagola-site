@@ -579,13 +579,14 @@
       <div class="seg" id="sum-view"><button type="button" data-view="month" aria-pressed="true">This month</button><button type="button" data-view="all" aria-pressed="false">Overall total</button></div>
     </div>
     <section class="kpis kpis-main" aria-label="Summary">
-      <div class="kpi"><div class="k">Sales (at MRP)</div><div class="v" id="k-sales">–</div><div class="s" id="k-sales-s"></div></div>
+      <div class="kpi"><div class="k" id="k-sales-l">Current month revenue</div><div class="v" id="k-sales">–</div><div class="s" id="k-sales-s"></div></div>
+      <div class="kpi"><div class="k">Average sales/day</div><div class="v" id="k-avg">–</div><div class="s" id="k-avg-s"></div></div>
       <div class="kpi"><div class="k">Gross profit</div><div class="v" id="k-gp">–</div><div class="s" id="k-gp-s"></div></div>
       <div class="kpi"><div class="k">Expenses</div><div class="v" id="k-exp">–</div><div class="s" id="k-exp-s"></div></div>
       <div class="kpi"><div class="k">Purchases</div><div class="v" id="k-buy">–</div><div class="s" id="k-buy-s">Stock received at cost</div></div>
       <div class="kpi"><div class="k">Shop net profit</div><div class="v" id="k-net">–</div><div class="s"><span id="k-net-s">Gross profit − expenses</span></div></div>
       <div class="kpi"><div class="k">Bar counter profit</div><div class="v" id="k-bar">–</div><div class="s" id="k-bar-s"></div></div>
-      <div class="kpi profit kpi-wide"><div class="k">Total profit</div><div class="v" id="k-tot">–</div><div class="s" id="k-tot-s">Shop net profit + bar counter profit</div></div>
+      <div class="kpi profit"><div class="k">Total profit</div><div class="v" id="k-tot">–</div><div class="s" id="k-tot-s">Shop net profit + bar counter profit</div></div>
     </section>
 
     <section class="card capital" aria-label="Business capital">
@@ -651,27 +652,6 @@
       <div id="tr-list"></div>
     </section>
 
-    <section class="breakdowns">
-      <div class="card perf-card">
-        <div class="perf-head">
-          <h2>Performance tracker</h2>
-          <div class="seg" id="perf-mode"><button type="button" data-mode="month" aria-pressed="true">Month on month</button><button type="button" data-mode="day" aria-pressed="false">Day by day</button></div>
-        </div>
-        <div class="perf-chips" id="perf-chips"></div>
-        <div class="perf-grid">
-          <div class="perf-box">
-            <div class="perf-t">Revenue <span>bars</span> &amp; average daily sales <span>line</span></div>
-            <div class="perf-chart" id="perf-rev"></div>
-            <div class="perf-key"><span><i style="background:var(--gold)"></i>Revenue</span><span><i class="ln" style="background:#8fa8e0"></i>Average sales a day</span></div>
-          </div>
-          <div class="perf-box">
-            <div class="perf-t" id="perf-pt">Net profit <span>stacked area</span></div>
-            <div class="perf-chart" id="perf-pro"></div>
-            <div class="perf-key"><span><i style="background:#7fcf9a"></i>Shop net profit</span><span><i style="background:#e08fb4"></i>Bar counter net profit</span><span><i class="ln" style="background:#f4ece4"></i>Total</span></div>
-          </div>
-        </div>
-      </div>
-    </section>
 
     <nav class="tabs" role="tablist">
       <button class="tab" role="tab" data-tab="sales" aria-selected="true">Monthly dashboard</button>
@@ -2294,7 +2274,10 @@
     var first = reps.length ? reps.reduce(function (m, x) { return x.report_date < m ? x.report_date : m; }, reps[0].report_date) : START_DATE;
     $("sum-title").textContent = all ? "Overall total · since " + fmtDate(START_DATE) : new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
     $("k-sales").textContent = inr.format(sales);
+    $("k-sales-l").textContent = all ? "Total revenue" : "Current month revenue";
     var nd = reps.length;
+    $("k-avg").textContent = nd ? inr.format(sales / nd) : "–";
+    $("k-avg-s").textContent = nd ? "Over " + nd + " day" + (nd > 1 ? "s" : "") : "";
     $("k-sales-s").textContent = nd ? nd + " day" + (nd > 1 ? "s" : "") + (all && nm > 1 ? " over " + nm + " months" : "") + " · " + num.format(units) + " bottles · avg " + inr.format(sales / nd) + "/day" : "No reports uploaded yet";
     $("k-gp").textContent = inr.format(gp);
     $("k-gp-s").innerHTML = "Margin " + pct(gp, sales) + " · cost " + inr.format(cost) +
@@ -2432,7 +2415,7 @@
     $("perf-chips").innerHTML = cur ? chip("Revenue · " + curLbl, inr.format(cur.sales), chg(cur.sales, prev && prev.sales)) + chip("Average sales a day", inr.format(cur.avg), chg(cur.avg, prev && prev.avg)) +
       chip("Shop net profit", inr.format(cur.shop), chg(cur.shop, prev && prev.shop), cur.shop >= 0 ? "pos" : "neg") + chip("Bar counter net profit", inr.format(cur.bar), chg(cur.bar, prev && prev.bar), cur.bar >= 0 ? "pos" : "neg") : "";
   }
-  $("perf-mode").addEventListener("click", function (e) {
+  if ($("perf-mode")) $("perf-mode").addEventListener("click", function (e) {
     var b = e.target.closest("[data-mode]"); if (!b) return;
     state.perfMode = b.dataset.mode;
     this.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
