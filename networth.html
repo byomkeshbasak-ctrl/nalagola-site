@@ -292,6 +292,19 @@
   .pfs-t tr.pfs-add input[type=month] { text-align: left; min-width: 140px; }
   .pfs-note { margin-top: 8px; font-size: 0.75rem; color: var(--muted); white-space: normal; line-height: 1.5; }
   .mf-note { margin-top: 10px; font-size: 0.75rem; color: var(--muted); }
+  .ips-box { margin-top: 22px; border: 1px solid var(--line-strong); border-radius: 14px; padding: 16px 18px; }
+  .ips-box .chart-h { flex-wrap: wrap; }
+  .ips-dates { color: var(--muted); font-size: 0.8rem; }
+  .ips-dates b { color: var(--fg, inherit); font-weight: 600; }
+  .ips-h { margin: 16px 0 6px; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+  .ips-buckets { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+  .ips-b { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; font-size: 0.78rem; display: grid; gap: 2px; }
+  .ips-b b { font-size: 1.05rem; } .ips-b small { color: var(--muted); }
+  .ips-b.below b { color: #e3a65f; } .ips-b.above b { color: #e07a7a; } .ips-b.in b { color: #8fd19e; }
+  .ips-act { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.74rem; font-weight: 600; white-space: nowrap; }
+  .ips-act.buy { background: rgba(143,209,158,.15); color: #8fd19e; }
+  .ips-act.sell { background: rgba(224,122,122,.15); color: #e07a7a; }
+  td.ips-why { white-space: normal; min-width: 260px; font-size: 0.78rem; color: var(--muted); line-height: 1.45; }
   td:first-child { white-space: nowrap; }
   tr.inote td, tr.inote td:first-child { white-space: normal; line-height: 1.5; }
   .xp, .xp > .card { min-width: 0; }
@@ -574,6 +587,15 @@
       <div class="table-wrap" style="margin-top:14px"><table id="mf-table"></table></div>
       <button class="ghost exited-btn" id="mf-exited-btn" type="button" hidden></button>
       <div class="table-wrap" id="mf-exited" hidden style="margin-top:10px"><table id="mf-exited-table"></table></div>
+      <section class="ips-box" id="ips-box">
+        <div class="chart-h"><h3>Buy / sell recommendations · per your IPS</h3><span class="ips-dates" id="ips-dates"></span><button class="ghost" id="ips-run" type="button">Run review now</button></div>
+        <div class="ips-buckets" id="ips-buckets"></div>
+        <h4 class="ips-h">New buys</h4>
+        <div class="table-wrap"><table id="ips-buy"></table></div>
+        <h4 class="ips-h">Sell / consolidate from current holdings</h4>
+        <div class="table-wrap"><table id="ips-sell"></table></div>
+        <div class="mf-note">Reviewed on the 1st and 15th of every month. It applies the IPS bucket targets, bands, caps and consolidation plan to your current holdings. Fund-quality checks (Sharpe, Sortino, alpha, AUM, manager), the Nifty 200-DMA regime and overseas subscription windows need live data from Value Research / the AMC, so check those before acting. This is your IPS applied mechanically, not investment advice.</div>
+      </section>
       <div class="mf-note" id="mf-note"></div>
     </section>
     </section>
@@ -1058,7 +1080,132 @@
     if (q[0].error || q[1].error) { $("mf-total-s").hidden = false; $("mf-total-s").textContent = "Couldn't load the funds."; return; }
     mf.funds = q[0].data || []; mf.txns = q[1].data || [];
     renderMF();
+    ipsCheck(false);
   }
+
+  // ---------- IPS review: buy / sell signals, refreshed on the 1st and 15th ----------
+  // Applies the allocation, cap and consolidation rules of the Mutual Fund IPS (v1.0) to current holdings.
+  var IPS = {
+    buckets: [
+      { k: "core", l: "Core anchor", t: 30, lo: 25, hi: 35 },
+      { k: "mid", l: "Mid cap", t: 20, lo: 16, hi: 24, cap: 26 },
+      { k: "small", l: "Small cap", t: 20, lo: 16, hi: 24, cap: 26 },
+      { k: "lm", l: "Large & multi", t: 8, lo: 5, hi: 11 },
+      { k: "intl", l: "International", t: 22, lo: 15, hi: 25, cap: 25 }
+    ],
+    // role: keep (go-forward fund), pair (duplicate, winner not chosen yet), consolidate, review, frozen
+    funds: [
+      { m: /parag\s*parikh\s*flexi/i, b: "core", sub: 18, role: "keep" },
+      { m: /invesco\s*india\s*contra/i, b: "core", sub: 12, role: "keep" },
+      { m: /motilal\s*oswal\s*mid\s*cap/i, b: "mid", role: "pair" },
+      { m: /edelweiss\s*mid\s*cap/i, b: "mid", role: "pair" },
+      { m: /invesco\s*india\s*small\s*cap/i, b: "small", sub: 20, role: "keep" },
+      { m: /bandhan\s*small\s*cap/i, b: "small", role: "consolidate", into: "Invesco India Smallcap" },
+      { m: /kotak\s*large\s*&\s*mid/i, b: "lm", sub: 8, role: "review" },
+      { m: /franklin\s*u\.?\s*s\.?\s*opportunities/i, b: "intl", sub: 8, role: "keep", window: true },
+      { m: /edelweiss\s*us\s*technology/i, b: "intl", sub: 6, role: "keep", window: true },
+      { m: /axis\s*greater\s*china/i, b: "intl", role: "frozen" },
+      { m: /edelweiss\s*greater\s*china/i, b: "intl", role: "frozen", into: "Axis Greater China" }
+    ],
+    midWinner: null, // set to "motilal" or "edelweiss" once the mid-cap pair is decided (§C.3)
+    fundCap: 22
+  };
+  var ips = { latest: null, loading: false, checked: false };
+  function ipsSlot(d) { return d.slice(0, 8) + (Number(d.slice(8, 10)) >= 15 ? "15" : "01"); }
+  function ipsNext(d) {
+    if (Number(d.slice(8, 10)) < 15) return d.slice(0, 8) + "15";
+    var y = +d.slice(0, 4), m = +d.slice(5, 7) + 1; if (m > 12) { m = 1; y++; }
+    return y + "-" + (m < 10 ? "0" : "") + m + "-01";
+  }
+  function ipsMap(name) { for (var i = 0; i < IPS.funds.length; i++) if (IPS.funds[i].m.test(name)) return IPS.funds[i]; return null; }
+  function ipsRun() {
+    var held = mf.funds.map(function (f) { var c = fundCalc(f); c.f = f; return c; }).filter(function (r) { return r.units > 0; });
+    var total = held.reduce(function (a, r) { return a + r.value; }, 0);
+    if (!total) return null;
+    var w = function (v) { return 100 * v / total; }, bw = {}, buys = [], sells = [];
+    IPS.buckets.forEach(function (b) { bw[b.k] = 0; });
+    held.forEach(function (r) { r.map = ipsMap(r.f.name); r.w = w(r.value); if (r.map) bw[r.map.b] += r.w; });
+    var row = function (r, action, why, amt) {
+      return { fund: r ? r.f.name : null, category: r ? r.f.category || "" : "", units: r ? r.units : null, avg_nav: r && r.units ? r.invested / r.units : null, weight: r ? r.w : null, action: action, why: why, amount: amt || null };
+    };
+    var byRole = function (re) { return held.filter(function (r) { return re.test(r.f.name); })[0]; };
+    // Buys: buckets under target, most below band first (rebalance with new money, §F step 2)
+    IPS.buckets.map(function (b) { return { b: b, cur: bw[b.k], gap: b.t - bw[b.k] }; })
+      .filter(function (x) { return x.gap > 0.5; })
+      .sort(function (a, c) { var ab = a.cur < a.b.lo, cb = c.cur < c.b.lo; return ab !== cb ? (ab ? -1 : 1) : c.gap - a.gap; })
+      .forEach(function (x) {
+        var b = x.b, need = x.gap * total / 100, band = x.cur < b.lo ? " — below its " + b.lo + "–" + b.hi + "% band" : "";
+        var head = b.l + " is " + x.cur.toFixed(1) + "% vs " + b.t + "% target" + band + ".";
+        var cands = IPS.funds.filter(function (f) { return f.b === b.k && f.role === "keep" && f.sub; });
+        if (b.k === "mid") {
+          if (!IPS.midWinner) { buys.push(row(null, "Decide the mid-cap fund first", head + " Pick Motilal Oswal Midcap or Edelweiss Mid Cap using 5-yr rolling returns and Sortino (§C.3), then add to that one only.", need)); return; }
+          cands = IPS.funds.filter(function (f) { return f.b === "mid" && new RegExp(IPS.midWinner, "i").test(String(f.m)); });
+        }
+        if (b.k === "lm") { var k = held.filter(function (r) { return r.map && r.map.b === "lm"; })[0]; buys.push(row(k, "Add only if you keep it", head + " Kotak Large & Midcap is under review (§J.5); top it up only if you decide to keep the 8% slot.", need)); return; }
+        var picks = cands.map(function (f) {
+          var r = held.filter(function (h) { return h.map === f; })[0], cw = r ? r.w : 0;
+          return { f: f, r: r, gap: (f.sub || b.t) - cw, cw: cw };
+        }).filter(function (p) { return p.gap > 0.5 && p.cw < IPS.fundCap; }).sort(function (a, c) { return c.gap - a.gap; });
+        if (!picks.length) return;
+        var p = picks[0], amt = Math.min(need, p.gap * total / 100);
+        buys.push(row(p.r, "Buy", head + " " + (p.r ? p.r.f.name.replace(/\s*(direct|growth|plan|fund|option|-).*$/i, "") : "This fund") + " is " + p.cw.toFixed(1) + "% vs its " + p.f.sub + "% share." +
+          (p.f.window ? " Only if the AMC's overseas subscription window is open that day; otherwise route this to the most under-target domestic bucket." : ""), amt));
+      });
+    // Sells: consolidation, review items, cap breaches, funds outside the IPS
+    held.forEach(function (r) {
+      var m = r.map, g = r.value - r.invested, gt = " Embedded gain " + (g >= 0 ? "+" : "−") + inr.format(Math.abs(g)) + ".";
+      if (!m) { sells.push(row(r, "Review / exit", "Not part of any IPS bucket (§B.1)." + gt)); return; }
+      if (m.role === "consolidate") sells.push(row(r, "Consolidate", "Duplicate small-cap; redeem and move into " + m.into + " (§C.3, §J.3). Keep realised long-term gains under ₹1.25 L this financial year." + gt, r.value));
+      else if (m.role === "pair" && !IPS.midWinner) sells.push(row(r, "Keep one of the pair", "Two mid-cap funds overlap (§C.3). After choosing the winner, redeem the other into it." + gt));
+      else if (m.role === "pair" && IPS.midWinner && !new RegExp(IPS.midWinner, "i").test(r.f.name)) sells.push(row(r, "Consolidate", "Mid-cap duplicate; redeem into the chosen mid-cap fund (§J.2)." + gt, r.value));
+      else if (m.role === "frozen" && m.into) sells.push(row(r, "Hold, consolidate later", "China FoFs are closed to fresh money. When a window reopens, merge into " + m.into + " if it is the lower-cost fund (§J.4)." + gt));
+      else if (m.role === "review") sells.push(row(r, "Review", "Overlaps the core and mid-cap funds (§J.5). Keep as an 8% stabiliser or fold into Core/Mid." + gt));
+      if (r.w > IPS.fundCap) sells.push(row(r, "Trim", "At " + r.w.toFixed(1) + "% it is above the " + IPS.fundCap + "% single-fund ceiling (§B.2).", (r.w - IPS.fundCap) * total / 100));
+    });
+    IPS.buckets.forEach(function (b) {
+      if (b.cap && bw[b.k] > b.cap) sells.push(row(null, "Trim " + b.l.toLowerCase(), b.l + " is " + bw[b.k].toFixed(1) + "%, above its " + b.cap + "% cap (§B.2).", (bw[b.k] - b.cap) * total / 100));
+    });
+    return { run_date: todayISO(), buys: buys, sells: sells, book_value: Math.round(total),
+      buckets: IPS.buckets.map(function (b) { return { l: b.l, cur: Math.round(bw[b.k] * 10) / 10, t: b.t, lo: b.lo, hi: b.hi }; }) };
+  }
+  async function ipsCheck(force) {
+    if (ips.loading || !mf.funds.length) return;
+    ips.loading = true;
+    try {
+      if (!ips.checked) {
+        var q = await sb.from("mf_reviews").select("*").order("run_date", { ascending: false }).order("created_at", { ascending: false }).limit(1);
+        ips.latest = !q.error && q.data && q.data.length ? q.data[0] : null; ips.checked = true;
+      }
+      var t = todayISO();
+      if (force || !ips.latest || ips.latest.run_date < ipsSlot(t)) {
+        var r = ipsRun();
+        if (r) {
+          await sb.from("mf_reviews").delete().eq("run_date", t);
+          var ins = await sb.from("mf_reviews").insert(r).select().single();
+          ips.latest = ins.error ? r : ins.data;
+          if (force) toast("Review updated");
+        }
+      }
+    } finally { ips.loading = false; renderIPS(); }
+  }
+  function renderIPS() {
+    var box = $("ips-box"); if (!box) return;
+    var L = ips.latest, t = todayISO();
+    $("ips-dates").innerHTML = L ? "Last review <b>" + fmtDate(L.run_date) + "</b> · next on <b>" + fmtDate(ipsNext(t)) + "</b>" : "No review yet";
+    var head = '<thead><tr><th>Fund</th><th>Category</th><th class="num">Units</th><th class="num">Avg NAV</th><th>Action</th><th class="num">Amount</th><th>Why</th></tr></thead><tbody>';
+    var line = function (x, kind) {
+      return "<tr><td>" + (x.fund ? esc(x.fund) : "–") + "</td><td>" + esc(x.category || "") + '</td><td class="num">' + (x.units ? num3.format(x.units) : "–") + '</td><td class="num">' + (x.avg_nav ? inr2.format(x.avg_nav) : "–") +
+        '</td><td><span class="ips-act ' + kind + '">' + esc(x.action) + '</span></td><td class="num">' + (x.amount ? "≈ " + inr.format(x.amount) : "–") + '</td><td class="ips-why">' + esc(x.why) + "</td></tr>";
+    };
+    var tbl = function (list, kind, empty) { return list && list.length ? head + list.map(function (x) { return line(x, kind); }).join("") + "</tbody>" : '<tbody><tr><td class="empty">' + empty + "</td></tr></tbody>"; };
+    $("ips-buy").innerHTML = L ? tbl(L.buys, "buy", "Every bucket is at or above its target. No new buys needed.") : '<tbody><tr><td class="empty">Loading…</td></tr></tbody>';
+    $("ips-sell").innerHTML = L ? tbl(L.sells, "sell", "Nothing to sell or consolidate.") : "";
+    $("ips-buckets").innerHTML = L && L.buckets ? L.buckets.map(function (b) {
+      var st = b.cur < b.lo ? "below" : b.cur > b.hi ? "above" : "in";
+      return '<div class="ips-b ' + st + '"><span>' + esc(b.l) + "</span><b>" + b.cur.toFixed(1) + "%</b><small>target " + b.t + "% · band " + b.lo + "–" + b.hi + "%</small></div>";
+    }).join("") : "";
+  }
+  $("ips-run").addEventListener("click", function () { ipsCheck(true); });
 
   // FIFO lots, realised gain and XIRR for one fund
   function fundCalc(f) {
