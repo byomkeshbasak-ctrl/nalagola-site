@@ -717,6 +717,7 @@
         <div class="card">
           <div class="list-head">
             <h2 id="list-title">Expenses</h2>
+            <div class="seg" id="led-view" hidden><button type="button" data-view="month" aria-pressed="true">Month</button><button type="button" data-view="all" aria-pressed="false">Overall</button></div>
             <span class="list-total">Total <b id="list-total">₹0</b></span>
             <button class="ghost" id="export-btn" type="button">Export CSV</button>
           </div>
@@ -2454,7 +2455,7 @@
     order.slice(0, PIE_COLORS.length).forEach(function (c, i) { map[c] = PIE_COLORS[i]; });
     return map;
   }
-  function renderExpPie() { drawPie("bd-exp", "exp-pie-title", "Expenses", state.ledger.expenses, pieColorMap()); }
+  function renderExpPie() { drawPie("bd-exp", "exp-pie-title", "Expenses", state.ledView === "all" ? state.allExp.filter(function (x) { return x.expense_date >= START_DATE; }) : state.ledger.expenses, pieColorMap()); }
   // Other income types keep a fixed colour each, in the order of the dropdown
   function incColorMap() {
     var map = {}, n = 0;
@@ -2464,9 +2465,10 @@
   function drawPie(elId, titleId, label, src, cmap) {
     var el = $(elId); if (!el) return;
     var mname = new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    if (state.ledView === "all" && (elId === "bd-exp" || elId === "bd-inc")) mname = "overall";
     $(titleId).textContent = label + " by category, " + mname;
     var rows = groupBy(src, "category").filter(function (r) { return r[1] > 0; });
-    if (!rows.length) { el.innerHTML = '<div class="empty" style="padding:12px 0">No ' + label.toLowerCase() + " this month</div>"; return; }
+    if (!rows.length) { el.innerHTML = '<div class="empty" style="padding:12px 0">No ' + label.toLowerCase() + (mname === "overall" ? " yet" : " this month") + "</div>"; return; }
     var total = rows.reduce(function (a, r) { return a + r[1]; }, 0);
     // Slices: categories with their own colour, then one "Other" slice for the rest
     var slices = [], other = { name: "Other", amt: 0, color: PIE_OTHER, parts: [] };
@@ -4081,11 +4083,25 @@
     await loadMonth(); renderForm();
   });
 
+  // Month / Overall switch for the Expenses and Other income tabs
+  function ledAll() { return state.ledView === "all" && (state.tab === "expenses" || state.tab === "income"); }
+  function ledRows(kind) {
+    if (state.ledView !== "all" || (kind !== "expenses" && kind !== "income")) return state.ledger[kind];
+    return kind === "expenses" ? state.allExp.filter(function (x) { return x.expense_date >= START_DATE; })
+      : state.allIncome.filter(function (x) { return x.income_date >= START_DATE; });
+  }
+  function ledPeriod() { return state.ledView === "all" ? "overall since " + fmtDate(START_DATE) : new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" }); }
+  $("led-view").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-view]"); if (!b) return;
+    state.ledView = b.dataset.view; state.expOpen = null;
+    this.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+    renderExpPie(); renderLedger();
+  });
   function renderExpensesByDate() {
-    var rows = state.ledger.expenses, tbl = $("entry-table");
-    $("list-title").textContent = "Expenses in " + new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    var rows = ledRows("expenses"), tbl = $("entry-table");
+    $("list-title").textContent = state.ledView === "all" ? "Expenses, " + ledPeriod() : "Expenses in " + ledPeriod();
     $("list-total").textContent = inr2.format(sum(rows));
-    if (!rows.length) { tbl.innerHTML = '<tr><td class="empty">No expenses this month yet. Add them from the Daily ledger.</td></tr>'; return; }
+    if (!rows.length) { tbl.innerHTML = '<tr><td class="empty">No expenses ' + (state.ledView === "all" ? "recorded yet" : "this month yet") + '. Add them from the Daily ledger.</td></tr>'; return; }
     var by = {};
     rows.forEach(function (r) { (by[r.expense_date] = by[r.expense_date] || []).push(r); });
     var dates = Object.keys(by).sort().reverse();
@@ -4115,11 +4131,11 @@
   // Other income grouped by distributor / buyer, with each entry's date and an Edit button
   var PAID_INTO = { bank: "Bank account", cash_credit: "SBI cash credit", shop: "Shop", bevco: "Bevco wallet" };
   function renderIncomeBySource() {
-    drawPie("bd-inc", "inc-pie-title", "Income", state.ledger.income, incColorMap());
-    var rows = state.ledger.income.slice(), tbl = $("entry-table");
-    $("list-title").textContent = "Other income, " + new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    drawPie("bd-inc", "inc-pie-title", "Income", ledRows("income"), incColorMap());
+    var rows = ledRows("income").slice(), tbl = $("entry-table");
+    $("list-title").textContent = "Other income, " + ledPeriod();
     $("list-total").textContent = inr2.format(sum(rows));
-    if (!rows.length) { tbl.innerHTML = '<tr><td class="empty">No other income recorded for this month yet.</td></tr>'; return; }
+    if (!rows.length) { tbl.innerHTML = '<tr><td class="empty">No other income recorded ' + (state.ledView === "all" ? "yet" : "for this month yet") + ".</td></tr>"; return; }
     // Latest date first
     rows.sort(function (a, b) { return a.income_date < b.income_date ? 1 : a.income_date > b.income_date ? -1 : (a.created_at < b.created_at ? 1 : -1); });
     tbl.innerHTML = '<thead><tr><th>Date</th><th>From</th><th>Type</th><th class="num">Amount</th><th></th></tr></thead><tbody>' +
@@ -4133,6 +4149,7 @@
 
   function renderLedger() {
     var box = $("income-by-source"); if (box) box.hidden = state.tab !== "income";
+    $("led-view").hidden = state.tab !== "expenses" && state.tab !== "income";
     if (state.tab === "expenses") { renderExpensesByDate(); return; }
     if (state.tab === "income") { renderIncomeExtras(); renderIncomeBySource(); return; }
     var T = LEDGERS[state.tab], rows = state.ledger[state.tab], tbl = $("entry-table");
@@ -4156,11 +4173,11 @@
     if (day) { state.expOpen = state.expOpen === day ? null : day; renderExpensesByDate(); return; }
     var editId = e.target.getAttribute("data-edit"), delId = e.target.getAttribute("data-del");
     if (editId) {
-      state.editing = state.ledger[state.tab].find(function (r) { return r.id === editId; });
+      state.editing = ledRows(state.tab).find(function (r) { return r.id === editId; });
       renderForm(); $("entry-form").scrollIntoView({ behavior: "smooth", block: "center" });
     }
     if (delId) {
-      var row = state.ledger[state.tab].find(function (r) { return r.id === delId; });
+      var row = ledRows(state.tab).find(function (r) { return r.id === delId; });
       if (!confirm("Delete this " + T.label + " of " + inr2.format(row.amount) + " on " + fmtDate(row[T.dateCol]) + "?")) return;
       var res = await sb.from(T.table).delete().eq("id", delId);
       if (res.error) { toast("Couldn't delete: " + res.error.message); return; }
@@ -4170,7 +4187,7 @@
   });
 
   $("export-btn").addEventListener("click", function () {
-    var T = LEDGERS[state.tab], rows = state.ledger[state.tab];
+    var T = LEDGERS[state.tab], rows = ledRows(state.tab);
     if (!rows.length) { toast("Nothing to export for this month."); return; }
     downloadCSV("nalagola-" + state.tab + "-" + state.month + ".csv", T.cols.map(function (c) { return c.label; }),
       rows.map(function (r) { return T.cols.map(function (c) { return r[c.key]; }); }));
