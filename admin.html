@@ -653,6 +653,28 @@
     </section>
 
 
+    <section class="breakdowns">
+      <div class="card perf-card">
+        <div class="perf-head">
+          <h2>Performance tracker</h2>
+          <div class="seg" id="perf-mode"><button type="button" data-mode="month" aria-pressed="true">Month on month</button><button type="button" data-mode="day" aria-pressed="false">Day by day</button></div>
+        </div>
+        <div class="perf-chips" id="perf-chips"></div>
+        <div class="perf-grid">
+          <div class="perf-box">
+            <div class="perf-t">Revenue <span>bars</span> &amp; average daily sales <span>line</span></div>
+            <div class="perf-chart" id="perf-rev"></div>
+            <div class="perf-key"><span><i style="background:var(--gold)"></i>Revenue</span><span><i class="ln" style="background:#8fa8e0"></i>Average sales a day</span></div>
+          </div>
+          <div class="perf-box">
+            <div class="perf-t" id="perf-pt">Net profit <span>stacked area</span></div>
+            <div class="perf-chart" id="perf-pro"></div>
+            <div class="perf-key"><span><i style="background:#7fcf9a"></i>Shop net profit</span><span><i style="background:#e08fb4"></i>Bar counter net profit</span><span><i class="ln" style="background:#f4ece4"></i>Total</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <nav class="tabs" role="tablist">
       <button class="tab" role="tab" data-tab="sales" aria-selected="true">Monthly dashboard</button>
       <button class="tab" role="tab" data-tab="book" aria-selected="false">Daily ledger</button>
