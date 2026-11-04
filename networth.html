@@ -1051,7 +1051,7 @@
 
   async function loadMF() {
     var q = await Promise.all([sb.from("mf_funds").select("*").order("name"), sb.from("mf_txns").select("*").order("txn_date").order("created_at")]);
-    if (q[0].error || q[1].error) { $("mf-total-s").textContent = "Couldn't load the funds."; return; }
+    if (q[0].error || q[1].error) { $("mf-total-s").hidden = false; $("mf-total-s").textContent = "Couldn't load the funds."; return; }
     mf.funds = q[0].data || []; mf.txns = q[1].data || [];
     renderMF();
   }
@@ -1107,8 +1107,8 @@
     mf.total = T.val; mf.invested = T.inv; mf.count = held.length; mf.day = T.day;
 
     $("mf-total").textContent = inr.format(T.val);
-    dayLine("mf-day", T.day, T.val, "today's gain / loss" + (navDate ? " · NAV of " + fmtDate(navDate) : ""));
-    $("mf-total-s").textContent = held.length + " funds held" + (navDate ? " · NAV as of " + fmtDate(navDate) : "") + "";
+    dayLine("mf-day", T.day, T.val, "Day's gain / loss" + (navDate ? " · NAV of " + fmtDate(navDate) : ""));
+    $("mf-total-s").textContent = ""; $("mf-total-s").hidden = true;
     var k = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + (d || "") + "</div></div>"; };
     $("mf-kpis").innerHTML = k("Invested", inr.format(T.inv), "Cost of units still held") +
       k("Today's gain / loss", (T.day > 0 ? "+" : "") + inr.format(T.day), pct(T.val - T.day ? T.day / (T.val - T.day) : NaN) + (navDate ? " · NAV of " + fmtDate(navDate) : ""), T.day >= 0 ? "pos" : "neg") +
@@ -1304,7 +1304,7 @@
   var st = { txns: [], prices: {}, open: {}, showExited: false, editing: null, total: 0 };
   async function loadStocks() {
     var q = await Promise.all([sb.from("stock_txns").select("*").order("txn_date").order("created_at"), sb.from("stock_prices").select("*")]);
-    if (q[0].error || q[1].error) { $("st-total-s").textContent = "Couldn't load the stocks."; return; }
+    if (q[0].error || q[1].error) { $("st-total-s").hidden = false; $("st-total-s").textContent = "Couldn't load the stocks."; return; }
     st.txns = q[0].data || []; st.prices = {};
     (q[1].data || []).forEach(function (p) { st.prices[p.symbol] = p; });
     renderStocks();
@@ -1349,8 +1349,8 @@
     var pdate = held.reduce(function (d, r) { return r.pdate && r.pdate > d ? r.pdate : d; }, "");
     st.total = T.val; st.invested = T.inv; st.day = T.day; st.pdate = pdate; st.count = held.length;
     $("st-total").textContent = inr.format(T.val);
-    dayLine("st-day", T.day, T.val, "today's gain / loss" + (pdate ? " · close of " + fmtDate(pdate) : ""));
-    $("st-total-s").textContent = held.length + " stocks held" + (pdate ? " · closing prices of " + fmtDate(pdate) : "");
+    dayLine("st-day", T.day, T.val, "Day's gain / loss" + (pdate ? " · close of " + fmtDate(pdate) : ""));
+    $("st-total-s").textContent = ""; $("st-total-s").hidden = true;
     var k = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + (d || "") + "</div></div>"; };
     $("st-kpis").innerHTML = k("Invested", inr.format(T.inv), "Cost of shares still held") +
       k("Today's gain / loss", (T.day > 0 ? "+" : "") + inr.format(T.day), pct(T.val - T.day ? T.day / (T.val - T.day) : NaN) + (pdate ? " · close of " + fmtDate(pdate) : ""), T.day >= 0 ? "pos" : "neg") +
@@ -2731,8 +2731,8 @@
       var d = {}; try { d = JSON.parse(x.detail || "{}"); } catch (e) {}
       ["mf", "stocks"].forEach(function (k) { if (!last[k] && d[k] && !d[k].error) last[k] = x.ran_at; });
     });
-    if ($("st-stamp")) $("st-stamp").innerHTML = last.stocks ? "All prices last updated at <b>" + stampText(last.stocks) + "</b>" : "Prices not updated yet";
-    if ($("mf-stamp")) $("mf-stamp").innerHTML = last.mf ? "All NAVs last updated at <b>" + stampText(last.mf) + "</b>" : "NAVs not updated yet";
+    if ($("st-stamp")) $("st-stamp").innerHTML = last.stocks ? "Last updated at <b>" + stampText(last.stocks).replace(" on ", ", ") + "</b>" : "Prices not updated yet";
+    if ($("mf-stamp")) $("mf-stamp").innerHTML = last.mf ? "Last updated at <b>" + stampText(last.mf).replace(" on ", ", ") + "</b>" : "NAVs not updated yet";
   }
 
   // ---------- Prices: updated on the server every day; these buttons run the same update now ----------
