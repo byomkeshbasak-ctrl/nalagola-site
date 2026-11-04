@@ -209,6 +209,8 @@
   .bar-row .amt { text-align: right; font-variant-numeric: tabular-nums; }
   .month-pick { display: flex; align-items: center; gap: 8px; }
   .month-pick input { width: auto; padding: 8px 10px; }
+  .month-pick[hidden] { display: none; }
+  #in-view, #ex-view { align-self: center; }
   .form textarea { width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; color: var(--text); font: inherit; }
   .pill { display: inline-block; font-size: 0.7rem; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
   .pill.due { border-color: var(--amber); color: var(--amber); }
@@ -697,7 +699,8 @@
             <div class="s" id="in-total-s"></div>
           </div>
           <div class="spacer"></div>
-          <label class="month-pick">Month <input type="month" id="in-month"></label>
+          <div class="seg" id="in-view"><button type="button" data-view="month" aria-pressed="true">Month</button><button type="button" data-view="all" aria-pressed="false">Overall</button></div>
+          <label class="month-pick" id="in-month-l">Month <input type="month" id="in-month"></label>
           <button class="ghost" id="in-add" type="button">Add income</button>
         </div>
         <form class="form" id="in-form" hidden>
@@ -754,7 +757,8 @@
             <div class="s" id="ex-total-s"></div>
           </div>
           <div class="spacer"></div>
-          <label class="month-pick">Month <input type="month" id="ex-month"></label>
+          <div class="seg" id="ex-view"><button type="button" data-view="month" aria-pressed="true">Month</button><button type="button" data-view="all" aria-pressed="false">Overall</button></div>
+          <label class="month-pick" id="ex-month-l">Month <input type="month" id="ex-month"></label>
           <button class="ghost" id="ex-add" type="button">Add expense</button>
         </div>
         <form class="form" id="ex-form" hidden>
@@ -2041,6 +2045,21 @@
     var m = todayISO().slice(0, 7), a = exMonthTotal(m), b = exMonthTotal(prevMonth(m));
     return b ? "last month " + inr.format(b) : "nothing last month";
   }
+  // Months from the start of tracking up to now, for the Overall view
+  function trackedMonths() {
+    var out = [], m = START_DATE.slice(0, 7), end = todayISO().slice(0, 7);
+    while (m <= end) { out.push(m); m = nextMonthKey(m); }
+    return out;
+  }
+  function nextMonthKey(m) { var y = +m.slice(0, 4), n = +m.slice(5, 7) + 1; if (n > 12) { n = 1; y++; } return y + "-" + (n < 10 ? "0" : "") + n; }
+  function bindView(id, obj, fn) {
+    $(id + "-view").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-view]"); if (!b) return;
+      obj.view = b.dataset.view;
+      this.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+      $(id + "-month-l").hidden = obj.view === "all"; fn();
+    });
+  }
   function exByCat(m) {
     var c = {}; exAll().forEach(function (x) { if (x.exp_date.slice(0, 7) === m) c[x.category] = (c[x.category] || 0) + Number(x.amount); });
     return Object.keys(c).map(function (k) { return [k, c[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
@@ -2061,21 +2080,26 @@
     $("ex-cats").innerHTML = cats.map(function (c) { return '<option value="' + esc(c) + '">'; }).join("");
   }
   function renderExpenses() {
-    var m = ex.month, list = exAll().filter(function (x) { return x.exp_date.slice(0, 7) === m; }).sort(function (a, b) { return a.exp_date < b.exp_date ? 1 : a.exp_date > b.exp_date ? -1 : 0; });
-    var tot = exMonthTotal(m), prev = exMonthTotal(prevMonth(m)), cats = exByCat(m);
-    var days = m === todayISO().slice(0, 7) ? Number(todayISO().slice(8, 10)) : new Date(+m.slice(0, 4), +m.slice(5, 7), 0).getDate();
-    $("ex-title").textContent = "Expenses · " + monthName(m);
+    var all = ex.view === "all", m = ex.month;
+    var inView = function (d) { return all ? d >= START_DATE : d.slice(0, 7) === m; };
+    var list = exAll().filter(function (x) { return inView(x.exp_date); }).sort(function (a, b) { return a.exp_date < b.exp_date ? 1 : a.exp_date > b.exp_date ? -1 : 0; });
+    var tot = list.reduce(function (a, x) { return a + Number(x.amount); }, 0), prev = all ? 0 : exMonthTotal(prevMonth(m));
+    var cc = {}; list.forEach(function (x) { cc[x.category] = (cc[x.category] || 0) + Number(x.amount); });
+    var cats = Object.keys(cc).map(function (k) { return [k, cc[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
+    var nMon = trackedMonths().length;
+    var days = all ? Math.max(1, Math.round((new Date(todayISO()) - new Date(START_DATE)) / 864e5) + 1) : m === todayISO().slice(0, 7) ? Number(todayISO().slice(8, 10)) : new Date(+m.slice(0, 4), +m.slice(5, 7), 0).getDate();
+    $("ex-title").textContent = "Expenses · " + (all ? "Overall since " + fmtDate(START_DATE) : monthName(m));
     $("ex-total").textContent = inr.format(tot);
     $("ex-total-s").textContent = list.length + " entries · already taken off your bank or card balances";
     var k = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + (d || "") + "</div></div>"; };
     var fromBank = list.filter(function (x) { return /^p_/.test(x.paid_from); }).reduce(function (a, x) { return a + Number(x.amount); }, 0);
     var onCards = list.filter(function (x) { return /^cc_/.test(x.paid_from) || x.paid_from === "card"; }).reduce(function (a, x) { return a + Number(x.amount); }, 0);
-    $("ex-kpis").innerHTML = k("This month", inr.format(tot), list.length + " entries") +
-      k("Last month", inr.format(prev), prev ? (tot >= prev ? "up " : "down ") + inr.format(Math.abs(tot - prev)) : "", "") +
+    $("ex-kpis").innerHTML = k(all ? "Overall" : "This month", inr.format(tot), list.length + " entries") +
+      (all ? k("Per month", inr.format(tot / nMon), "average over " + nMon + " month" + (nMon > 1 ? "s" : "")) : k("Last month", inr.format(prev), prev ? (tot >= prev ? "up " : "down ") + inr.format(Math.abs(tot - prev)) : "", "")) +
       k("Per day", inr.format(days ? tot / days : 0), "average over " + days + " days") + k("Biggest category", cats.length ? esc(cats[0][0]) : "–", cats.length ? inr.format(cats[0][1]) : "") +
       k("Paid from bank", inr.format(fromBank), "") + k("On credit cards", inr.format(onCards), "Cash and UPI make up the rest");
     if (cats.length) donut("ex-pie", cats.filter(function (c) { return c[1] > 0; }).map(function (c) { return { l: c[0], v: c[1] }; }), [inr.format(tot).replace("₹", "₹ "), cats.length + (cats.length > 1 ? " categories" : " category")]);
-    else $("ex-pie").innerHTML = '<div class="empty">No expenses for this month yet.</div>';
+    else $("ex-pie").innerHTML = '<div class="empty">No expenses ' + (all ? "recorded yet" : "for this month yet") + ".</div>";
     $("ex-table").innerHTML = list.length ? '<thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Paid from</th><th class="num">Amount</th><th></th></tr></thead><tbody>' + list.map(function (x) {
       return "<tr><td>" + fmtDate(x.exp_date) + "</td><td>" + esc(x.category) + "</td><td>" + esc(x.note || "") + "</td><td>" + esc(payName(x.paid_from)) + '</td><td class="num">' + inr2.format(x.amount) +
         '</td><td class="actions-c"><button class="icon-btn" type="button" ' + (x.cp ? 'data-cpedit="' + x.cp + '" title="Edit this payment in Credit cards"' : 'data-exedit="' + x.id + '"') + '>Edit</button><button class="icon-btn del" type="button" ' + (x.cp ? 'data-cpdel="' + x.cp + '"' : 'data-exdel="' + x.id + '"') + '>Delete</button></td></tr>';
@@ -2090,6 +2114,7 @@
     $("ex-from").value = x ? x.paid_from : (state.accounts[0] ? state.accounts[0].code : "cash");
     $("ex-form").scrollIntoView({ behavior: "smooth", block: "center" }); $(x ? "ex-amt" : "ex-cat").focus();
   }
+  bindView("ex", ex, renderExpenses);
   $("ex-add").addEventListener("click", function () { if (!$("ex-form").hidden && !ex.editing) { $("ex-form").hidden = true; return; } openExForm(null); });
   $("ex-cancel").addEventListener("click", function () { $("ex-form").hidden = true; ex.editing = null; });
   $("ex-table").addEventListener("click", async function (e) {
@@ -2166,11 +2191,24 @@
     }
     return out;
   }
+  // Overall: add up each tracked month; opening is the first month's, present value the latest
+  function autoIncomeAll() {
+    var by = {}, order = [];
+    trackedMonths().forEach(function (mm) {
+      autoIncome(mm).forEach(function (x) {
+        var a = by[x.l]; if (!a) { a = by[x.l] = { l: x.l, d: x.d, v: 0, net: 0, open: x.open, close: x.close }; order.push(x.l); }
+        a.v += x.v; a.net += x.net; a.close = x.close;
+      });
+    });
+    return order.map(function (l) { return by[l]; });
+  }
   function renderIncome() {
     if (!$("in-table")) return;
-    var m = inc.month, list = inMonth(m).slice().reverse(), auto = autoIncome(m), autoPrev = autoIncome(prevMonth(m));
+    var all = inc.view === "all", m = inc.month, nMon = trackedMonths().length;
+    var list = (all ? state.income.filter(function (x) { return x.inc_date >= START_DATE; }) : inMonth(m)).slice().reverse();
+    var auto = all ? autoIncomeAll() : autoIncome(m), autoPrev = all ? [] : autoIncome(prevMonth(m));
     var sumV = function (l) { return l.reduce(function (a, x) { return a + x.v; }, 0); };
-    var tot = sumAmt(list) + sumV(auto), prev = sumAmt(inMonth(prevMonth(m))) + sumV(autoPrev);
+    var tot = sumAmt(list) + sumV(auto), prev = all ? 0 : sumAmt(inMonth(prevMonth(m))) + sumV(autoPrev);
     var c = {}; list.forEach(function (x) { c[x.category] = (c[x.category] || 0) + Number(x.amount); });
     auto.forEach(function (x) { c[x.l] = (c[x.l] || 0) + x.v; });
     // PF / EPF counts with salary
@@ -2178,16 +2216,16 @@
     if (c["PF / EPF"] != null) { c[salKey] = (c[salKey] || 0) + c["PF / EPF"]; delete c["PF / EPF"]; }
     var cats = Object.keys(c).map(function (k) { return [k, c[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
     var intoBank = sumAmt(list.filter(function (x) { return /^p_/.test(x.received_into); }));
-    $("in-title").textContent = "Income · " + monthName(m);
+    $("in-title").textContent = "Income · " + (all ? "Overall since " + fmtDate(START_DATE) : monthName(m));
     $("in-total").textContent = (tot < 0 ? "−" : "") + inr.format(Math.abs(tot));
     $("in-total-s").textContent = list.length + (list.length === 1 ? " entry" : " entries") + (auto.length ? " + " + auto.map(function (x) { return x.l.toLowerCase(); }).join(", ") : "");
     var k = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + (d || "") + "</div></div>"; };
-    $("in-kpis").innerHTML = k("This month", (tot < 0 ? "−" : "") + inr.format(Math.abs(tot)), "All sources") +
-      k("Last month", inr.format(prev), prev ? (tot >= prev ? "up " : "down ") + inr.format(Math.abs(tot - prev)) : "") +
+    $("in-kpis").innerHTML = k(all ? "Overall" : "This month", (tot < 0 ? "−" : "") + inr.format(Math.abs(tot)), "All sources") +
+      (all ? k("Per month", inr.format(tot / nMon), "average over " + nMon + " month" + (nMon > 1 ? "s" : "")) : k("Last month", inr.format(prev), prev ? (tot >= prev ? "up " : "down ") + inr.format(Math.abs(tot - prev)) : "")) +
       k("Into bank", inr.format(intoBank), "From the entries you added") + k("Biggest source", cats.length ? esc(cats[0][0]) : "–", cats.length ? inr.format(cats[0][1]) : "");
     var posC = cats.filter(function (x) { return x[1] > 0; });
     if (posC.length) donut("in-pie", posC.map(function (x) { return { l: x[0], v: x[1] }; }), [inr.format(sumV(posC.map(function (x) { return { v: x[1] }; }))).replace("₹", "₹ "), posC.length + (posC.length > 1 ? " sources" : " source") + (posC.length < cats.length ? " in profit" : "")]);
-    else $("in-pie").innerHTML = '<div class="empty">No income recorded for this month yet.</div>';
+    else $("in-pie").innerHTML = '<div class="empty">No income recorded ' + (all ? "yet" : "for this month yet") + ".</div>";
     $("in-table").innerHTML = "";
     // One table: market sources, salary (with PF) and everything entered by hand, grouped by source
     var sg = function (v) { return (v < 0 ? "−" : "+") + inr.format(Math.abs(v)); };
@@ -2237,6 +2275,7 @@
     if (r.error) { toast("Couldn't delete: " + r.error.message); return; }
     state.income = state.income.filter(function (y) { return y.id !== id; }); toast("Deleted"); render();
   }
+  bindView("in", inc, renderIncome);
   $("in-add").addEventListener("click", function () { if (!$("in-form").hidden && !inc.editing) { $("in-form").hidden = true; return; } openInForm(null); });
   $("in-cancel").addEventListener("click", function () { $("in-form").hidden = true; inc.editing = null; });
   $("in-auto").addEventListener("click", function (e) {
