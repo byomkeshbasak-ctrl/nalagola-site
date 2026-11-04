@@ -1270,6 +1270,17 @@
     state.items = all;
     var pc = await sb.from("price_changes").select("*").order("created_at", { ascending: false }).limit(500);
     state.priceChanges = pc.error ? [] : pc.data || [];
+    // Latest closing stock per item, from the most recent daily stock report
+    state.itemStock = {}; state.itemStockDate = null;
+    var lr = await sb.from("stock_report_lines").select("report_date").order("report_date", { ascending: false }).limit(1);
+    if (!lr.error && lr.data && lr.data.length) {
+      var ld = lr.data[0].report_date;
+      var sl = await fetchAll(function () { return sb.from("stock_report_lines").select("item_name,mrp,closing_stock").eq("report_date", ld); });
+      if (!sl.error) {
+        state.itemStockDate = ld;
+        (sl.data || []).forEach(function (x) { var k = normKey(x.item_name) + "|" + Number(x.mrp); state.itemStock[k] = (state.itemStock[k] || 0) + Number(x.closing_stock || 0); });
+      }
+    }
     renderItems();
   }
 
@@ -3915,15 +3926,18 @@
       return !q || normKey(i.item_name).indexOf(q) >= 0 || normKey(i.category).indexOf(q) >= 0;
     });
     var missing = state.items.filter(function (i) { return i.cost_price == null; }).length;
-    $("items-title").textContent = state.items.length + " items" + (missing ? " · " + missing + " without cost" : "");
+    var stTot = Object.keys(state.itemStock || {}).reduce(function (t, k) { return t + state.itemStock[k]; }, 0);
+    $("items-title").textContent = state.items.length + " items" + (state.itemStockDate ? " · " + num.format(stTot) + " bottles in stock" : "") + (missing ? " · " + missing + " without cost" : "");
     var tbl = $("items-table");
     if (!rows.length) { tbl.innerHTML = '<tr><td class="empty">' + (state.items.length ? "No items match." : "No items yet. Upload a cost sheet or a stock report.") + "</td></tr>"; return; }
-    tbl.innerHTML = '<thead><tr><th>Item</th><th>Category</th><th class="num">MRP</th><th class="num">Cost</th><th class="num">Margin</th><th></th></tr></thead><tbody>' +
+    var sd = state.itemStockDate, stk = state.itemStock || {};
+    tbl.innerHTML = '<thead><tr><th>Item</th><th>Category</th><th class="num">MRP</th><th class="num">Cost</th><th class="num">Margin</th><th class="num"' + (sd ? ' title="Closing stock in bottles on ' + fmtDate(sd) + '"' : "") + ">Stock" + (sd ? " · " + fmtDate(sd) : "") + "</th><th></th></tr></thead><tbody>" +
       rows.map(function (i) {
         var m = i.cost_price == null ? null : Number(i.mrp) - Number(i.cost_price);
         return "<tr><td>" + esc(i.item_name) + "</td><td>" + esc(i.category) + '</td><td class="num">' + inr2.format(i.mrp) + '</td><td class="num">' +
           (i.cost_price == null ? '<span class="tag warn">missing</span>' : inr2.format(i.cost_price)) + '</td><td class="num">' +
-          (m == null ? "" : inr2.format(m) + " · " + pct(m, i.mrp)) + '</td><td class="actions"><button class="icon-btn" data-edititem="' + i.id + '">' + (state.itemEdit && state.itemEdit.id === i.id ? "Close" : "Edit") + "</button></td></tr>" +
+          (m == null ? "" : inr2.format(m) + " · " + pct(m, i.mrp)) + '</td><td class="num">' + (function () { var v = stk[normKey(i.item_name) + "|" + Number(i.mrp)]; return sd ? (v ? num.format(v) : '<span style="color:var(--muted)">0</span>') : "–"; })() +
+          '</td><td class="actions"><button class="icon-btn" data-edititem="' + i.id + '">' + (state.itemEdit && state.itemEdit.id === i.id ? "Close" : "Edit") + "</button></td></tr>" +
           (state.itemEdit && state.itemEdit.id === i.id ? itemEditRow(i) : "");
       }).join("") + "</tbody>";
     if (state.itemEdit) updateItemImpact();
@@ -3935,7 +3949,7 @@
     var ed = state.itemEdit, latest = state.allReports.reduce(function (m, r) { return r.report_date > m ? r.report_date : m; }, todayISO());
     var cats = ITEM_CATS.indexOf(i.category) < 0 ? ITEM_CATS.concat([i.category]) : ITEM_CATS;
     var hist = (state.priceChanges || []).filter(function (c) { return c.item_name === i.item_name && (Number(c.new_mrp) === Number(i.mrp) || Number(c.old_mrp) === Number(i.mrp)); });
-    return '<tr class="item-edit"><td colspan="6"><form id="ie-form" class="ie-form" autocomplete="off">' +
+    return '<tr class="item-edit"><td colspan="7"><form id="ie-form" class="ie-form" autocomplete="off">' +
       '<div class="ie-grid">' +
       '<label>MRP (₹)<input type="number" id="ie-mrp" step="0.01" min="0" inputmode="decimal" value="' + esc(i.mrp) + '" required></label>' +
       '<label>Cost price (₹)<input type="number" id="ie-cost" step="0.01" min="0" inputmode="decimal" value="' + (i.cost_price == null ? "" : esc(i.cost_price)) + '"></label>' +
