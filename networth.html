@@ -299,6 +299,7 @@
   .ips-top .k { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
   .ips-title { margin-top: 6px; font-size: 1.35rem; font-weight: 600; color: var(--gold); }
   .ips-dates { margin-top: 4px; color: var(--muted); font-size: 0.8rem; }
+  .ips-advisory { margin-top: 8px; padding: 6px 10px; border: 1px solid rgba(227,166,95,.45); border-radius: 8px; background: rgba(227,166,95,.08); color: #e3a65f; font-size: 0.76rem; line-height: 1.4; max-width: 640px; }
   .ips-dates b { color: var(--fg, inherit); font-weight: 600; }
   .ips-flow { margin-top: 14px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
   @media (max-width: 640px) { .ips-flow { grid-template-columns: 1fr; } }
@@ -579,6 +580,7 @@
           <div class="k">Per your Stocks Investment Policy Statement v5.0 (draft)</div>
           <h2 class="ips-title">Recommended Portfolio Allocation</h2>
           <div class="ips-dates" id="sips-dates"></div>
+          <div class="ips-advisory">Advisory only. This card applies draft rules (v5.0) and is not the approved policy. The approved policy is v4.9. Nothing here is an instruction to trade.</div>
         </div>
         <div class="spacer"></div>
         <button class="ghost" id="sips-run" type="button">Run review now</button>
