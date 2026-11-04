@@ -3931,13 +3931,13 @@
     var tbl = $("items-table");
     if (!rows.length) { tbl.innerHTML = '<tr><td class="empty">' + (state.items.length ? "No items match." : "No items yet. Upload a cost sheet or a stock report.") + "</td></tr>"; return; }
     var sd = state.itemStockDate, stk = state.itemStock || {};
-    tbl.innerHTML = '<thead><tr><th>Item</th><th>Category</th><th class="num">MRP</th><th class="num">Cost</th><th class="num">Margin</th><th class="num"' + (sd ? ' title="Closing stock in bottles on ' + fmtDate(sd) + '"' : "") + ">Stock" + (sd ? " · " + fmtDate(sd) : "") + "</th><th></th></tr></thead><tbody>" +
+    tbl.innerHTML = '<thead><tr><th>Item</th><th>Category</th><th class="num"' + (sd ? ' title="Closing stock in bottles on ' + fmtDate(sd) + '"' : "") + ">Stock" + (sd ? " · " + fmtDate(sd) : "") + '</th><th class="num">MRP</th><th class="num">Cost</th><th class="num">Margin</th><th></th></tr></thead><tbody>' +
       rows.map(function (i) {
         var m = i.cost_price == null ? null : Number(i.mrp) - Number(i.cost_price);
-        return "<tr><td>" + esc(i.item_name) + "</td><td>" + esc(i.category) + '</td><td class="num">' + inr2.format(i.mrp) + '</td><td class="num">' +
+        var sv = stk[normKey(i.item_name) + "|" + Number(i.mrp)];
+        return "<tr><td>" + esc(i.item_name) + "</td><td>" + esc(i.category) + '</td><td class="num">' + (sd ? (sv ? num.format(sv) : '<span style="color:var(--muted)">0</span>') : "–") + '</td><td class="num">' + inr2.format(i.mrp) + '</td><td class="num">' +
           (i.cost_price == null ? '<span class="tag warn">missing</span>' : inr2.format(i.cost_price)) + '</td><td class="num">' +
-          (m == null ? "" : inr2.format(m) + " · " + pct(m, i.mrp)) + '</td><td class="num">' + (function () { var v = stk[normKey(i.item_name) + "|" + Number(i.mrp)]; return sd ? (v ? num.format(v) : '<span style="color:var(--muted)">0</span>') : "–"; })() +
-          '</td><td class="actions"><button class="icon-btn" data-edititem="' + i.id + '">' + (state.itemEdit && state.itemEdit.id === i.id ? "Close" : "Edit") + "</button></td></tr>" +
+          (m == null ? "" : inr2.format(m) + " · " + pct(m, i.mrp)) + '</td><td class="actions"><button class="icon-btn" data-edititem="' + i.id + '">' + (state.itemEdit && state.itemEdit.id === i.id ? "Close" : "Edit") + "</button></td></tr>" +
           (state.itemEdit && state.itemEdit.id === i.id ? itemEditRow(i) : "");
       }).join("") + "</tbody>";
     if (state.itemEdit) updateItemImpact();
