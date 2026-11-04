@@ -1595,7 +1595,7 @@
     }).join("") +
       // Liabilities: what's owed on credit cards and the home loan comes off net worth
       '<button type="button" class="dtile' + (ccDue > 0.5 ? " liab" : "") + '" data-go="cards"><div class="l"><i style="background:#ef8f8f"></i>Credit cards</div><div class="a' + (ccDue > 0.5 ? " neg" : "") + '">' + (ccDue > 0.5 ? "−" : "") + inr.format(ccDue) + "</div></button>" +
-      '<button type="button" class="dtile' + (hl > 0.5 ? " liab" : "") + '" data-go="homeloan"><div class="l"><i style="background:#c47a7a"></i>Home loan (separate)</div><div class="a' + (hl > 0.5 ? " neg" : "") + '">' + (hl > 0.5 ? "−" : "") + inr.format(hl) + "</div></button>" +
+      '<button type="button" class="dtile' + (hl > 0.5 ? " liab" : "") + '" data-go="homeloan"><div class="l"><i style="background:#c47a7a"></i>Home loan (O/S balance)</div><div class="a' + (hl > 0.5 ? " neg" : "") + '">' + (hl > 0.5 ? "−" : "") + inr.format(hl) + "</div></button>" +
       '<button type="button" class="dtile" data-go="expenses"><div class="l"><i style="background:#ef8f8f"></i>Expenses this month</div><div class="a">' + inr.format(exMonthTotal(todayISO().slice(0, 7))) + "</div></button>";
     // Net worth by category (assets); loans owed shown underneath
     donut("nw-pie", parts.map(function (x) { return { l: x.c.l, v: x.a, c: x.c.c }; }), [inr.format(nw).replace("₹", "₹ "), "net worth"]);
