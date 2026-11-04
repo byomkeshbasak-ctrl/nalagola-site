@@ -330,11 +330,11 @@
         <button type="button" class="tab" data-tab="stocks">Stocks</button>
         <button type="button" class="tab" data-tab="mf">Mutual funds</button>
         <button type="button" class="tab" data-tab="business">Business</button>
-        <button type="button" class="tab" data-tab="bank">Bank</button>
-        <button type="button" class="tab" data-tab="cards">Credit cards</button>
-        <button type="button" class="tab" data-tab="homeloan">Home loan</button>
+        <button type="button" class="tab" data-tab="bank">Banks</button>
         <button type="button" class="tab" data-tab="income">Income</button>
         <button type="button" class="tab" data-tab="expenses">Expenses</button>
+        <button type="button" class="tab" data-tab="cards">Credit cards</button>
+        <button type="button" class="tab" data-tab="homeloan">Home loan</button>
       </div>
     </nav>
   </header>
@@ -1716,7 +1716,7 @@
   $("mbm-more").addEventListener("click", function () { mbm.all = !mbm.all; renderMonthly(); });
 
   // ---------- Tabs ----------
-  var TABS = ["dash", "stocks", "mf", "business", "bank", "cards", "homeloan", "income", "expenses"];
+  var TABS = ["dash", "stocks", "mf", "business", "bank", "income", "expenses", "cards", "homeloan"];
   var DASH_X = ["epf", "gold", "loans", "insurance", "trading"];
   function showTab(t, push) {
     var pd = $("pane-dash");
