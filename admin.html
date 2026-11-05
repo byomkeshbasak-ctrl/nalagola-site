@@ -194,6 +194,12 @@
   .cost-up { cursor: pointer; font-size: 0.8rem; color: var(--muted); text-decoration: underline; white-space: nowrap; border: 0; padding: 0; background: none; }
   .cost-up:hover, .cost-up.over { color: var(--gold); }
   .cost-up input { display: none; }
+  form.item-add { border: 1px solid var(--line-strong); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+  .item-add h3 { margin: 0 0 4px; font-size: 0.95rem; }
+  .item-add .hint { margin: 0 0 10px; font-size: 0.8rem; color: var(--muted); }
+  .item-add .ie-grid { grid-template-columns: 2fr 1fr 1fr 1fr; }
+  .item-add #ia-margin { font-size: 0.85rem; color: var(--muted); }
+  @media (max-width: 640px) { .item-add .ie-grid { grid-template-columns: 1fr 1fr; } .item-add .ie-grid label:first-child { grid-column: 1 / -1; } }
   #cost-preview { margin: 0 0 14px; }
   table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
   th {
@@ -740,6 +746,7 @@
           <div id="cost-preview" class="preview" hidden></div>
           <div class="list-head">
             <h2 id="items-title">Items</h2>
+            <button type="button" class="cost-up" id="item-add-btn" aria-expanded="false" aria-controls="item-add">Add item</button>
             <label class="cost-up" id="cost-drop" title="Upload a cost price file (.xlsx, .xls or .csv)">Upload cost prices<input type="file" id="cost-file" accept=".xlsx,.xls,.csv"></label>
             <input class="search" id="items-search" type="search" placeholder="Search items">
             <div class="seg" id="items-filter">
@@ -747,6 +754,20 @@
               <button type="button" data-f="missing" aria-pressed="false">No cost</button>
             </div>
           </div>
+          <form id="item-add" class="item-add ie-form" autocomplete="off" hidden>
+            <div>
+              <h3>Add an item by hand</h3>
+              <p class="hint">Type the name exactly as it appears in the daily stock report, for example RS W 750, so sales and the indent match it.</p>
+            </div>
+            <div class="ie-grid">
+              <label>Item name<input type="text" id="ia-name" required spellcheck="false" placeholder="e.g. OAKSMITH GOLD W 375"></label>
+              <label>Category<select id="ia-cat"></select></label>
+              <label>MRP (₹)<input type="number" id="ia-mrp" step="0.01" min="0" inputmode="decimal" required></label>
+              <label>Cost price (₹)<input type="number" id="ia-cost" step="0.01" min="0" inputmode="decimal" required></label>
+            </div>
+            <div id="ia-margin"></div>
+            <div class="form-actions"><button class="primary" type="submit">Add item</button><button class="ghost" type="button" id="ia-cancel">Cancel</button></div>
+          </form>
           <div class="table-wrap tall"><table id="items-table"></table></div>
         </div>
       </div>
@@ -4047,6 +4068,56 @@
     await loadIndent(); // indent prices follow the change
   });
   $("items-search").addEventListener("input", renderItems);
+
+  // ---------- Add a new item by hand (name, category, MRP, cost) ----------
+  function openItemAdd(show) {
+    var f = $("item-add"), b = $("item-add-btn");
+    f.hidden = !show; b.setAttribute("aria-expanded", show ? "true" : "false"); b.textContent = show ? "Close" : "Add item";
+    if (!show) return;
+    f.reset(); state.iaCatTouched = false;
+    $("ia-cat").innerHTML = ITEM_CATS.map(function (c) { return "<option>" + esc(c) + "</option>"; }).join("");
+    $("ia-margin").textContent = "";
+    $("ia-name").focus();
+  }
+  $("item-add-btn").addEventListener("click", function () { openItemAdd($("item-add").hidden); });
+  $("ia-cancel").addEventListener("click", function () { openItemAdd(false); });
+  $("ia-cat").addEventListener("change", function () { state.iaCatTouched = true; });
+  $("item-add").addEventListener("input", function (e) {
+    var name = cleanName($("ia-name").value), mrp = toNum($("ia-mrp").value), cost = toNum($("ia-cost").value);
+    // Suggest the category from the item code ("W" = Whisky and so on) until it is picked by hand
+    if (e.target.id === "ia-name" && !state.iaCatTouched && name) {
+      var g = savedCategory(name, mrp) || categoryOf(name);
+      if (g && ITEM_CATS.indexOf(g) >= 0) $("ia-cat").value = g;
+    }
+    $("ia-margin").innerHTML = mrp > 0 && $("ia-cost").value !== ""
+      ? "Margin " + inr2.format(mrp - cost) + " · " + pct(mrp - cost, mrp) + (cost > mrp ? ' <span class="warn-t">cost is above MRP</span>' : "") : "";
+  });
+  $("item-add").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var name = cleanName($("ia-name").value), cat = $("ia-cat").value, mrp = toNum($("ia-mrp").value), cost = toNum($("ia-cost").value);
+    if (!name) { toast("Enter the item name."); return; }
+    if (!(mrp > 0)) { toast("Enter the MRP."); return; }
+    if ($("ia-cost").value === "" || cost < 0) { toast("Enter the cost price."); return; }
+    var same = state.items.find(function (i) { return i.item_name === name && Number(i.mrp) === mrp; });
+    if (same) { toast(name + " at MRP " + inr2.format(mrp) + " is already in the list. Use Edit on that row to change it."); return; }
+    var near = state.items.find(function (i) { return i.item_name !== name && normKey(i.item_name) === normKey(name); });
+    if (near && !confirm("There is already an item called " + near.item_name + ". Add " + name + " as a separate item anyway?")) return;
+    var other = state.items.find(function (i) { return i.item_name === name; });
+    if (other && !confirm(name + " is already listed at MRP " + inr2.format(other.mrp) + ". Add it again at " + inr2.format(mrp) + " as a second price?")) return;
+    if (cost > mrp && !confirm("The cost price is higher than the MRP. Save anyway?")) return;
+    var btn = e.target.querySelector(".primary"); btn.disabled = true;
+    var sm = name.match(/(\d+)\s*$/);
+    var r = await sb.from("items").insert({ item_name: name, mrp: mrp, cost_price: cost, category: cat, brand: "", size_ml: sm ? Number(sm[1]) : null, updated_at: new Date().toISOString() });
+    btn.disabled = false;
+    if (r.error) { toast("Couldn't add the item: " + r.error.message); return; }
+    // Same follow-up as a cost upload: saved report lines for this item that had no cost pick this one up
+    var f = await sb.rpc("fill_missing_costs"), filled = f.error ? 0 : f.data;
+    toast(name + " added" + (filled ? "; " + filled + " report line" + (filled === 1 ? "" : "s") + " costed" : ""));
+    openItemAdd(false);
+    $("items-search").value = name;
+    await Promise.all([loadItems(), loadMonth()]);
+    renderItems();
+  });
   document.querySelectorAll("#items-filter button").forEach(function (b) {
     b.addEventListener("click", function () {
       state.itemsFilter = b.dataset.f;
