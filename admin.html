@@ -2947,8 +2947,17 @@
   var EXP_CATS = ["Salary", "Transport", "Tea", "Discount", "Rent", "Electricity", "Licence & Excise", "Repairs", "Breakage", "Bribes & commission", "Interest payment", "Audit fees", "Misc"];
 
   // Live mismatch for a row, using whatever is typed in its inputs
-  // A day is locked once a later day's Excel is uploaded and this day balances (mismatch ₹0)
+  // A day is locked once a later day's Excel is uploaded and this day balances (mismatch ₹0).
+  // The owner can unlock a day by hand; that is remembered on this device until "Lock again".
+  var UNLOCK_KEY = "book-unlocked";
+  function loadUnlocked() { try { return JSON.parse(localStorage.getItem(UNLOCK_KEY) || "{}") || {}; } catch (x) { return {}; } }
+  function saveUnlocked() { try { localStorage.setItem(UNLOCK_KEY, JSON.stringify(state.unlocked)); } catch (x) {} }
+  state.unlocked = loadUnlocked();
   function isFrozen(d) {
+    if (state.unlocked[d]) return false;
+    return autoLocked(d);
+  }
+  function autoLocked(d) {
     var b = bookRow(d);
     if (!b.entry || Math.abs(b.mismatch) >= 0.5) return false;
     return state.allReports.some(function (r) { return r.report_date > d; });
@@ -3210,21 +3219,23 @@
       return bdItem("due", x, esc(x.customer_name) + " · " + (x.entry_type === "payment" ? '<span class="pos">collected</span>' : '<span class="warn-t">credit given</span>'), frozen);
     }).join("") : '<div class="none">No dues collected or credit given this day.</div>';
     var hasRep = state.reports.some(function (r) { return r.report_date === d; });
-    return '<tr class="book-detail"><td colspan="11">' + (hasRep ? '<div class="bd-links"><button class="icon-btn" type="button" data-view="' + d + '">See items sold on ' + fmtDate(d) + "</button></div>" : "") + '<div class="bd-grid">' +
+    var lockLink = state.unlocked[d] && autoLocked(d)
+      ? ' <span style="font-size:.8rem;color:var(--muted)">Unlocked for changes.</span> <button class="icon-btn" type="button" data-relock="' + d + '">Lock again</button>' : "";
+    return '<tr class="book-detail"><td colspan="11">' + (hasRep || lockLink ? '<div class="bd-links">' + (hasRep ? '<button class="icon-btn" type="button" data-view="' + d + '">See items sold on ' + fmtDate(d) + "</button>" : "") + lockLink + "</div>" : "") + '<div class="bd-grid">' +
       '<div class="bd-box"><h3>Expenses on ' + fmtDate(d) + "</h3><div class=\"bd-list\">" + expList + "</div>" +
-        (frozen ? '<div class="none">Locked.</div></div>' : '<form class="bd-add" data-addexp="' + d + '">' +
+        (frozen ? '<div class="none">Locked. <button class="icon-btn" type="button" data-unlock="' + d + '">Unlock</button></div></div>' : '<form class="bd-add" data-addexp="' + d + '">' +
           "<select name=\"category\">" + EXP_CATS.map(function (c) { return "<option>" + esc(c) + "</option>"; }).join("") + "</select>" +
           '<input name="amount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount ₹" required>' +
           '<input name="note" type="text" placeholder="Note (optional)">' +
           '<button class="primary" type="submit">Add</button></form></div>') +
       '<div class="bd-box"><h3>Dues on ' + fmtDate(d) + "</h3><div class=\"bd-list\">" + duesList + "</div>" +
-        (frozen ? '<div class="none">Locked.</div></div>' : '<form class="bd-add" data-adddue="' + d + '">' +
+        (frozen ? '<div class="none">Locked. <button class="icon-btn" type="button" data-unlock="' + d + '">Unlock</button></div></div>' : '<form class="bd-add" data-adddue="' + d + '">' +
           '<select name="type"><option value="payment">Dues collected</option><option value="credit">Credit given</option></select>' +
           '<input name="amount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount ₹" required>' +
           customerPicker() +
           '<button class="primary" type="submit">Add</button></form></div>') +
       '<div class="bd-box"><h3>Other income at the shop on ' + fmtDate(d) + "</h3><div class=\"bd-list\">" + incList + "</div>" +
-        (frozen ? '<div class="none">Locked.</div></div>' : '<form class="bd-add" data-addinc="' + d + '">' +
+        (frozen ? '<div class="none">Locked. <button class="icon-btn" type="button" data-unlock="' + d + '">Unlock</button></div></div>' : '<form class="bd-add" data-addinc="' + d + '">' +
           "<select name=\"category\">" + INC_CATS.map(function (c) { return "<option>" + esc(c) + "</option>"; }).join("") + "</select>" +
           '<input name="amount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount ₹" required>' +
           sourcePicker("") +
@@ -3307,6 +3318,15 @@
       var r3 = await sb.from("other_income").delete().eq("id", di);
       if (r3.error) { toast("Couldn't delete: " + r3.error.message); return; }
       toast("Income deleted"); loadMonth(); return;
+    }
+    var ul = e.target.getAttribute("data-unlock"), rl = e.target.getAttribute("data-relock");
+    if (ul) {
+      if (!confirm("Unlock " + fmtDate(ul) + "? You'll be able to change its figures, expenses, dues and income again. Changes can affect the balances of the days after it.")) return;
+      state.unlocked[ul] = 1; saveUnlocked(); toast(fmtDate(ul) + " unlocked"); renderBook(); return;
+    }
+    if (rl) {
+      delete state.unlocked[rl]; saveUnlocked(); state.bdEdit = null;
+      toast(autoLocked(rl) ? fmtDate(rl) + " locked again" : fmtDate(rl) + " no longer balances, so it stays open until it does"); renderBook(); return;
     }
     var v = e.target.getAttribute("data-view"), mm = e.target.getAttribute("data-mismatch");
     // A click anywhere on a day's row (not on a box or link) opens its expenses, dues and income
@@ -3441,6 +3461,18 @@
       var cat = savedCategory(l.item_name, mrp) || l.category || categoryOf(l.item_name);
       return { name: x.name, cat: cat, size: sizeOf(l), mrp: mrp, cost: cost, sold: x.sold, stock: x.stock };
     }).filter(function (r) { return r.sold > 0 || r.stock > 0; });
+    // Items in Items & costs that no stock report has carried yet (for example ones added by hand):
+    // listed with no sales and no stock so a first order can be placed. Highest MRP if there are several rows.
+    var fresh = {};
+    state.items.forEach(function (i) {
+      var k = cleanName(i.item_name); if (!k || by[k]) return;
+      if (!fresh[k] || Number(i.mrp) > Number(fresh[k].mrp)) fresh[k] = i;
+    });
+    Object.keys(fresh).forEach(function (k) {
+      var i = fresh[k], mrp = Number(i.mrp);
+      state.ind.rows.push({ name: i.item_name, cat: i.category || savedCategory(i.item_name, mrp) || categoryOf(i.item_name), size: sizeOf(i),
+        mrp: mrp, cost: i.cost_price != null ? Number(i.cost_price) : null, sold: 0, stock: 0, isNew: true });
+    });
     var cs = {}; state.ind.rows.forEach(function (r) { cs[r.cat] = 1; });
     var sel = $("ind-cat"), cur = sel.value;
     sel.innerHTML = '<option value="">All categories</option>' + Object.keys(cs).sort(function (a, b) { return catRank(a) - catRank(b) || a.localeCompare(b); })
@@ -3480,8 +3512,8 @@
       '<div><div class="l">Order value (at cost)</div><div class="a gold">' + inr.format(tot.v) + "</div>" + (tot.nc ? '<div class="l warn-t">' + tot.nc + " item" + (tot.nc > 1 ? "s" : "") + " without a cost price</div>" : "") + "</div>";
     var rows = all.filter(function (r) {
       if (r.stopped && show !== "all") return false;
-      if (show === "order" && !(r.units > 0) && !r.touched) return false;
-      if (show === "low" && !r.low) return false;
+      if (show === "order" && !(r.units > 0) && !r.touched && !r.isNew) return false;
+      if (show === "low" && !r.low && !r.isNew) return false;
       if (cat && r.cat !== cat) return false;
       if (q && r.name.toLowerCase().indexOf(q) < 0) return false;
       return true;
@@ -3516,6 +3548,7 @@
       if (r.stopped) notes.push('<span class="tag">Not ordering</span>');
       if (!r.stopped && !r.cz.perBottle && r.cz.missing) notes.push('<span class="warn-t">case size not set</span>');
       if (!r.stopped && r.stock <= 0 && r.avg > 0) notes.push('<span class="neg">out of stock</span>');
+      if (!r.stopped && r.isNew) notes.push('<span class="tag">New item</span> no sales yet, enter how many to order');
       var stopBtn = '<button class="ind-stop" type="button" data-istop="' + esc(r.name) + '">' + (r.stopped ? "Order again" : "Stop ordering") + "</button>";
       if (r.stopped) orderCell = '<span class="ind-unit">–</span>';
       return pre + '<tr' + (r.stopped ? ' class="stopped"' : "") + '><td class="item">' + esc(r.name) + stopBtn + (notes.length ? "<small>" + notes.join(" · ") + "</small>" : "") + "</td>" +
