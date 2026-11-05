@@ -3374,8 +3374,11 @@
   try { var sd = Number(localStorage.getItem("ind-days")); if (sd > 0) $("ind-days").value = sd; } catch (x) {}
   var indKind = function (cat) { return cat === "Beer" || cat === "Wines" ? "beer" : cat === "Country Spirits" ? "country" : "spirits"; };
   var sizeOf = function (l) { var n = Number(l.size_ml); if (n > 0) return n; var m = String(l.item_name).match(/(\d+)\s*$/); return m ? Number(m[1]) : 0; };
-  function caseSizeFor(cat, size) {
-    if (cat === "Overseas Spirits") return { n: 1, perBottle: true };
+  // Items ordered by the bottle, not by the case, on top of all Overseas Spirits.
+  // Exact item name as in the stock report; other sizes of the same brand still go by the case.
+  var PER_BOTTLE_ITEMS = ["OAKSMITH GOLD W 375", "OAKSMITH GOLD W 750"];
+  function caseSizeFor(cat, size, name) {
+    if (cat === "Overseas Spirits" || PER_BOTTLE_ITEMS.indexOf(cleanName(name)) >= 0) return { n: 1, perBottle: true };
     var k = indKind(cat), c = state.ind.cases;
     // Country spirits use their own size if set, otherwise the spirits one
     var n = c[k + ":" + size] || (k === "country" ? c["spirits:" + size] : null) || c[(k === "beer" ? "spirits" : "beer") + ":" + size];
@@ -3428,8 +3431,8 @@
   function indentCalc() {
     var minDays = Math.max(1, Math.round(toNum($("ind-days").value)) || 15), n = state.ind.days || 1;
     return state.ind.rows.map(function (r) {
-      var avg = r.sold / n, target = avg * minDays, short = Math.max(0, target - r.stock), cz = caseSizeFor(r.cat, r.size);
-      var units = cz.perBottle ? Math.round(short) : Math.round(short / cz.n); // nearest case (or bottle for overseas spirits)
+      var avg = r.sold / n, target = avg * minDays, short = Math.max(0, target - r.stock), cz = caseSizeFor(r.cat, r.size, r.name);
+      var units = cz.perBottle ? Math.round(short) : Math.round(short / cz.n); // nearest case (or bottle for overseas spirits and PER_BOTTLE_ITEMS)
       var stopped = !!state.ind.stopped[stopKey(r.name)];
       if (stopped) units = 0;
       var suggested = units, ov = stopped ? null : state.ind.ovr[r.name], edited = ov != null && ov !== suggested;
@@ -3451,7 +3454,7 @@
     var tot = order.reduce(function (a, r) { a.b += r.bottles; a.v += r.value || 0; if (!r.cz.perBottle) a.c += r.units; else a.ob += r.units; if (r.value == null) a.nc++; return a; }, { b: 0, v: 0, c: 0, ob: 0, nc: 0 });
     $("ind-sum").innerHTML =
       '<div><div class="l">Items to order</div><div class="a">' + order.length + "</div></div>" +
-      '<div><div class="l">Cases</div><div class="a">' + num.format(tot.c) + (tot.ob ? ' <span style="font-size:.8rem;color:var(--muted)">+ ' + tot.ob + " overseas bottles</span>" : "") + "</div></div>" +
+      '<div><div class="l">Cases</div><div class="a">' + num.format(tot.c) + (tot.ob ? ' <span style="font-size:.8rem;color:var(--muted)">+ ' + tot.ob + " single bottles</span>" : "") + "</div></div>" +
       '<div><div class="l">Bottles</div><div class="a">' + num.format(tot.b) + "</div></div>" +
       '<div><div class="l">Order value (at cost)</div><div class="a gold">' + inr.format(tot.v) + "</div>" + (tot.nc ? '<div class="l warn-t">' + tot.nc + " item" + (tot.nc > 1 ? "s" : "") + " without a cost price</div>" : "") + "</div>";
     var rows = all.filter(function (r) {
@@ -3513,7 +3516,7 @@
     renderIndent();
   });
   ["ind-show", "ind-cat"].forEach(function (id) { $(id).addEventListener("change", renderIndent); });
-  // Editing the order: whole cases (bottles for overseas spirits); totals and value follow
+  // Editing the order: whole cases (bottles for overseas spirits and PER_BOTTLE_ITEMS); totals and value follow
   $("ind-table").addEventListener("change", function (e) {
     var i = e.target.closest(".ind-in"); if (!i) return;
     var v = Math.max(0, Math.round(toNum(i.value)));
@@ -3899,7 +3902,7 @@
     });
     var missing = 0;
     Object.keys(rows).forEach(function (k) {
-      var x = rows[k], cz = caseSizeFor(x.cat, x.size);
+      var x = rows[k], cz = caseSizeFor(x.cat, x.size, x.name);
       x.per = cz.perBottle || cz.missing ? null : cz.n;
       if (!x.per && x.bottles) missing++;
       x.cases = x.per ? x.bottles / x.per : 0;
