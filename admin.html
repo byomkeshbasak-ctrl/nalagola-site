@@ -1418,11 +1418,26 @@
     return { parts: parts, bal: bal, end: end, total: parts.reduce(function (s2, p) { return s2 + p.a; }, 0) };
   }
 
+  // Net profit for the month on view, worked out the same way as the "Total profit" card:
+  // shop net profit (gross profit + other income − expenses) + bar counter profit (selling − cost).
+  function monthProfit() {
+    var r = monthRange(state.month);
+    var shop = sum(state.reports, "gross_profit") + sum(state.ledger.income) - sum(state.ledger.expenses);
+    var bar = (state.bk.goods || []).filter(function (g) { return g.goods_date >= r[0] && g.goods_date <= r[1]; })
+      .reduce(function (a, g) { return a + g.qty * (g.sell_price - g.cost_price); }, 0);
+    return { shop: shop, bar: bar, total: shop + bar };
+  }
+
   // Keep the latest business capital where the Personal Networth Tracker can read it
   var lastCapSaved = "";
   function saveCapitalSnapshot(x) {
     if (!state.cap.opening || !x.end) return;
     var parts = x.parts.map(function (p) { return { k: p.k, l: p.l, a: Math.round(p.a * 100) / 100, d: p.d }; });
+    // Month's net profit travels with the snapshot for the tracker to show. It is not part of the
+    // capital total (x.total was added up above, before this line), since profit is already inside the balances.
+    var mp = monthProfit(), mName = new Date(state.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "short" });
+    parts.push({ k: "net_profit", info: true, l: "Net profit, " + mName, a: Math.round(mp.total * 100) / 100,
+      d: "shop " + inr.format(mp.shop) + " + bar " + inr.format(mp.bar) + ", to " + fmtDate(x.end) });
     var key = x.end + "|" + Math.round(x.total) + "|" + JSON.stringify(parts);
     if (key === lastCapSaved) return; lastCapSaved = key;
     sb.from("business_capital").upsert({ as_of: x.end, total: Math.round(x.total * 100) / 100, parts: parts, updated_at: new Date().toISOString() }, { onConflict: "as_of" }).then(function () {});

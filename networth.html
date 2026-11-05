@@ -2672,7 +2672,9 @@
     $("biz-total").textContent = l ? inr.format(l.total) : "–";
     $("biz-total-s").textContent = l ? "As of " + fmtDate(l.as_of) + " · read from the shop accounts" : "Open the shop accounts page once and this fills in.";
     $("biz-parts").innerHTML = l ? (l.parts || []).map(function (p) {
-      return '<div class="tile" style="cursor:default"><div class="l">' + esc(p.l) + '</div><div class="a' + (p.a < 0 ? " neg" : "") + '">' + (p.a < -0.5 ? "− " + inr.format(-p.a) : inr.format(p.a)) + '</div><div class="d">' + esc(p.d || "") + "</div></div>";
+      // Net profit is shown for information only; it is not one of the parts that make up the total
+      var cls = p.a < 0 ? " neg" : p.k === "net_profit" && p.a > 0.5 ? " pos" : "";
+      return '<div class="tile" style="cursor:default"><div class="l">' + esc(p.l) + '</div><div class="a' + cls + '">' + (p.a < -0.5 ? "− " + inr.format(-p.a) : inr.format(p.a)) + '</div><div class="d">' + esc(p.d || "") + "</div></div>";
     }).join("") : "";
     var rows = biz.list.slice(0, 31);
     $("biz-table").innerHTML = rows.length ? '<thead><tr><th>Date</th><th class="num">Business capital</th><th class="num">Change</th></tr></thead><tbody>' + rows.map(function (r, ix) {
