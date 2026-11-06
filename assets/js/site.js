@@ -12,8 +12,7 @@
   var SUPABASE_URL = "https://kikavlhdhdjeqqygfvbv.supabase.co";
   var SUPABASE_KEY = "sb_publishable_Xe16oJpxjHO31iWW_u9fNw_qtj2Vmc0";
 
-  // How short codes in the stock sheet read on the website. Same map as the
-  // previous catalogue page, plus two names approved for the redesign.
+  // How short codes in the stock sheet read on the website.
   var DISPLAY_NAMES = {
     "RS": "Royal Stag",
     "BP": "Blenders Pride",
@@ -45,10 +44,7 @@
     "OAKSMITH INT": "Oaksmith International"
   };
 
-  // Product photographs, keyed by the label code (item name without type
-  // letter and size). Add a line here only once the image file is in
-  // assets/products/ and its source and licence are recorded in
-  // product-image-manifest.csv. Labels without a line show "Photo pending".
+  // Product photographs (unchanged by the redesign).
   var PRODUCT_IMAGES = {
     "BUDWEISER MAGNUM": "assets/products/beer/budweiser-magnum.webp",
     "CARLSBERG ELEPHANT": "assets/products/beer/carlsberg-elephant.webp",
@@ -59,34 +55,54 @@
     // , "OLD MONK XXX": "assets/products/rum/old-monk-xxx.webp"
   };
 
-  // One featured label per category on the homepage. If a label is not in
-  // today's price list, the first label of that category is used instead.
-  var FEATURED = {
-    "Beer": "KINGFISHER ULTRA",
-    "Whisky": "RS",
-    "Rum": "OLD MONK XXX",
-    "Vodka": "MAGIC MOMENT",
-    "Gin": "BLUE LAGOON",
-    "Country Spirits": "COSMOS FIFTY",
-    "Overseas Spirits": "TEACHERS HIGHLAND",
-    "Wine": "BRO CODE"
-  };
-
+  // Website category names. The database keeps its own names; these are display labels only.
   var CATEGORIES = [
-    { name: "Beer", slug: "beer" },
-    { name: "Whisky", slug: "whisky" },
-    { name: "Rum", slug: "rum" },
-    { name: "Vodka", slug: "vodka" },
-    { name: "Gin", slug: "gin" },
-    { name: "Country Spirits", slug: "country-spirits" },
-    { name: "Overseas Spirits", slug: "overseas-spirits" },
-    { name: "Wine", slug: "wine" }
+    { name: "Whisky", slug: "whisky", blurb: "Indian whisky, from everyday blends to premium labels." },
+    { name: "Premium Whisky", slug: "premium-whisky", blurb: "Imported Scotch whisky." },
+    { name: "Rum", slug: "rum", blurb: "Dark, white and flavoured rum." },
+    { name: "Beer", slug: "beer", blurb: "Lager and strong beer." },
+    { name: "Vodka", slug: "vodka", blurb: "Plain and flavoured vodka." },
+    { name: "Gin", slug: "gin", blurb: "Gin for the home bar." },
+    { name: "Wine", slug: "wine", blurb: "Wine and wine-based drinks." },
+    { name: "IML", slug: "iml", blurb: "Indian-made liquor (country spirits)." }
   ];
-  // The database calls wine "Wines"; the site shows "Wine".
-  var CATEGORY_ALIASES = { "Wines": "Wine" };
+  var DB_TO_DISPLAY = {
+    "Whisky": "Whisky", "Overseas Spirits": "Premium Whisky", "Rum": "Rum", "Beer": "Beer",
+    "Vodka": "Vodka", "Gin": "Gin", "Wines": "Wine", "Wine": "Wine", "Country Spirits": "IML"
+  };
+  // Older links (categories.html#overseas-spirits) keep working
+  var SLUG_ALIASES = { "overseas-spirits": "premium-whisky", "country-spirits": "iml" };
 
-  // Type letters in stock-sheet item names ("RS W 750"). IML is left out on
-  // purpose: it is part of country-spirit names such as "Bazigar IML".
+  // Brand families, matched at the start of the display name. Anything else uses its first word.
+  var BRANDS = ["Magic Moments", "Old Monk", "Johnnie Walker", "Blenders Pride", "Imperial Blue", "Royal Stag", "Royal Challenge",
+    "Royal Green", "Officer\u2019s Choice", "McDowell\u2019s", "Teacher\u2019s", "William Lawson\u2019s", "Black & White", "Black Dog",
+    "100 Pipers", "VAT 69", "Mansion House", "Green Label", "All Seasons", "Mountain Oak", "Disco Panda", "Blue Lagoon",
+    "Bro Code", "Cosmos Fifty", "Millenium Royal", "Signature", "Antiquity", "Haywards", "Kingfisher", "Budweiser", "Carlsberg",
+    "Tuborg", "Bacardi", "Smirnoff", "Snoski", "Oaksmith", "Brothers"];
+
+  // Homepage collections: neutral selections from the live price list (no popularity claims).
+  var COLLECTIONS = [
+    { id: "whisky", label: "Whisky selection", cat: "Whisky", codes: ["RS", "BP", "RC", "ANTIQUITY BLUE"] },
+    { id: "premium", label: "Premium Whisky selection", cat: "Premium Whisky", codes: ["TEACHERS HIGHLAND", "BLACK DOG", "100 PIPERS", "VAT 69"] },
+    { id: "beer", label: "Beer selection", cat: "Beer", codes: ["KINGFISHER ULTRA", "BUDWEISER MAGNUM", "CARLSBERG ELEPHANT", "TUBORG CLASSIC"] }
+  ];
+
+  var PRICE_RANGES = [
+    { id: "u200", label: "Under \u20b9200", min: 0, max: 199.99 },
+    { id: "200-500", label: "\u20b9200 to \u20b9500", min: 200, max: 500 },
+    { id: "500-1000", label: "\u20b9500 to \u20b91,000", min: 500.01, max: 1000 },
+    { id: "1000-2000", label: "\u20b91,000 to \u20b92,000", min: 1000.01, max: 2000 },
+    { id: "2000", label: "Above \u20b92,000", min: 2000.01, max: Infinity }
+  ];
+  var SORTS = [
+    { id: "rec", label: "By category" },
+    { id: "az", label: "Name: A to Z" },
+    { id: "za", label: "Name: Z to A" },
+    { id: "plh", label: "Price: low to high" },
+    { id: "phl", label: "Price: high to low" }
+  ];
+
+  // Type letters in stock-sheet item names ("RS W 750"). IML is part of country-spirit names.
   var TYPE_CODES = ["W", "R", "V", "B", "G", "CL", "WN", "WINE", "BR", "T", "TQ"];
   var KEEP_UPPER = ["XXX", "VAT", "IB", "BP", "RC", "OC", "MCD", "JW", "IML", "II", "III", "XO", "VSOP", "VS"];
 
@@ -99,10 +115,9 @@
     });
   }
   function slugify(s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
-  function norm(s) { return String(s).toLowerCase().replace(/[\u2018\u2019]/g, "'"); }
+  function norm(s) { return String(s).toLowerCase().replace(/[\u2018\u2019]/g, "'").replace(/\s+/g, " ").trim(); }
   function baseName(item) {
     var t = String(item).trim().toUpperCase().split(/\s+/);
-    // A type letter run into the size with no space ("XCLAMATION W750")
     var last = /^([A-Z]+)(\d+)$/.exec(t[t.length - 1]);
     if (t.length > 1 && last && TYPE_CODES.indexOf(last[1]) >= 0) return t.slice(0, -1).join(" ");
     for (var i = t.length - 2; i >= 1; i--) { if (TYPE_CODES.indexOf(t[i]) >= 0) return t.slice(0, i).join(" "); }
@@ -116,54 +131,55 @@
     }).join(" ");
   }
   function displayName(base) { return DISPLAY_NAMES[base] || titleCase(base).replace(/'/g, "\u2019"); }
-  function fmtSize(ml) {
-    ml = Number(ml);
-    if (!ml) return "";
-    return ml >= 1000 ? (ml / 1000).toString() + " L" : ml + " ml";
+  function brandOf(name) {
+    var hit = BRANDS.filter(function (b) { return name === b || name.indexOf(b + " ") === 0; })
+      .sort(function (a, b) { return b.length - a.length; })[0];
+    var brand = hit || name.split(" ")[0];
+    return { brand: brand, variant: name.slice(brand.length).trim() };
   }
+  function fmtSize(ml) { ml = Number(ml); if (!ml) return ""; return ml >= 1000 ? ml / 1000 + " L" : ml + " ml"; }
   var inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
   function money(n) { return inr.format(n); }
   function labels(n) { return n === 1 ? "1 label" : n + " labels"; }
   function waLink(msg) { return "https://wa.me/" + SHOP_NUMBER + (msg ? "?text=" + encodeURIComponent(msg) : ""); }
+  function catBySlug(slug) {
+    slug = SLUG_ALIASES[slug] || slug;
+    return CATEGORIES.filter(function (c) { return c.slug === slug; })[0] || null;
+  }
+  function slugOf(name) { var c = CATEGORIES.filter(function (x) { return x.name === name; })[0]; return c ? c.slug : slugify(name); }
 
   /* ---------- data ---------- */
-  // Turns the RPC rows into categories -> labels -> sizes.
-  // Where the same label and size appears more than once with different MRPs,
-  // the highest MRP is shown (owner rule: when in doubt, show the higher price).
+  // Rows -> labels with sizes. Where the same label and size has more than one MRP,
+  // the highest is shown (owner rule: when in doubt, show the higher price).
   function buildModel(rows) {
     var byKey = {}, asOf = null;
     rows.forEach(function (r) {
       if (!r || r.item_name == null) return;
-      var cat = CATEGORY_ALIASES[r.category] || r.category || "Other";
+      var cat = DB_TO_DISPLAY[r.category] || r.category || "Other";
       var base = baseName(r.item_name);
       var key = cat + "|" + base;
-      var lab = byKey[key] || (byKey[key] = { key: base, name: displayName(base), cat: cat, sizes: {} });
+      var lab = byKey[key];
+      if (!lab) {
+        var name = displayName(base), bv = brandOf(name);
+        lab = byKey[key] = { key: base, name: name, brand: bv.brand, variant: bv.variant, cat: cat, sizes: {} };
+      }
       var ml = Number(r.size_ml) || 0, mrp = Number(r.mrp);
       if (!isFinite(mrp)) return;
       if (!(ml in lab.sizes) || mrp > lab.sizes[ml]) lab.sizes[ml] = mrp;
       if (r.as_of && (!asOf || r.as_of > asOf)) asOf = r.as_of;
     });
+    var cats = CATEGORIES.slice();
     var list = Object.keys(byKey).map(function (k) {
       var l = byKey[k];
       l.rows = Object.keys(l.sizes).map(Number).sort(function (a, b) { return b - a; })
         .map(function (ml) { return { ml: ml, mrp: l.sizes[ml] }; });
-      l.search = norm(l.name + " " + l.key + " " + l.cat);
+      l.search = norm([l.name, l.brand, l.variant, l.key, l.cat].join(" "));
+      if (!cats.some(function (c) { return c.name === l.cat; })) cats.push({ name: l.cat, slug: slugify(l.cat), blurb: "" });
       return l;
-    });
-    var cats = CATEGORIES.slice();
-    list.forEach(function (l) {
-      if (!cats.some(function (c) { return c.name === l.cat; })) cats.push({ name: l.cat, slug: slugify(l.cat) });
     });
     var order = cats.map(function (c) { return c.name; });
     list.sort(function (a, b) { return order.indexOf(a.cat) - order.indexOf(b.cat) || a.name.localeCompare(b.name); });
-    var sizes = {};
-    list.forEach(function (l) { l.rows.forEach(function (r) { if (r.ml) sizes[r.ml] = 1; }); });
-    return {
-      labels: list,
-      cats: cats,
-      sizes: Object.keys(sizes).map(Number).sort(function (a, b) { return a - b; }),
-      asOf: asOf
-    };
+    return { labels: list, cats: cats, asOf: asOf };
   }
 
   function loadCatalogue() {
@@ -179,7 +195,6 @@
       return buildModel(rows);
     });
   }
-
   function fmtDate(iso) {
     var p = String(iso).split("-");
     if (p.length < 3) return "";
@@ -187,206 +202,279 @@
   }
 
   /* ---------- shared rendering ---------- */
-  function mediaHtml(l) {
+  function mediaHtml(l, big) {
     var src = PRODUCT_IMAGES[l.key];
-    if (src) {
-      return '<div class="media"><img src="' + esc(src) + '" alt="' + esc(l.name) + ' bottle" loading="lazy" decoding="async" width="600" height="600"></div>';
-    }
+    if (src) return '<div class="media"><img src="' + esc(src) + '" alt="' + esc(l.name) + ' bottle" loading="' + (big ? "eager" : "lazy") + '" decoding="async" width="800" height="800"></div>';
     return '<div class="media">' + BOTTLE_SVG + '<span class="pending">Photo pending</span></div>';
   }
-
-  function productCard(l, hitSize) {
-    return '<article class="card">' + mediaHtml(l) +
-      '<div class="info"><h4>' + esc(l.name) + '</h4><div class="sizes">' +
-      l.rows.map(function (r) {
-        return '<div class="size' + (hitSize && r.ml === hitSize ? " hit" : "") + '"><span class="ml">' + esc(fmtSize(r.ml)) +
-          '</span><span class="mrp">' + money(r.mrp) + "</span></div>";
-      }).join("") + "</div></div></article>";
+  function sizeRows(l, hitSize) {
+    return l.rows.map(function (r) {
+      return '<div class="size' + (hitSize && r.ml === hitSize ? " hit" : "") + '"><span class="ml">' + esc(fmtSize(r.ml)) + '</span><span class="mrp">' + money(r.mrp) + "</span></div>";
+    }).join("");
   }
 
   /* ---------- page chrome ---------- */
   function initChrome() {
     var yr = document.getElementById("yr");
     if (yr) yr.textContent = new Date().getFullYear();
-    var btn = document.getElementById("menu-btn"), nav = document.getElementById("site-nav");
-    if (btn && nav) {
-      btn.addEventListener("click", function () {
-        var open = nav.classList.toggle("open");
+    var btn = document.getElementById("menu-btn"), panel = document.getElementById("menu-panel");
+    if (btn && panel) {
+      var set = function (open) {
+        panel.classList.toggle("open", open);
         btn.setAttribute("aria-expanded", open ? "true" : "false");
         btn.setAttribute("aria-label", open ? "Close menu" : "Open menu");
-      });
-      document.addEventListener("keydown", function (e) {
-        if (e.key === "Escape" && nav.classList.contains("open")) { nav.classList.remove("open"); btn.setAttribute("aria-expanded", "false"); btn.focus(); }
-      });
+      };
+      btn.addEventListener("click", function () { set(!panel.classList.contains("open")); });
+      panel.addEventListener("click", function (e) { if (e.target.closest("a")) set(false); });
+      document.addEventListener("keydown", function (e) { if (e.key === "Escape" && panel.classList.contains("open")) { set(false); btn.focus(); } });
     }
   }
 
   /* ---------- homepage ---------- */
   function initHome() {
-    var featGrid = document.getElementById("featured-grid");
-    var featSection = document.getElementById("featured");
+    var section = document.getElementById("collections");
+    var tabsEl = document.getElementById("coll-tabs"), gridEl = document.getElementById("coll-grid"), noteEl = document.getElementById("coll-note");
     loadCatalogue().then(function (m) {
       if (!m.labels.length) throw new Error("Empty price list");
-      // Category counts on the tiles
-      m.cats.forEach(function (c) {
-        var el = document.querySelector('[data-count="' + c.slug + '"]');
-        if (el) {
-          var n = m.labels.filter(function (l) { return l.cat === c.name; }).length;
-          el.textContent = n ? labels(n) : "Ask us about availability";
-        }
-      });
-      var total = document.getElementById("label-total");
-      if (total) total.textContent = m.labels.length + " labels";
-      // Featured: one label per category
-      var picks = [];
       CATEGORIES.forEach(function (c) {
-        var inCat = m.labels.filter(function (l) { return l.cat === c.name; });
-        if (!inCat.length) return;
-        var want = FEATURED[c.name];
-        picks.push(inCat.filter(function (l) { return l.key === want; })[0] || inCat[0]);
+        var el = document.querySelector('[data-count="' + c.slug + '"]');
+        if (el) { var n = m.labels.filter(function (l) { return l.cat === c.name; }).length; el.textContent = n ? labels(n) + " listed" : "Ask us about this range"; }
       });
-      featGrid.innerHTML = picks.map(function (l) {
-        var top = l.rows[0], more = l.rows.length - 1;
-        var slug = (CATEGORIES.filter(function (c) { return c.name === l.cat; })[0] || {}).slug || slugify(l.cat);
-        return '<a class="card" href="categories.html?q=' + encodeURIComponent(l.name) + "#" + slug + '">' + mediaHtml(l) +
-          '<div class="info"><span class="cat">' + esc(l.cat) + "</span><h3>" + esc(l.name) + "</h3>" +
-          '<div class="sizes"><div class="size"><span class="ml">' + esc(fmtSize(top.ml)) + '</span><span class="mrp">' + money(top.mrp) + "</span></div></div>" +
-          '<span class="more">' + (more ? "+" + more + (more > 1 ? " more sizes" : " more size") : "One size") + "</span></div></a>";
-      }).join("");
-      featSection.hidden = false;
-      var asof = document.getElementById("feat-asof");
-      if (asof && m.asOf) asof.textContent = "MRP from the shop\u2019s price list, updated " + fmtDate(m.asOf) + ".";
+      var tot = document.getElementById("label-total");
+      if (tot) tot.textContent = m.labels.length + " labels across " + m.cats.filter(function (c) { return m.labels.some(function (l) { return l.cat === c.name; }); }).length + " categories";
+      var sets = COLLECTIONS.map(function (c) {
+        var inCat = m.labels.filter(function (l) { return l.cat === c.cat; });
+        var picks = c.codes.map(function (k) { return inCat.filter(function (l) { return l.key === k; })[0]; }).filter(Boolean);
+        inCat.forEach(function (l) { if (picks.length < 4 && picks.indexOf(l) < 0) picks.push(l); });
+        return { c: c, picks: picks };
+      }).filter(function (s) { return s.picks.length; });
+      if (!sets.length) throw new Error("Nothing to show");
+      var active = 0;
+      function draw() {
+        tabsEl.innerHTML = sets.map(function (s, i) {
+          return '<button type="button" class="coll-tab" role="tab" id="ct-' + s.c.id + '" aria-controls="coll-grid" aria-selected="' + (i === active) + '" tabindex="' + (i === active ? 0 : -1) + '" data-i="' + i + '">' + esc(s.c.label) + "</button>";
+        }).join("");
+        gridEl.setAttribute("aria-labelledby", "ct-" + sets[active].c.id);
+        gridEl.innerHTML = sets[active].picks.map(function (l) {
+          var top = l.rows[0], more = l.rows.length - 1;
+          return '<a class="card" href="categories.html?category=' + slugOf(l.cat) + "&product=" + encodeURIComponent(l.key) + '">' + mediaHtml(l) +
+            '<div class="info"><span class="brand-line">' + esc(l.variant ? l.brand : l.cat) + "</span><h3>" + esc(l.name) + "</h3>" +
+            '<div class="sizes"><div class="size"><span class="ml">' + esc(fmtSize(top.ml)) + '</span><span class="mrp">' + money(top.mrp) + "</span></div></div>" +
+            '<span class="more">' + (more ? "+" + more + (more > 1 ? " more sizes" : " more size") + " \u00b7 View details" : "View details") + "</span></div></a>";
+        }).join("");
+      }
+      tabsEl.addEventListener("click", function (e) { var b = e.target.closest("[data-i]"); if (b) { active = +b.getAttribute("data-i"); draw(); tabsEl.querySelector('[aria-selected="true"]').focus(); } });
+      tabsEl.addEventListener("keydown", function (e) {
+        if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+        active = (active + (e.key === "ArrowRight" ? 1 : sets.length - 1)) % sets.length; draw(); tabsEl.querySelector('[aria-selected="true"]').focus();
+      });
+      draw();
+      if (noteEl && m.asOf) noteEl.textContent = "MRP from the shop\u2019s price list, updated " + fmtDate(m.asOf) + ". A selection, not a ranking.";
+      section.hidden = false;
     }).catch(function () {
-      // Price list unavailable: keep the tiles, drop counts and the featured row.
       document.querySelectorAll("[data-count]").forEach(function (el) { el.textContent = "See the range"; });
-      if (featSection) featSection.hidden = true;
+      if (section) section.hidden = true;
     });
   }
 
   /* ---------- catalogue page ---------- */
   function initCatalogue() {
-    var state = { cat: "All", q: "", size: 0 };
-    var model = null;
     var $ = function (id) { return document.getElementById(id); };
-    var out = $("catalogue"), tabsEl = $("tabs"), pillsEl = $("size-pills"), selectEl = $("size-select");
-    var qEl = $("search"), clearEl = $("clear"), headEl = $("results-title"), sumEl = $("results-summary");
+    var state = { cat: "All", q: "", brand: "", size: 0, price: "", sort: "rec" };
+    var model = null, pendingProduct = null;
+    var out = $("catalogue"), tabsEl = $("tabs"), qEl = $("search"), clearEl = $("clear");
+    var brandEl = $("f-brand"), sizeEl = $("f-size"), priceEl = $("f-price"), sortEl = $("f-sort");
+    var filtersEl = $("filters"), openBtn = $("filter-open"), scrim = $("scrim"), dlg = $("pd");
 
-    // Starting state from the link: categories.html?q=Old%20Monk#rum
+    // Starting state from the link: categories.html?category=whisky&q=old%20monk&product=RS
     var params = new URLSearchParams(location.search);
-    if (params.get("q")) state.q = params.get("q");
+    state.q = params.get("q") || "";
     qEl.value = state.q;
-
-    function catFromHash() {
-      var h = decodeURIComponent(location.hash.replace(/^#/, "")).toLowerCase();
-      if (!h || !model) return "All";
-      var c = model.cats.filter(function (x) { return x.slug === h; })[0];
+    pendingProduct = params.get("product");
+    function catFromUrl() {
+      var p = new URLSearchParams(location.search).get("category") || decodeURIComponent(location.hash.replace(/^#/, ""));
+      var c = p ? catBySlug(p.toLowerCase()) : null;
       return c ? c.name : "All";
     }
-    function setCat(name, push) {
-      state.cat = name;
-      if (push) {
-        var slug = name === "All" ? "" : (model.cats.filter(function (c) { return c.name === name; })[0] || {}).slug;
-        history.replaceState(null, "", location.pathname + location.search + (slug ? "#" + slug : ""));
-      }
-      render();
+    function syncUrl() {
+      var p = new URLSearchParams();
+      if (state.cat !== "All") p.set("category", slugOf(state.cat));
+      if (state.q.trim()) p.set("q", state.q.trim());
+      var qs = p.toString();
+      history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
     }
 
+    function inCat(l) { return state.cat === "All" || l.cat === state.cat; }
+    function eligibleRows(l) {
+      var pr = PRICE_RANGES.filter(function (x) { return x.id === state.price; })[0];
+      return l.rows.filter(function (r) {
+        return (!state.size || r.ml === state.size) && (!pr || (r.mrp >= pr.min && r.mrp <= pr.max));
+      });
+    }
+    function activeCount() { return (state.brand ? 1 : 0) + (state.size ? 1 : 0) + (state.price ? 1 : 0) + (state.sort !== "rec" ? 1 : 0); }
+
+    function fillSelect(el, opts, val) {
+      el.innerHTML = opts.map(function (o) { return '<option value="' + esc(o.v) + '"' + (String(o.v) === String(val) ? " selected" : "") + ">" + esc(o.t) + "</option>"; }).join("");
+      el.classList.toggle("active", !!val && val !== "rec");
+    }
     function renderControls() {
-      var tabs = [{ name: "All", n: model.labels.length }].concat(model.cats.map(function (c) {
-        return { name: c.name, n: model.labels.filter(function (l) { return l.cat === c.name; }).length };
+      var tabs = [{ name: "All", label: "All Products", n: model.labels.length }].concat(model.cats.map(function (c) {
+        return { name: c.name, label: c.name, n: model.labels.filter(function (l) { return l.cat === c.name; }).length };
       }).filter(function (t) { return t.n; }));
       tabsEl.innerHTML = tabs.map(function (t) {
-        return '<button type="button" class="tab" data-cat="' + esc(t.name) + '" aria-pressed="' + (t.name === state.cat) + '">' +
-          esc(t.name) + '<span class="n">' + t.n + "</span></button>";
+        return '<button type="button" class="tab" data-cat="' + esc(t.name) + '" aria-pressed="' + (t.name === state.cat) + '">' + esc(t.label) + '<span class="n">' + t.n + "</span></button>";
       }).join("");
-      var opts = [0].concat(model.sizes);
-      pillsEl.innerHTML = opts.map(function (s) {
-        return '<button type="button" class="pill" data-size="' + s + '" aria-pressed="' + (s === state.size) + '">' + (s ? esc(fmtSize(s)) : "All sizes") + "</button>";
-      }).join("");
-      selectEl.innerHTML = opts.map(function (s) {
-        return '<option value="' + s + '"' + (s === state.size ? " selected" : "") + ">" + (s ? esc(fmtSize(s)) : "All sizes") + "</option>";
-      }).join("");
+      var pool = model.labels.filter(inCat);
+      var brands = {}; pool.forEach(function (l) { brands[l.brand] = (brands[l.brand] || 0) + 1; });
+      var bList = Object.keys(brands).sort(function (a, b) { return a.localeCompare(b); });
+      if (state.brand && !brands[state.brand]) state.brand = "";
+      fillSelect(brandEl, [{ v: "", t: "All brands" }].concat(bList.map(function (b) { return { v: b, t: b + " (" + brands[b] + ")" }; })), state.brand);
+      var sizes = {}; pool.forEach(function (l) { l.rows.forEach(function (r) { if (r.ml) sizes[r.ml] = 1; }); });
+      var sList = Object.keys(sizes).map(Number).sort(function (a, b) { return a - b; });
+      if (state.size && !sizes[state.size]) state.size = 0;
+      fillSelect(sizeEl, [{ v: 0, t: "All sizes" }].concat(sList.map(function (s) { return { v: s, t: fmtSize(s) }; })), state.size || 0);
+      fillSelect(priceEl, [{ v: "", t: "Any price" }].concat(PRICE_RANGES.map(function (p) { return { v: p.id, t: p.label }; })), state.price);
+      fillSelect(sortEl, SORTS.map(function (s) { return { v: s.id, t: s.label }; }), state.sort);
+      var n = activeCount();
+      openBtn.textContent = n ? "Filters & sort (" + n + ")" : "Filters & sort";
+    }
+
+    function compute() {
+      var q = norm(state.q);
+      var hits = model.labels.filter(function (l) {
+        return inCat(l) && (!q || l.search.indexOf(q) >= 0) && (!state.brand || l.brand === state.brand) && eligibleRows(l).length;
+      });
+      var low = function (l) { return Math.min.apply(null, eligibleRows(l).map(function (r) { return r.mrp; })); };
+      if (state.sort === "az") hits.sort(function (a, b) { return a.name.localeCompare(b.name); });
+      if (state.sort === "za") hits.sort(function (a, b) { return b.name.localeCompare(a.name); });
+      if (state.sort === "plh") hits.sort(function (a, b) { return low(a) - low(b) || a.name.localeCompare(b.name); });
+      if (state.sort === "phl") hits.sort(function (a, b) { return low(b) - low(a) || a.name.localeCompare(b.name); });
+      return hits;
+    }
+    function card(l) {
+      return '<article class="card">' + mediaHtml(l) + '<div class="info"><span class="brand-line">' + esc(l.cat) + " \u00b7 " + esc(l.brand) + "</span><h4>" + esc(l.name) + "</h4>" +
+        (l.variant ? '<span class="variant">' + esc(l.variant) + "</span>" : "") +
+        '<div class="sizes">' + sizeRows(l, state.size) + '</div><button type="button" class="details" data-key="' + esc(l.cat + "|" + l.key) + '">View details<span class="sr-only"> for ' + esc(l.name) + "</span></button></div></article>";
     }
 
     function render() {
       if (!model) return;
       renderControls();
       clearEl.hidden = !state.q;
-      $("clear-filters").hidden = !(state.q || state.size || state.cat !== "All");
-      var q = norm(state.q.trim().replace(/\s+/g, " "));
-      var hits = model.labels.filter(function (l) {
-        return (state.cat === "All" || l.cat === state.cat) &&
-          (!q || l.search.indexOf(q) >= 0) &&
-          (!state.size || l.rows.some(function (r) { return r.ml === state.size; }));
-      });
-      headEl.textContent = state.cat === "All" ? "All categories" : state.cat;
-      sumEl.textContent = labels(hits.length) + " shown of " + model.labels.length;
+      var hits = compute();
+      var filtered = state.q.trim() || state.brand || state.size || state.price || state.cat !== "All";
+      $("clear-filters").hidden = !filtered;
+      $("results-title").textContent = state.cat === "All" ? "All Products" : state.cat;
+      var sortNote = state.sort === "plh" || state.sort === "phl" ? " \u00b7 sorted by the lowest listed MRP" + (state.size || state.price ? " within your filters" : "") : "";
+      $("results-summary").textContent = labels(hits.length) + " shown of " + model.labels.length + sortNote;
+      $("apply-btn").textContent = "Show " + labels(hits.length);
       if (!hits.length) {
-        var why = state.q ? "Nothing matches \u201c" + state.q + "\u201d" : "Nothing in that size here";
-        out.innerHTML = '<div class="notice"><p class="big">' + esc(why) + "</p>" +
-          "<p>Try another name or size, or ask us on WhatsApp whether we can get it.</p>" +
-          '<div class="actions"><button type="button" class="btn btn-outline" id="reset">Show everything</button>' +
-          '<a class="btn btn-wine" target="_blank" rel="noopener" href="' + esc(waLink(state.q ? "Hi, do you have " + state.q + "?" : "")) + '">Ask on WhatsApp</a></div></div>';
-        $("reset").addEventListener("click", function () {
-          state.q = ""; state.size = 0; qEl.value = ""; setCat("All", true);
-        });
+        var why = state.q.trim() ? "Nothing matches \u201c" + state.q.trim() + "\u201d" : "Nothing matches these filters";
+        out.innerHTML = '<div class="notice"><p class="big">' + esc(why) + "</p><p>Try another name, brand, size or price, or ask us on WhatsApp whether we can get it.</p>" +
+          '<div class="actions"><button type="button" class="btn btn-outline" data-reset="all">Show everything</button>' +
+          '<a class="btn btn-dark" target="_blank" rel="noopener" href="' + esc(waLink(state.q.trim() ? "Hi, do you have " + state.q.trim() + "?" : "")) + '">Ask on WhatsApp</a></div></div>';
         return;
       }
-      out.innerHTML = model.cats.map(function (c) {
-        var items = hits.filter(function (l) { return l.cat === c.name; });
-        if (!items.length) return "";
-        // With one category selected the page heading already names it.
-        var head = state.cat === "All"
-          ? '<div class="group-head"><h3 id="h-' + esc(c.slug) + '">' + esc(c.name) + "</h3><span>" + labels(items.length) + "</span></div>"
-          : '<h3 class="sr-only" id="h-' + esc(c.slug) + '">' + esc(c.name) + "</h3>";
-        return '<section class="group" id="group-' + esc(c.slug) + '" aria-labelledby="h-' + esc(c.slug) + '">' + head + '<div class="prod-grid">' +
-          items.map(function (l) { return productCard(l, state.size); }).join("") + "</div></section>";
-      }).join("");
+      if (state.sort === "rec") {
+        out.innerHTML = model.cats.map(function (c) {
+          var items = hits.filter(function (l) { return l.cat === c.name; });
+          if (!items.length) return "";
+          var head = state.cat === "All"
+            ? '<div class="group-head"><h3 id="h-' + esc(c.slug) + '">' + esc(c.name) + "</h3><span>" + labels(items.length) + "</span></div>"
+            : '<h3 class="sr-only" id="h-' + esc(c.slug) + '">' + esc(c.name) + "</h3>";
+          return '<section class="group" aria-labelledby="h-' + esc(c.slug) + '">' + head + '<div class="prod-grid">' + items.map(card).join("") + "</div></section>";
+        }).join("");
+      } else {
+        out.innerHTML = '<div class="prod-grid">' + hits.map(card).join("") + "</div>";
+      }
     }
+
+    /* Product details */
+    var lastFocus = null;
+    function openDetails(l) {
+      lastFocus = document.activeElement;
+      $("pd-content").innerHTML = '<div class="pd-body">' + mediaHtml(l, true) + '<div class="pd-info"><span class="eyebrow">' + esc(l.cat) + "</span>" +
+        '<h2 id="pd-title">' + esc(l.name) + "</h2><dl><dt>Brand</dt><dd>" + esc(l.brand) + "</dd>" +
+        (l.variant ? "<dt>Variant</dt><dd>" + esc(l.variant) + "</dd>" : "") + "<dt>Category</dt><dd>" + esc(l.cat) + "</dd></dl>" +
+        '<table><thead><tr><th scope="col">Bottle size</th><th scope="col">MRP</th></tr></thead><tbody>' +
+        l.rows.map(function (r) { return "<tr><td>" + esc(fmtSize(r.ml)) + "</td><td>" + money(r.mrp) + "</td></tr>"; }).join("") + "</tbody></table>" +
+        '<p class="note">MRP as listed in the shop\u2019s price list' + (model.asOf ? ", updated " + esc(fmtDate(model.asOf)) : "") + ". Prices can change; please confirm in store. Sold in person at the shop only.</p>" +
+        '<div class="actions"><a class="btn btn-dark" target="_blank" rel="noopener" href="' + esc(waLink("Hi, do you have " + l.name + " in stock?")) + '">Ask about this bottle</a>' +
+        '<button type="button" class="btn btn-outline" data-close="1">Close</button></div></div></div>';
+      if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+      $("pd-close").focus();
+    }
+    function closeDetails() { if (dlg.open) { if (dlg.close) dlg.close(); else dlg.removeAttribute("open"); } }
+    dlg.addEventListener("close", function () { if (lastFocus && lastFocus.focus) lastFocus.focus(); });
+    dlg.addEventListener("click", function (e) { if (e.target === dlg || e.target.closest("[data-close]")) closeDetails(); });
+    $("pd-close").addEventListener("click", closeDetails);
+
+    /* Mobile filter drawer */
+    function setDrawer(open) {
+      filtersEl.classList.toggle("open", open);
+      scrim.hidden = !open;
+      openBtn.setAttribute("aria-expanded", open ? "true" : "false");
+      document.body.style.overflow = open ? "hidden" : "";
+      if (open) brandEl.focus(); else openBtn.focus();
+    }
+    openBtn.addEventListener("click", function () { setDrawer(true); });
+    scrim.addEventListener("click", function () { setDrawer(false); });
+    $("drawer-close").addEventListener("click", function () { setDrawer(false); });
+    $("apply-btn").addEventListener("click", function () { setDrawer(false); });
+    $("reset-btn").addEventListener("click", function () { state.brand = ""; state.size = 0; state.price = ""; state.sort = "rec"; render(); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && filtersEl.classList.contains("open")) setDrawer(false); });
+
+    /* Events */
+    tabsEl.addEventListener("click", function (e) { var b = e.target.closest("[data-cat]"); if (b) { state.cat = b.getAttribute("data-cat"); syncUrl(); render(); } });
+    brandEl.addEventListener("change", function () { state.brand = brandEl.value; render(); });
+    sizeEl.addEventListener("change", function () { state.size = Number(sizeEl.value); render(); });
+    priceEl.addEventListener("change", function () { state.price = priceEl.value; render(); });
+    sortEl.addEventListener("change", function () { state.sort = sortEl.value; render(); });
+    qEl.addEventListener("input", function () { state.q = qEl.value; syncUrl(); render(); });
+    clearEl.addEventListener("click", function () { state.q = ""; qEl.value = ""; syncUrl(); render(); qEl.focus(); });
+    $("clear-filters").addEventListener("click", function () { resetAll(); qEl.focus(); });
+    function resetAll() { state = { cat: "All", q: "", brand: "", size: 0, price: "", sort: "rec" }; qEl.value = ""; syncUrl(); render(); }
+    out.addEventListener("click", function (e) {
+      if (e.target.closest("[data-reset]")) { resetAll(); return; }
+      var d = e.target.closest("[data-key]");
+      if (d) { var k = d.getAttribute("data-key"); var l = model.labels.filter(function (x) { return x.cat + "|" + x.key === k; })[0]; if (l) openDetails(l); }
+    });
+    window.addEventListener("popstate", function () { if (model) { state.cat = catFromUrl(); render(); } });
+    window.addEventListener("hashchange", function () { if (model) { state.cat = catFromUrl(); syncUrl(); render(); } });
 
     function showError(kind) {
       $("asof").textContent = "";
-      tabsEl.innerHTML = ""; pillsEl.innerHTML = ""; selectEl.innerHTML = '<option value="0">All sizes</option>';
-      headEl.textContent = "Price list unavailable";
-      sumEl.textContent = "";
-      var msg = kind === "empty"
-        ? "The shop\u2019s price list is empty at the moment."
-        : "The price list didn\u2019t load. Check your connection and reload the page.";
-      out.innerHTML = '<div class="notice"><p class="big">' + esc(msg) + "</p>" +
-        "<p>You can still call or WhatsApp us to check what\u2019s on the shelf today.</p>" +
+      tabsEl.innerHTML = "";
+      $("results-title").textContent = "Price list unavailable";
+      $("results-summary").textContent = "";
+      var msg = kind === "empty" ? "The shop\u2019s price list is empty at the moment." : "The price list didn\u2019t load. Check your connection and try again.";
+      out.innerHTML = '<div class="notice"><p class="big">' + esc(msg) + "</p><p>You can still call or WhatsApp us to check what\u2019s on the shelf today.</p>" +
         '<div class="actions"><button type="button" class="btn btn-outline" id="retry">Try again</button>' +
-        '<a class="btn btn-wine" target="_blank" rel="noopener" href="' + esc(waLink("Hi, which brands do you have in stock today?")) + '">Ask on WhatsApp</a></div></div>';
+        '<a class="btn btn-dark" target="_blank" rel="noopener" href="' + esc(waLink("Hi, which brands do you have in stock today?")) + '">Ask on WhatsApp</a></div></div>';
       $("retry").addEventListener("click", start);
     }
-
-    // Events
-    tabsEl.addEventListener("click", function (e) {
-      var b = e.target.closest("[data-cat]"); if (b) setCat(b.getAttribute("data-cat"), true);
-    });
-    pillsEl.addEventListener("click", function (e) {
-      var b = e.target.closest("[data-size]"); if (b) { state.size = Number(b.getAttribute("data-size")); render(); }
-    });
-    selectEl.addEventListener("change", function () { state.size = Number(selectEl.value); render(); });
-    qEl.addEventListener("input", function () { state.q = qEl.value; render(); });
-    clearEl.addEventListener("click", function () { state.q = ""; qEl.value = ""; render(); qEl.focus(); });
-    $("clear-filters").addEventListener("click", function () { state.q = ""; state.size = 0; qEl.value = ""; setCat("All", true); qEl.focus(); });
-    window.addEventListener("hashchange", function () { if (model) { state.cat = catFromHash(); render(); } });
-
     function start() {
       out.innerHTML = '<div class="loading" role="status"><div class="spinner"></div>Loading today\u2019s price list\u2026</div>';
       loadCatalogue().then(function (m) {
         if (!m.labels.length) { showError("empty"); return; }
         model = m;
-        state.cat = catFromHash();
+        state.cat = catFromUrl();
+        syncUrl();
         if (m.asOf) $("asof").textContent = "Price list updated " + fmtDate(m.asOf) + ".";
         render();
+        if (pendingProduct) {
+          var l = m.labels.filter(function (x) { return x.key === pendingProduct.toUpperCase() && (state.cat === "All" || x.cat === state.cat); })[0];
+          pendingProduct = null;
+          if (l) openDetails(l);
+        }
       }).catch(function () { showError("error"); });
     }
+    if (params.get("focus") === "search") qEl.focus();
     start();
   }
 
   // Exposed for the test harness only; pages do not rely on it.
-  window.NalagolaCatalogue = { buildModel: buildModel, baseName: baseName, displayName: displayName };
+  window.NalagolaCatalogue = { buildModel: buildModel, baseName: baseName, displayName: displayName, brandOf: brandOf };
 
   document.addEventListener("DOMContentLoaded", function () {
     initChrome();
