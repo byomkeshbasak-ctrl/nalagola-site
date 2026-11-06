@@ -50,7 +50,13 @@
   // assets/products/ and its source and licence are recorded in
   // product-image-manifest.csv. Labels without a line show "Photo pending".
   var PRODUCT_IMAGES = {
-    // "OLD MONK XXX": "assets/products/rum/old-monk-xxx.png",
+    "BUDWEISER MAGNUM": "assets/products/beer/budweiser-magnum.webp",
+    "CARLSBERG ELEPHANT": "assets/products/beer/carlsberg-elephant.webp",
+    "KINGFISHER STRONG": "assets/products/beer/kingfisher-strong.webp",
+    "ANTIQUITY BLUE": "assets/products/whisky/antiquity-blue.webp"
+    // Held back: the supplied Old Monk photo is the Japan export label ("For sale in Japan").
+    // Remove the two slashes below to show it anyway, or replace the file with an Indian-label photo.
+    // , "OLD MONK XXX": "assets/products/rum/old-monk-xxx.webp"
   };
 
   // One featured label per category on the homepage. If a label is not in
