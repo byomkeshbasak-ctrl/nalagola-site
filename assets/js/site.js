@@ -49,7 +49,17 @@
     "BUDWEISER MAGNUM": "assets/products/beer/budweiser-magnum.webp",
     "CARLSBERG ELEPHANT": "assets/products/beer/carlsberg-elephant.webp",
     "KINGFISHER STRONG": "assets/products/beer/kingfisher-strong.webp",
-    "ANTIQUITY BLUE": "assets/products/whisky/antiquity-blue.webp"
+    "ANTIQUITY BLUE": "assets/products/whisky/antiquity-blue.webp",
+    "BP": "assets/products/whisky/bp.webp",
+    "BP RESERVE": "assets/products/whisky/bp-reserve.webp",
+    "IB DUAL CASK": "assets/products/whisky/ib-dual-cask.webp",
+    "MCD NO1": "assets/products/whisky/mcd-no1.webp",
+    "MCD NO1 LUXURY": "assets/products/whisky/mcd-no1-luxury.webp",
+    "ICONIQ": "assets/products/whisky/iconiq.webp",
+    "OAKSMITH GOLD": "assets/products/whisky/oaksmith-gold.webp",
+    "RC": "assets/products/whisky/rc.webp",
+    "ROYAL GREEN": "assets/products/whisky/royal-green.webp",
+    "RS": "assets/products/whisky/rs.webp"
     // Held back: the supplied Old Monk photo is the Japan export label ("For sale in Japan").
     // Remove the two slashes below to show it anyway, or replace the file with an Indian-label photo.
     // , "OLD MONK XXX": "assets/products/rum/old-monk-xxx.webp"
