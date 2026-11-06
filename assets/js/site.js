@@ -306,7 +306,8 @@
       if (!model) return;
       renderControls();
       clearEl.hidden = !state.q;
-      var q = norm(state.q.trim());
+      $("clear-filters").hidden = !(state.q || state.size || state.cat !== "All");
+      var q = norm(state.q.trim().replace(/\s+/g, " "));
       var hits = model.labels.filter(function (l) {
         return (state.cat === "All" || l.cat === state.cat) &&
           (!q || l.search.indexOf(q) >= 0) &&
@@ -362,6 +363,7 @@
     selectEl.addEventListener("change", function () { state.size = Number(selectEl.value); render(); });
     qEl.addEventListener("input", function () { state.q = qEl.value; render(); });
     clearEl.addEventListener("click", function () { state.q = ""; qEl.value = ""; render(); qEl.focus(); });
+    $("clear-filters").addEventListener("click", function () { state.q = ""; state.size = 0; qEl.value = ""; setCat("All", true); qEl.focus(); });
     window.addEventListener("hashchange", function () { if (model) { state.cat = catFromHash(); render(); } });
 
     function start() {
