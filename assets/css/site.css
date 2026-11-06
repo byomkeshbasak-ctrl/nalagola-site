@@ -124,13 +124,13 @@ a.skip:focus { position: fixed; top: 8px; left: 8px; width: auto; height: auto; 
 .cat-card .count { color: var(--grey-dark); }
 .cat-card .go { color: var(--gold); font-weight: 600; }
 .tone-whisky { --tone: #C98B3A; }
-.tone-premium-whisky { --tone: #C5A46D; }
+.tone-overseas-spirits { --tone: #C5A46D; }
 .tone-rum { --tone: #B5652B; }
 .tone-beer { --tone: #D9B84A; }
 .tone-vodka { --tone: #A9C4D6; }
 .tone-gin { --tone: #8DB38B; }
 .tone-wine { --tone: #A5455A; }
-.tone-iml { --tone: #B9AE9F; }
+.tone-country-spirits { --tone: #B9AE9F; }
 
 /* Featured collections */
 .coll-tabs { display: flex; gap: 6px; flex-wrap: wrap; }

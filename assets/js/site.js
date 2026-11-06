@@ -56,22 +56,20 @@
   };
 
   // Website category names. The database keeps its own names; these are display labels only.
+  // Website categories: the same names as the database, except "Wines", which shows as "Wine".
   var CATEGORIES = [
     { name: "Whisky", slug: "whisky", blurb: "Indian whisky, from everyday blends to premium labels." },
-    { name: "Premium Whisky", slug: "premium-whisky", blurb: "Imported Scotch whisky." },
     { name: "Rum", slug: "rum", blurb: "Dark, white and flavoured rum." },
     { name: "Beer", slug: "beer", blurb: "Lager and strong beer." },
     { name: "Vodka", slug: "vodka", blurb: "Plain and flavoured vodka." },
     { name: "Gin", slug: "gin", blurb: "Gin for the home bar." },
-    { name: "Wine", slug: "wine", blurb: "Wine and wine-based drinks." },
-    { name: "IML", slug: "iml", blurb: "Indian-made liquor (country spirits)." }
+    { name: "Country Spirits", slug: "country-spirits", blurb: "Indian-made liquor (IML)." },
+    { name: "Overseas Spirits", slug: "overseas-spirits", blurb: "Imported Scotch whisky." },
+    { name: "Wine", slug: "wine", blurb: "Wine and wine-based drinks." }
   ];
-  var DB_TO_DISPLAY = {
-    "Whisky": "Whisky", "Overseas Spirits": "Premium Whisky", "Rum": "Rum", "Beer": "Beer",
-    "Vodka": "Vodka", "Gin": "Gin", "Wines": "Wine", "Wine": "Wine", "Country Spirits": "IML"
-  };
-  // Older links (categories.html#overseas-spirits) keep working
-  var SLUG_ALIASES = { "overseas-spirits": "premium-whisky", "country-spirits": "iml" };
+  var DB_TO_DISPLAY = { "Wines": "Wine" };
+  // Links from the previous version (?category=premium-whisky, ?category=iml) keep working
+  var SLUG_ALIASES = { "premium-whisky": "overseas-spirits", "iml": "country-spirits" };
 
   // Brand families, matched at the start of the display name. Anything else uses its first word.
   var BRANDS = ["Magic Moments", "Old Monk", "Johnnie Walker", "Blenders Pride", "Imperial Blue", "Royal Stag", "Royal Challenge",
@@ -83,7 +81,7 @@
   // Homepage collections: neutral selections from the live price list (no popularity claims).
   var COLLECTIONS = [
     { id: "whisky", label: "Whisky selection", cat: "Whisky", codes: ["RS", "BP", "RC", "ANTIQUITY BLUE"] },
-    { id: "premium", label: "Premium Whisky selection", cat: "Premium Whisky", codes: ["TEACHERS HIGHLAND", "BLACK DOG", "100 PIPERS", "VAT 69"] },
+    { id: "overseas", label: "Overseas Spirits selection", cat: "Overseas Spirits", codes: ["TEACHERS HIGHLAND", "BLACK DOG", "100 PIPERS", "VAT 69"] },
     { id: "beer", label: "Beer selection", cat: "Beer", codes: ["KINGFISHER ULTRA", "BUDWEISER MAGNUM", "CARLSBERG ELEPHANT", "TUBORG CLASSIC"] }
   ];
 
@@ -140,7 +138,10 @@
   function fmtSize(ml) { ml = Number(ml); if (!ml) return ""; return ml >= 1000 ? ml / 1000 + " L" : ml + " ml"; }
   var inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
   function money(n) { return inr.format(n); }
-  function labels(n) { return n === 1 ? "1 label" : n + " labels"; }
+  function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
+  function products(n) { return plural(n, "product", "products"); }
+  function brands(n) { return plural(n, "brand", "brands"); }
+  function brandCount(list) { var b = {}; list.forEach(function (l) { b[l.brand] = 1; }); return Object.keys(b).length; }
   function waLink(msg) { return "https://wa.me/" + SHOP_NUMBER + (msg ? "?text=" + encodeURIComponent(msg) : ""); }
   function catBySlug(slug) {
     slug = SLUG_ALIASES[slug] || slug;
@@ -238,10 +239,14 @@
       if (!m.labels.length) throw new Error("Empty price list");
       CATEGORIES.forEach(function (c) {
         var el = document.querySelector('[data-count="' + c.slug + '"]');
-        if (el) { var n = m.labels.filter(function (l) { return l.cat === c.name; }).length; el.textContent = n ? labels(n) + " listed" : "Ask us about this range"; }
+        if (!el) return;
+        var inCat = m.labels.filter(function (l) { return l.cat === c.name; });
+        var keep = function (t) { return t.replace(" ", "\u00a0"); }; // keep "21 brands" on one line
+        el.textContent = inCat.length ? keep(products(inCat.length)) + " \u00b7 " + keep(brands(brandCount(inCat))) : "Ask us about this range";
       });
       var tot = document.getElementById("label-total");
-      if (tot) tot.textContent = m.labels.length + " labels across " + m.cats.filter(function (c) { return m.labels.some(function (l) { return l.cat === c.name; }); }).length + " categories";
+      var nCats = m.cats.filter(function (c) { return m.labels.some(function (l) { return l.cat === c.name; }); }).length;
+      if (tot) tot.textContent = products(m.labels.length) + " from " + brands(brandCount(m.labels)) + " across " + plural(nCats, "category", "categories") + ".";
       var sets = COLLECTIONS.map(function (c) {
         var inCat = m.labels.filter(function (l) { return l.cat === c.cat; });
         var picks = c.codes.map(function (k) { return inCat.filter(function (l) { return l.key === k; })[0]; }).filter(Boolean);
@@ -322,13 +327,13 @@
         return { name: c.name, label: c.name, n: model.labels.filter(function (l) { return l.cat === c.name; }).length };
       }).filter(function (t) { return t.n; }));
       tabsEl.innerHTML = tabs.map(function (t) {
-        return '<button type="button" class="tab" data-cat="' + esc(t.name) + '" aria-pressed="' + (t.name === state.cat) + '">' + esc(t.label) + '<span class="n">' + t.n + "</span></button>";
+        return '<button type="button" class="tab" data-cat="' + esc(t.name) + '" aria-pressed="' + (t.name === state.cat) + '" aria-label="' + esc(t.label + ", " + products(t.n)) + '">' + esc(t.label) + '<span class="n" aria-hidden="true">' + t.n + "</span></button>";
       }).join("");
       var pool = model.labels.filter(inCat);
-      var brands = {}; pool.forEach(function (l) { brands[l.brand] = (brands[l.brand] || 0) + 1; });
-      var bList = Object.keys(brands).sort(function (a, b) { return a.localeCompare(b); });
-      if (state.brand && !brands[state.brand]) state.brand = "";
-      fillSelect(brandEl, [{ v: "", t: "All brands" }].concat(bList.map(function (b) { return { v: b, t: b + " (" + brands[b] + ")" }; })), state.brand);
+      var byBrand = {}; pool.forEach(function (l) { byBrand[l.brand] = (byBrand[l.brand] || 0) + 1; });
+      var bList = Object.keys(byBrand).sort(function (a, b) { return a.localeCompare(b); });
+      if (state.brand && !byBrand[state.brand]) state.brand = "";
+      fillSelect(brandEl, [{ v: "", t: "All brands (" + bList.length + ")" }].concat(bList.map(function (b) { return { v: b, t: b + " (" + products(byBrand[b]) + ")" }; })), state.brand);
       var sizes = {}; pool.forEach(function (l) { l.rows.forEach(function (r) { if (r.ml) sizes[r.ml] = 1; }); });
       var sList = Object.keys(sizes).map(Number).sort(function (a, b) { return a - b; });
       if (state.size && !sizes[state.size]) state.size = 0;
@@ -366,8 +371,8 @@
       $("clear-filters").hidden = !filtered;
       $("results-title").textContent = state.cat === "All" ? "All Products" : state.cat;
       var sortNote = state.sort === "plh" || state.sort === "phl" ? " \u00b7 sorted by the lowest listed MRP" + (state.size || state.price ? " within your filters" : "") : "";
-      $("results-summary").textContent = labels(hits.length) + " shown of " + model.labels.length + sortNote;
-      $("apply-btn").textContent = "Show " + labels(hits.length);
+      $("results-summary").textContent = products(hits.length) + " shown of " + model.labels.length + sortNote;
+      $("apply-btn").textContent = "Show " + products(hits.length);
       if (!hits.length) {
         var why = state.q.trim() ? "Nothing matches \u201c" + state.q.trim() + "\u201d" : "Nothing matches these filters";
         out.innerHTML = '<div class="notice"><p class="big">' + esc(why) + "</p><p>Try another name, brand, size or price, or ask us on WhatsApp whether we can get it.</p>" +
@@ -380,7 +385,7 @@
           var items = hits.filter(function (l) { return l.cat === c.name; });
           if (!items.length) return "";
           var head = state.cat === "All"
-            ? '<div class="group-head"><h3 id="h-' + esc(c.slug) + '">' + esc(c.name) + "</h3><span>" + labels(items.length) + "</span></div>"
+            ? '<div class="group-head"><h3 id="h-' + esc(c.slug) + '">' + esc(c.name) + "</h3><span>" + products(items.length) + " \u00b7 " + brands(brandCount(items)) + "</span></div>"
             : '<h3 class="sr-only" id="h-' + esc(c.slug) + '">' + esc(c.name) + "</h3>";
           return '<section class="group" aria-labelledby="h-' + esc(c.slug) + '">' + head + '<div class="prod-grid">' + items.map(card).join("") + "</div></section>";
         }).join("");
