@@ -88,7 +88,14 @@
     "SMIRNOFF MINTY JAMUN": "assets/products/vodka/smirnoff-minty-jamun.webp",
     "SNOSKI": "assets/products/vodka/snoski.webp",
     "SNOSKI APPLE": "assets/products/vodka/snoski-apple.webp",
-    "SNOSKI JAMUN": "assets/products/vodka/snoski-jamun.webp"
+    "SNOSKI JAMUN": "assets/products/vodka/snoski-jamun.webp",
+    "100 PIPERS": "assets/products/overseas-spirits/100-pipers.webp",
+    "BLACK & WHITE": "assets/products/overseas-spirits/black-and-white.webp",
+    "BLACK DOG": "assets/products/overseas-spirits/black-dog.webp",
+    "JW RED LEBEL": "assets/products/overseas-spirits/jw-red-label.webp",
+    "TEACHERS HIGHLAND": "assets/products/overseas-spirits/teachers-highland.webp",
+    "VAT 69": "assets/products/overseas-spirits/vat-69.webp",
+    "COSMOS FIFTY": "assets/products/country-spirits/cosmos-fifty.webp"
   };
 
   // Website category names. The database keeps its own names; these are display labels only.
