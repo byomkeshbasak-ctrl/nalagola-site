@@ -66,10 +66,15 @@
     "XCLAMATION": "assets/products/whisky/xclamation.webp",
     "GREEN LABEL": "assets/products/whisky/green-label.webp",
     "MANSION HOUSE": "assets/products/whisky/mansion-house.webp",
-    "SIGNATURE PREMIER": "assets/products/whisky/signature-premier.webp"
-    // Held back: the supplied Old Monk photo is the Japan export label ("For sale in Japan").
-    // Remove the two slashes below to show it anyway, or replace the file with an Indian-label photo.
-    // , "OLD MONK XXX": "assets/products/rum/old-monk-xxx.webp"
+    "SIGNATURE PREMIER": "assets/products/whisky/signature-premier.webp",
+    "BACARDI BLACK": "assets/products/rum/bacardi-black.webp",
+    "MCD XXX": "assets/products/rum/mcd-xxx.webp",
+    "OLD MONK GOLD": "assets/products/rum/old-monk-gold.webp",
+    "OLD MONK COFFEE": "assets/products/rum/old-monk-coffee.webp",
+    "OLD MONK XXX": "assets/products/rum/old-monk-xxx.webp",
+    "BACARDI WHITE": "assets/products/rum/bacardi-white.webp",
+    "BACARDI LIMON": "assets/products/rum/bacardi-limon.webp",
+    "BACARDI MANGO": "assets/products/rum/bacardi-mango.webp"
   };
 
   // Website category names. The database keeps its own names; these are display labels only.
