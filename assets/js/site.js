@@ -59,7 +59,14 @@
     "OAKSMITH GOLD": "assets/products/whisky/oaksmith-gold.webp",
     "RC": "assets/products/whisky/rc.webp",
     "ROYAL GREEN": "assets/products/whisky/royal-green.webp",
-    "RS": "assets/products/whisky/rs.webp"
+    "RS": "assets/products/whisky/rs.webp",
+    "ALL SEASONS": "assets/products/whisky/all-seasons.webp",
+    "MAQINTOSH": "assets/products/whisky/maqintosh.webp",
+    "OC ELITE": "assets/products/whisky/oc-elite.webp",
+    "XCLAMATION": "assets/products/whisky/xclamation.webp",
+    "GREEN LABEL": "assets/products/whisky/green-label.webp",
+    "MANSION HOUSE": "assets/products/whisky/mansion-house.webp",
+    "SIGNATURE PREMIER": "assets/products/whisky/signature-premier.webp"
     // Held back: the supplied Old Monk photo is the Japan export label ("For sale in Japan").
     // Remove the two slashes below to show it anyway, or replace the file with an Indian-label photo.
     // , "OLD MONK XXX": "assets/products/rum/old-monk-xxx.webp"
