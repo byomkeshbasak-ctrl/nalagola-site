@@ -194,6 +194,8 @@
   .cost-up { cursor: pointer; font-size: 0.8rem; color: var(--muted); text-decoration: underline; white-space: nowrap; border: 0; padding: 0; background: none; }
   .cost-up:hover, .cost-up.over { color: var(--gold); }
   .cost-up input { display: none; }
+  .ie-form .ie-del { margin-left: auto; color: var(--red); border-color: rgba(239, 143, 143, 0.45); }
+  .ie-form .ie-del:hover { border-color: var(--red); }
   form.item-add { border: 1px solid var(--line-strong); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
   .item-add h3 { margin: 0 0 4px; font-size: 0.95rem; }
   .item-add .hint { margin: 0 0 10px; font-size: 0.8rem; color: var(--muted); }
@@ -4031,7 +4033,8 @@
         '<label class="radio"><input type="radio" name="ie-when" value="from"' + (ed.when === "from" ? " checked" : "") + '> From <input type="date" id="ie-from" value="' + esc(ed.from || latest) + '"></label></div>' +
       "</div>" +
       '<div class="ie-impact" id="ie-impact">' + (ed.lines ? "" : "Checking saved reports…") + "</div>" +
-      '<div class="form-actions"><button class="primary" type="submit">Save price</button><button class="ghost" type="button" id="ie-cancel">Cancel</button></div>' +
+      '<div class="form-actions"><button class="primary" type="submit">Save price</button><button class="ghost" type="button" id="ie-cancel">Cancel</button>' +
+        '<button class="ghost ie-del" type="button" id="ie-delete">Delete item</button></div>' +
       (hist.length ? '<div class="ie-hist"><b>Earlier changes</b>' + hist.map(function (c) {
         return "<div>" + fmtDate(c.created_at.slice(0, 10)) + ": MRP " + inr2.format(c.old_mrp) + (Number(c.old_mrp) !== Number(c.new_mrp) ? " → " + inr2.format(c.new_mrp) : "") +
           ", cost " + (c.old_cost == null ? "–" : inr2.format(c.old_cost)) + " → " + (c.new_cost == null ? "–" : inr2.format(c.new_cost)) +
@@ -4101,6 +4104,32 @@
     await loadIndent(); // indent prices follow the change
   });
   $("items-search").addEventListener("input", renderItems);
+
+  // ---------- Delete an item from Items & costs (for duplicates or wrong entries) ----------
+  // Removes only this row of the price list. Saved daily reports keep their own name, MRP, cost and stock, so they don't change.
+  $("items-table").addEventListener("click", async function (e) {
+    if (!e.target.closest("#ie-delete")) return;
+    var ed = state.itemEdit, it = ed && state.items.find(function (x) { return x.id === ed.id; }); if (!it) return;
+    if (!ed.lines) { toast("Still checking saved reports for this item, try again in a moment."); return; }
+    var stock = (state.itemStock || {})[normKey(it.item_name) + "|" + Number(it.mrp)] || 0;
+    var label = it.item_name + " at MRP " + inr2.format(it.mrp);
+    var msg = "Delete " + label + " from Items & costs?";
+    if (stock > 0) msg += "\n\nIt still shows " + num.format(stock) + " bottle" + (stock === 1 ? "" : "s") + " in stock on " + fmtDate(state.itemStockDate) + ". If this is a real item, keep it.";
+    if (ed.lines.length) msg += "\n\nIt appears in " + ed.lines.length + " saved report line" + (ed.lines.length === 1 ? "" : "s") + ". Those reports keep their own figures and won't change.";
+    msg += "\n\nIf a future stock report uses this exact name and MRP, it will show without a cost until you add it again.";
+    if (!confirm(msg)) return;
+    if (stock > 0 && !confirm("This item still has stock. Delete it anyway?")) return;
+    var btn = e.target.closest("#ie-delete"); btn.disabled = true;
+    var r = await sb.from("items").delete().eq("id", it.id).select("id");
+    btn.disabled = false;
+    if (r.error) { toast("Couldn't delete: " + r.error.message); return; }
+    if (!r.data || !r.data.length) { toast("Nothing was deleted. The database may not allow deleting items for this login."); return; }
+    state.itemEdit = null;
+    toast(label + " deleted");
+    await Promise.all([loadItems(), loadMonth()]);
+    await loadIndent();
+    renderItems();
+  });
 
   // ---------- Add a new item by hand (name, category, MRP, cost) ----------
   function openItemAdd(show) {
