@@ -239,13 +239,13 @@
   .hl-more[open] summary::before { content: "▾"; }
   .hl-more summary h3 { margin: 0; font-size: 0.86rem; font-weight: 600; }
   .hl-facts td:first-child { color: var(--muted); white-space: nowrap; width: 1%; padding-right: 18px; }
-  #hl-sched tr.hl-year { cursor: pointer; }
-  #hl-sched .caret { display: inline-block; width: 14px; color: var(--gold); font-size: 0.75rem; }
-  #hl-sched tr.hl-m td { font-size: 0.8rem; color: var(--muted); }
-  #hl-sched tr.hl-m td:first-child { padding-left: 28px; }
-  #hl-sched tr.hl-m.done td { color: var(--green); }
-  #hl-sched tr.hl-m.late td { color: var(--red); }
-  #hl-sched tr.hl-m small { display: block; font-size: 0.7rem; opacity: 0.85; }
+  #hl-sched tr.hl-year, #cl-sched tr.hl-year { cursor: pointer; }
+  #hl-sched .caret, #cl-sched .caret { display: inline-block; width: 14px; color: var(--gold); font-size: 0.75rem; }
+  #hl-sched tr.hl-m td, #cl-sched tr.hl-m td { font-size: 0.8rem; color: var(--muted); }
+  #hl-sched tr.hl-m td:first-child, #cl-sched tr.hl-m td:first-child { padding-left: 28px; }
+  #hl-sched tr.hl-m.done td, #cl-sched tr.hl-m.done td { color: var(--green); }
+  #hl-sched tr.hl-m.late td, #cl-sched tr.hl-m.late td { color: var(--red); }
+  #hl-sched tr.hl-m small, #cl-sched tr.hl-m small { display: block; font-size: 0.7rem; opacity: 0.85; }
   #in-auto tr.src-row td:first-child { white-space: nowrap; }
   #in-auto .caret { display: inline-block; width: 14px; color: var(--gold); font-size: 0.75rem; }
   #in-auto tr.sub td { font-size: 0.8rem; color: var(--muted); padding-left: 28px; }
@@ -388,6 +388,7 @@
         <button type="button" class="tab" data-tab="expenses">Expenses</button>
         <button type="button" class="tab" data-tab="cards">Credit cards</button>
         <button type="button" class="tab" data-tab="homeloan">Home loan</button>
+        <button type="button" class="tab" data-tab="carloan">Car loan</button>
       </div>
     </nav>
   </header>
@@ -839,6 +840,26 @@
         </details>
         <div class="chart-h" style="margin-top:18px"><h3>Repayment schedule</h3></div>
         <div class="table-wrap" style="margin-top:8px"><table id="hl-sched"></table></div>
+      </section>
+    </section>
+
+    <!-- ===== Car loan ===== -->
+    <section class="pane" id="pane-carloan" hidden>
+      <section class="card" aria-label="Car loan">
+        <div class="head">
+          <div>
+            <div class="k">Car loan outstanding</div>
+            <div class="v" id="cl-total">–</div>
+            <div class="s" id="cl-total-s"></div>
+          </div>
+        </div>
+        <div class="mf-kpis" id="cl-kpis"></div>
+        <details class="hl-more" style="margin-top:18px">
+          <summary><h3>Loan details</h3></summary>
+          <div class="table-wrap" style="margin-top:8px"><table id="cl-facts" class="hl-facts"></table></div>
+        </details>
+        <div class="chart-h" style="margin-top:18px"><h3>Repayment schedule</h3></div>
+        <div class="table-wrap" style="margin-top:8px"><table id="cl-sched"></table></div>
       </section>
     </section>
 
@@ -2232,12 +2253,96 @@
     var r = e.target.closest("[data-hly]"); if (!r) return;
     hlSchedOpen = hlSchedOpen || {}; hlSchedOpen[r.dataset.hly] = !hlSchedOpen[r.dataset.hly]; renderHomeLoan();
   });
+  // ---------- Car loan (kept off the dashboard and out of net worth) ----------
+  // From the SBI arrangement letter of 15 Feb 2024 (application 304240209019155). Fixed rate, EMI on the 15th from Mar 2024.
+  var CL = {
+    vehicle: "Kia Seltos HTX IVT 1.5 Petrol (2024)", lender: "State Bank of India, Makdumpur branch (14547)", scheme: "SBI Car Loan (Personal Segment Auto Loan)",
+    borrowers: "Mukta Das (borrower), Byomkesh Basak (co-borrower)",
+    amount: 1500000, rate: 9.10, rateNote: "Fixed for the full tenor: 1-year MCLR 8.65% + 0.45% at sanction, daily reducing balance with monthly rests",
+    emi: 24210, emis: 84, firstEmi: "2024-03-15", sanctioned: "2024-02-15", applied: "2024-02-09", margin: 20.96, processing: 1770,
+    foreclosure: "Prepayment: nil. Foreclosure: 2% + GST only if closed within 2 years of disbursement",
+    penal: "2% p.a. over the loan rate on the overdue amount",
+    security: "Car hypothecated to SBI; comprehensive insurance for market value or 10% above the outstanding, whichever is higher, with SBI\u2019s charge noted"
+  };
+  function clSchedule() {
+    var r = CL.rate / 1200, bal = CL.amount, out = [];
+    for (var k = 0; k < CL.emis && bal > 0.5; k++) {
+      var int = bal * r, pay = Math.min(CL.emi, bal + int), prin = pay - int;
+      // The bank's letter collects a full EMI in the last month and books the rounding as interest
+      if (k === CL.emis - 1) { prin = bal; pay = CL.emi; int = pay - prin; }
+      bal = Math.max(0, bal - prin);
+      out.push({ n: k + 1, date: addMonths(CL.firstEmi, k), emi: pay, int: int, prin: prin, bal: bal });
+    }
+    return out;
+  }
+  // EMIs are auto-debited, so every EMI due up to today counts as paid on its due date.
+  // An expense with category "Car loan EMI" (or "EMI" with "car loan" in the note) in the same month adds the actual date and account.
+  function clPayments() {
+    var list = (typeof ex !== "undefined" && ex.list) || [];
+    return list.filter(function (x) { return /car\s*loan/i.test(x.category || "") || (/^emi$/i.test(x.category || "") && /car\s*loan/i.test(x.note || "")); });
+  }
+  function clNow() {
+    var sch = clSchedule(), t = todayISO(), pays = clPayments();
+    sch.forEach(function (x) {
+      x.pay = pays.filter(function (p) { return (p.exp_date || "").slice(0, 7) === x.date.slice(0, 7); })[0] || null;
+      x.done = x.date <= t || !!x.pay;
+    });
+    var paid = sch.filter(function (x) { return x.done; });
+    var o = paid.length ? paid[paid.length - 1].bal : CL.amount;
+    return { sch: sch, paid: paid, outstanding: o, next: sch[paid.length] || null, last: sch[sch.length - 1],
+      intPaid: paid.reduce(function (a, x) { return a + x.int; }, 0), prinPaid: paid.reduce(function (a, x) { return a + x.prin; }, 0),
+      intTotal: sch.reduce(function (a, x) { return a + x.int; }, 0) };
+  }
+  var clSchedOpen = null;
+  function renderCarLoan() {
+    if (!$("cl-total")) return;
+    var h = clNow(), left = h.sch.length - h.paid.length, intLeft = h.intTotal - h.intPaid;
+    $("cl-total").textContent = inr.format(h.outstanding);
+    $("cl-total-s").textContent = h.paid.length + " of " + h.sch.length + " EMIs paid · " + left + (left === 1 ? " EMI" : " EMIs") + " left · not included in net worth";
+    var k = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + (d || "") + "</div></div>"; };
+    $("cl-kpis").innerHTML =
+      k("Car", "Kia Seltos", "HTX IVT 1.5 Petrol, 2024") +
+      k("Loan from the bank", inr.format(CL.amount), "Margin " + CL.margin + "% paid by you") +
+      k("EMI", inr.format(CL.emi), h.next ? "Next due " + fmtDate(h.next.date) : "Loan repaid") +
+      k("Interest rate", CL.rate.toFixed(2) + "%", "Fixed for the full tenor") +
+      k("Interest paid so far", inr.format(h.intPaid), "Principal repaid " + inr.format(h.prinPaid)) +
+      k("Interest still to pay", inr.format(intLeft), "Last EMI " + fmtDate(h.last.date));
+    var row = function (a, b) { return "<tr><td>" + a + "</td><td>" + b + "</td></tr>"; };
+    $("cl-facts").innerHTML = "<tbody>" +
+      row("Lender", esc(CL.lender)) + row("Scheme", esc(CL.scheme)) + row("Car", esc(CL.vehicle)) + row("Borrowers", esc(CL.borrowers)) +
+      row("Interest rate", CL.rate.toFixed(2) + "% p.a. · " + esc(CL.rateNote)) +
+      row("Tenure", CL.emis + " EMIs of " + inr.format(CL.emi) + ", " + fmtDate(CL.firstEmi) + " to " + fmtDate(h.last.date)) +
+      row("Applied / sanctioned", fmtDate(CL.applied) + " / " + fmtDate(CL.sanctioned)) +
+      row("Margin", CL.margin + "% of the car\u2019s cost paid by you") +
+      row("Total interest over the loan", inr.format(h.intTotal)) +
+      row("Processing charges", inr.format(CL.processing)) +
+      row("Prepayment / foreclosure", esc(CL.foreclosure)) + row("Late payment", esc(CL.penal)) + row("Security and insurance", esc(CL.security)) + "</tbody>";
+    var years = {}, order = [];
+    h.sch.forEach(function (x) { var y = x.date.slice(0, 4); if (!years[y]) { years[y] = { int: 0, prin: 0, emi: 0, n: 0, bal: 0, rows: [] }; order.push(y); } var Y = years[y]; Y.int += x.int; Y.prin += x.prin; Y.emi += x.emi; Y.n++; Y.bal = x.bal; Y.rows.push(x); });
+    clSchedOpen = clSchedOpen || {};
+    $("cl-sched").innerHTML = '<thead><tr><th>Year</th><th class="num">EMIs</th><th class="num">Paid</th><th class="num">Principal</th><th class="num">Interest</th><th class="num">Balance at year end</th></tr></thead><tbody>' +
+      order.map(function (y) {
+        var Y = years[y], open = clSchedOpen[y];
+        return '<tr class="hl-year" data-cly="' + y + '"><td><span class="caret">' + (open ? "▾" : "▸") + "</span>" + y + '</td><td class="num">' + Y.n + '</td><td class="num">' + inr.format(Y.emi) + '</td><td class="num">' + inr.format(Y.prin) +
+          '</td><td class="num">' + inr.format(Y.int) + '</td><td class="num">' + inr.format(Y.bal) + "</td></tr>" +
+          (open ? Y.rows.map(function (x) {
+            var st2 = x.pay ? "Paid " + fmtDate(x.pay.exp_date) + (x.pay.paid_from ? " from " + esc(acctName(x.pay.paid_from)) : "") : x.done ? "Auto-debit" : "";
+            return '<tr class="hl-m' + (x.done ? " done" : "") + '"><td>' + fmtDate(x.date) + " · EMI " + x.n + (st2 ? "<small>" + st2 + "</small>" : "") + '</td><td class="num"></td><td class="num">' + inr.format(x.emi) + '</td><td class="num">' + inr.format(x.prin) +
+              '</td><td class="num">' + inr.format(x.int) + '</td><td class="num">' + inr.format(x.bal) + "</td></tr>";
+          }).join("") : "");
+      }).join("") + "</tbody>";
+  }
+  $("cl-sched").addEventListener("click", function (e) {
+    var r = e.target.closest("[data-cly]"); if (!r) return;
+    clSchedOpen = clSchedOpen || {}; clSchedOpen[r.dataset.cly] = !clSchedOpen[r.dataset.cly]; renderCarLoan();
+  });
   function renderNetWorth() {
     if (!$("nw-total") || !oth.loaded) return;
     var v = compValues(), assets = 0;
     COMP.forEach(function (c) { if (c.k === "loans") assets += v.given; else assets += Math.max(0, v[c.k]); });
     var hl = homeLoanTotal(), ccDue = cardDueTotal();
     renderHomeLoan();
+    renderCarLoan();
     // The home loan is kept separate: not taken off net worth
     var liab = v.taken + ccDue + COMP.reduce(function (x, c) { return x + (c.k !== "loans" && v[c.k] < 0 ? -v[c.k] : 0); }, 0);
     var nw = assets - liab;
@@ -2383,7 +2488,7 @@
   $("mbm-more").addEventListener("click", function () { mbm.all = !mbm.all; renderMonthly(); });
 
   // ---------- Tabs ----------
-  var TABS = ["dash", "stocks", "mf", "business", "bank", "income", "expenses", "cards", "homeloan"];
+  var TABS = ["dash", "stocks", "mf", "business", "bank", "income", "expenses", "cards", "homeloan", "carloan"];
   var DASH_X = ["epf", "gold", "loans", "insurance", "trading"];
   function showTab(t, push) {
     var pd = $("pane-dash");
