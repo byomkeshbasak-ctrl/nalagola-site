@@ -80,7 +80,15 @@
     "TUBORG STRONG": "assets/products/beer/tuborg-strong.webp",
     "TUBORG GREEN": "assets/products/beer/tuborg-green.webp",
     "HAYWARDS 5000": "assets/products/beer/haywards-5000.webp",
-    "KINGFISHER ULTRA": "assets/products/beer/kingfisher-ultra.webp"
+    "KINGFISHER ULTRA": "assets/products/beer/kingfisher-ultra.webp",
+    "MAGIC MOMENT": "assets/products/vodka/magic-moment.webp",
+    "MAGIC MOMENT APPLE": "assets/products/vodka/magic-moment-apple.webp",
+    "MAGIC MO LEMON": "assets/products/vodka/magic-mo-lemon.webp",
+    "MAGIC MOMENT PINK": "assets/products/vodka/magic-moment-pink.webp",
+    "SMIRNOFF MINTY JAMUN": "assets/products/vodka/smirnoff-minty-jamun.webp",
+    "SNOSKI": "assets/products/vodka/snoski.webp",
+    "SNOSKI APPLE": "assets/products/vodka/snoski-apple.webp",
+    "SNOSKI JAMUN": "assets/products/vodka/snoski-jamun.webp"
   };
 
   // Website category names. The database keeps its own names; these are display labels only.
