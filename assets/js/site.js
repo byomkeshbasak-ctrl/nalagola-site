@@ -74,7 +74,13 @@
     "OLD MONK XXX": "assets/products/rum/old-monk-xxx.webp",
     "BACARDI WHITE": "assets/products/rum/bacardi-white.webp",
     "BACARDI LIMON": "assets/products/rum/bacardi-limon.webp",
-    "BACARDI MANGO": "assets/products/rum/bacardi-mango.webp"
+    "BACARDI MANGO": "assets/products/rum/bacardi-mango.webp",
+    "CARLSBERG PREMIUM": "assets/products/beer/carlsberg-premium.webp",
+    "TUBORG CLASSIC": "assets/products/beer/tuborg-classic.webp",
+    "TUBORG STRONG": "assets/products/beer/tuborg-strong.webp",
+    "TUBORG GREEN": "assets/products/beer/tuborg-green.webp",
+    "HAYWARDS 5000": "assets/products/beer/haywards-5000.webp",
+    "KINGFISHER ULTRA": "assets/products/beer/kingfisher-ultra.webp"
   };
 
   // Website category names. The database keeps its own names; these are display labels only.
