@@ -3419,7 +3419,7 @@
   var sizeOf = function (l) { var n = Number(l.size_ml); if (n > 0) return n; var m = String(l.item_name).match(/(\d+)\s*$/); return m ? Number(m[1]) : 0; };
   // Items ordered by the bottle, not by the case, on top of all Overseas Spirits.
   // Exact item name as in the stock report; other sizes of the same brand still go by the case.
-  var PER_BOTTLE_ITEMS = ["OAKSMITH GOLD W 375", "OAKSMITH GOLD W 750"];
+  var PER_BOTTLE_ITEMS = ["OAKSMITH GOLD W 375", "OAKSMITH GOLD W 750", "ANTIQUITY BLUE W 375", "ANTIQUITY BLUE W 750"];
   function caseSizeFor(cat, size, name) {
     if (cat === "Overseas Spirits" || PER_BOTTLE_ITEMS.indexOf(cleanName(name)) >= 0) return { n: 1, perBottle: true };
     var k = indKind(cat), c = state.ind.cases;
