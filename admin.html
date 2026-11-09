@@ -4068,11 +4068,17 @@
     var x = itemImpact(); if (!x) return;
     var sgn = function (v) { return Math.abs(v) < 0.5 ? "no change" : (v > 0 ? "+" : "−") + inr.format(Math.abs(v)); };
     if (!x.changed) { el.innerHTML = '<span class="muted">Change the MRP or cost to see what it does to your saved reports.</span>'; return; }
-    if (!x.n) { el.innerHTML = "No saved report has this item " + (x.from ? "from " + fmtDate(x.from) : "yet") + ". The new price applies to reports you upload next."; return; }
+    // A changed MRP moves every row at the old MRP, including bottles still on the shelf. Warn when there are some.
+    var heldNote = "";
+    if (x.mrp !== Number(x.it.mrp)) {
+      var held = (state.itemStock || {})[normKey(x.it.item_name) + "|" + Number(x.it.mrp)] || 0;
+      if (held > 0) heldNote = '<div class="warn-t">' + num.format(held) + (held === 1 ? " bottle is" : " bottles are") + " still in stock at " + inr2.format(x.it.mrp) + ". This moves them to " + inr2.format(x.mrp) + " too. If they keep the old MRP and only new stock comes at " + inr2.format(x.mrp) + ", use Add item for the new price instead.</div>";
+    }
+    if (!x.n) { el.innerHTML = "No saved report has this item " + (x.from ? "from " + fmtDate(x.from) : "yet") + ". The new price applies to reports you upload next." + heldNote; return; }
     el.innerHTML = "Updates <b>" + x.days.length + " day" + (x.days.length === 1 ? "" : "s") + "</b> of reports (" + fmtDate(x.days[0]) + " – " + fmtDate(x.days[x.days.length - 1]) + ")." +
       '<div class="ie-nums"><span>Sales <b>' + sgn(x.dSales) + "</b></span><span>Gross profit <b>" + sgn(x.dProfit) + "</b></span><span>Latest stock value <b>" + sgn(x.dStock) + "</b></span></div>" +
       (Math.abs(x.dSales) >= 0.5 && x.ledgerDays.length ? '<div class="warn-t">Total sales change on ' + x.ledgerDays.length + " day" + (x.ledgerDays.length === 1 ? "" : "s") +
-        " already entered in the Daily ledger, so those days will show the difference as a mismatch.</div>" : "");
+        " already entered in the Daily ledger, so those days will show the difference as a mismatch.</div>" : "") + heldNote;
   }
   $("items-table").addEventListener("input", function (e) { if (e.target.closest("#ie-form")) updateItemImpact(); });
   $("items-table").addEventListener("change", function (e) { if (e.target.closest("#ie-form")) updateItemImpact(); });
@@ -4085,6 +4091,10 @@
     if (x.from && x.from < START_DATE) { toast("Reports start from " + fmtDate(START_DATE) + "."); return; }
     var clash = x.mrp !== Number(it.mrp) && state.items.find(function (o) { return o.item_name === it.item_name && Number(o.mrp) === x.mrp; });
     if (clash && !confirm(it.item_name + " already has a row at MRP " + inr2.format(x.mrp) + ". The changed reports join that row and its cost becomes " + (x.cost == null ? "blank" : inr2.format(x.cost)) + ". Go ahead?")) return;
+    var heldNow = x.changed && x.mrp !== Number(it.mrp) ? (state.itemStock || {})[normKey(it.item_name) + "|" + Number(it.mrp)] || 0 : 0;
+    if (heldNow > 0 && !confirm(num.format(heldNow) + (heldNow === 1 ? " bottle of " : " bottles of ") + it.item_name + " " + (heldNow === 1 ? "is" : "are") + " still in stock at " + inr2.format(it.mrp) +
+      (state.itemStockDate ? " (report of " + fmtDate(state.itemStockDate) + ")" : "") + ". This change moves ALL " + inr2.format(it.mrp) + " stock to " + inr2.format(x.mrp) + ", including those bottles, and every sheet you upload from " + (x.from ? fmtDate(x.from) : "the start") +
+      ".\n\nIf the bottles you hold keep their old MRP and only new stock comes at " + inr2.format(x.mrp) + ", press Cancel and use Add item for the new price instead.\n\nMove all stock to " + inr2.format(x.mrp) + " anyway?")) return;
     if (x.changed && Math.abs(x.dSales) >= 0.5 && x.ledgerDays.length && !confirm("Total sales change on " + x.ledgerDays.length + " day(s) already in the Daily ledger, so they'll show a mismatch. Go ahead?")) return;
     var btn = e.target.querySelector(".primary"); btn.disabled = true;
     var n = 0;
