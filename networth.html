@@ -579,10 +579,10 @@
     <section class="card ips-card" id="sips-box" aria-label="Recommended Portfolio Allocation">
       <div class="ips-top">
         <div>
-          <div class="k">Per your Stocks Investment Policy Statement v5.0 (draft)</div>
+          <div class="k" id="sips-ver">Per your Stocks Investment Policy Statement v5.1 (draft)</div>
           <h2 class="ips-title">Recommended Portfolio Allocation</h2>
           <div class="ips-dates" id="sips-dates"></div>
-          <div class="ips-advisory">Advisory only. This card applies draft rules (v5.0) and is not the approved policy. The approved policy is v4.9. Nothing here is an instruction to trade.</div>
+          <div class="ips-advisory" id="sips-advisory">Rule-set: IPS v5.1 · ADVISORY. Nothing here is an instruction to trade.</div>
         </div>
         <div class="spacer"></div>
         <button class="ghost" id="sips-run" type="button">Run review now</button>
@@ -657,9 +657,10 @@
     <section class="card ips-card" id="ips-box" aria-label="Recommended Portfolio Allocation">
       <div class="ips-top">
         <div>
-          <div class="k">Per your Investment Policy Statement v1.1</div>
+          <div class="k" id="ips-ver">Per your Investment Policy Statement v1.1</div>
           <h2 class="ips-title">Recommended Portfolio Allocation</h2>
           <div class="ips-dates" id="ips-dates"></div>
+          <div class="ips-advisory" id="ips-newer" hidden></div>
         </div>
         <div class="spacer"></div>
         <button class="ghost" id="ips-run" type="button">Run review now</button>
@@ -957,6 +958,7 @@
     await Promise.all([loadMF(), loadStocks(), loadOthers(), loadHistory(), loadPxStamp()]);
     renderNetWorth();
     renderIncome();
+    ipsLoadDocs().then(function () { renderSIPS(); renderIPS(); });
     sipsCheck(false);
   }
 
@@ -1471,11 +1473,11 @@
   $("ips-run").addEventListener("click", async function () { await loadMF(); ipsCheck(true); });
   // ---------- Stocks IPS v5.0 review: four buckets, graded limits, gate statuses, stress tests, household checks ----------
   var SIPS = {
-    version: "v5.0", adoption: "2026-11-04", planEnd: "2027-10-31",
-    targetW: 7.5, hardCap: 10, riskCap: 7.5, softFrac: 0.9, indSoft: 22, indHard: 25, targetNames: 12, maxPerGroup: 2,
+    version: "v5.1", adoption: "2026-11-04", planEnd: "2027-10-31",
+    targetW: 7.5, hardCap: 10, riskCap: 7.5, softFrac: 0.9, indSoft: 22.5, indHard: 25, reducedW: 5.625, minGroup: 5, targetNames: 12, maxPerGroup: 2,
     gate: { roe: 15, roce: 15, de: 2.0, cfo: 70, floor: 10 },
     hh: { target: 40, lo: 30, hi: 50, ind: 10, name: 6, emergency: 15, exemption: 125000 },
-    initial: 0.5, maxAdd: 5, staleDays: 45, probationDays: 183, checkDays: 120,
+    initial: 0.5, laterPct: 2.5, quarterPct: 5, gapDays: 28, staleDays: 45, probationDays: 183, checkDays: 120,
     buckets: [
       { k: "B1", l: "Individual stocks", t: 90, lo: 80, hi: 95 }, { k: "B2", l: "Equity ETFs", t: 10, lo: 0, hi: 15 },
       { k: "B3", l: "Liquidity", t: 0, lo: 0, hi: 5 }, { k: "B4", l: "Gold", t: 0, lo: 0, hi: 5 }
@@ -1486,6 +1488,53 @@
       [/^(M&M|M&MFIN)$/, "Mahindra"], [/^(RELIANCE|JIOFIN)$/, "Reliance"], [/^(GRASIM|HINDALCO|ABCAPITAL)$/, "Aditya Birla"], [/^TORNT/, "Torrent"], [/^(COROMANDEL|CHOLAFIN|TIINDIA)$/, "Murugappa"],
       [/^(LT|LTM|LTTS|LTF)$/, "L&T"], [/^(VEDL|VAML|HINDZINC)$/, "Vedanta"], [/^JSW/, "JSW"], [/^GODREJ/, "Godrej"], [/^(SBIN|SBICARD|SBILIFE)$/, "SBI"], [/^(LICI|LICHSGFIN)$/, "LIC"], [/^BHARTI/, "Bharti"]]
   };
+  // The rules below are coded from one IPS version. The newest IPS files in the repository are read live, so the card shows
+  // that document's own version and status (GOV-01: every output labelled APPROVED or ADVISORY), and warns when a newer one is uploaded.
+  var ENGINE_IPS = { stock: "5.1", mf: "1.1" };
+  var IPS_REPO = "byomkeshbasak-ctrl/nalagola-site";
+  var IPS_FILES = { stock: /^Investment_Policy_Statement_v(\d+)[._](\d+)\.md$/, mf: /^Mutual_Fund_IPS_v(\d+)[._](\d+)\.md$/ };
+  var ipsDocs = { stock: null, mf: null, tried: false };
+  async function ipsLoadDocs() {
+    if (ipsDocs.tried) return; ipsDocs.tried = true;
+    var names = [];
+    try { var r = await fetch("https://api.github.com/repos/" + IPS_REPO + "/contents/"); if (r.ok) names = (await r.json()).map(function (f) { return f.name; }); } catch (e) {}
+    var guess = { stock: "Investment_Policy_Statement_v" + ENGINE_IPS.stock.replace(".", "_") + ".md", mf: "Mutual_Fund_IPS_v" + ENGINE_IPS.mf + ".md" };
+    for (var k in IPS_FILES) {
+      var best = null;
+      names.forEach(function (nm) { var m = IPS_FILES[k].exec(nm); if (!m) return; var v = [+m[1], +m[2]]; if (!best || v[0] > best.v[0] || (v[0] === best.v[0] && v[1] > best.v[1])) best = { file: nm, v: v, ver: v[0] + "." + v[1] }; });
+      // ver and the status come from the document whose rules the engine applies; "latest" is the newest file in the repository
+      var eng = ENGINE_IPS[k].split(".").map(Number), d = { file: guess[k], ver: ENGINE_IPS[k], latest: best ? best.ver : null, listed: !!best, status: "", lastApproved: "", effective: "" };
+      d.newer = !!best && (best.v[0] > eng[0] || (best.v[0] === eng[0] && best.v[1] > eng[1]));
+      try {
+        var t = await fetch(encodeURI(d.file) + "?t=" + Date.now());
+        if (t.ok) {
+          var txt = (await t.text()).slice(0, 4000), a = /\*\*Status:\*\*\s*([^\n]+)/.exec(txt), b = /\*\*Last approved version:\*\*\s*([^\n]+)/.exec(txt), c = /\*\*Effective(?: date)?:\*\*\s*([^\n*]+)/.exec(txt);
+          d.status = a ? a[1].trim() : ""; d.lastApproved = b ? b[1].trim() : ""; d.effective = c ? c[1].trim() : ""; d.read = true;
+        }
+      } catch (e) {}
+      ipsDocs[k] = d;
+    }
+  }
+  function ipsIsDraft(d) { if (!d) return true; if (d.status) return /draft|not approved|pending/i.test(d.status); return !(d.effective && !/to be entered|approval date/i.test(d.effective)); }
+  function sipsRuleSet(prov) {
+    var d = ipsDocs.stock, ver = d ? d.ver : ENGINE_IPS.stock, draft = ipsIsDraft(d), out = [];
+    out.push("<b>Rule-set: IPS v" + esc(ver) + " · " + (draft ? "ADVISORY" : "APPROVED") + ".</b>");
+    if (draft) out.push("This document is a draft for investor approval. Its proposed rules (decisions D-01 onwards) have no force until you sign them in its approval register" + (d && d.lastApproved && /v\d+\.\d+/.test(d.lastApproved) ? "; the last approved policy is " + /v\d+\.\d+/.exec(d.lastApproved)[0] : "") + ".");
+    else out.push("Effective " + esc((d && d.effective) || "as stated in the document") + ".");
+    if (prov) out.push("Provisional: the Direct Book here is securities only, because broker cash is not recorded (IPS 3.1).");
+    var s2 = out.join(" ") + " Nothing here is an instruction to trade.";
+    if (d && d.newer) s2 += ' <span class="neg">A newer IPS (v' + esc(d.latest) + ') is in the repository. This card still applies the v' + ENGINE_IPS.stock + ' rules until the tracker is updated for it.</span>';
+    return s2;
+  }
+  function renderRuleSet() {
+    var d = ipsDocs.stock;
+    if ($("sips-ver")) $("sips-ver").textContent = "Per your Stocks Investment Policy Statement v" + (d ? d.ver : ENGINE_IPS.stock) + (ipsIsDraft(d) ? " (draft)" : "");
+    if ($("sips-advisory")) $("sips-advisory").innerHTML = sipsRuleSet(sips.view ? !!(sips.view.meta || {}).cash_missing : true);
+    var m = ipsDocs.mf;
+    if ($("ips-ver")) $("ips-ver").textContent = "Per your Investment Policy Statement v" + (m ? m.ver : ENGINE_IPS.mf);
+    if ($("ips-newer")) { $("ips-newer").hidden = !(m && m.newer); if (m && m.newer) $("ips-newer").innerHTML = 'A newer mutual fund IPS (v' + esc(m.latest) + ') is in the repository. This card still applies the v' + ENGINE_IPS.mf + ' rules until the tracker is updated for it.'; }
+  }
+  function sipsQuarterStart(d) { var m = +d.slice(5, 7); return d.slice(0, 4) + "-" + (m <= 3 ? "01" : m <= 6 ? "04" : m <= 9 ? "07" : "10") + "-01"; }
   var sips = { latest: null, view: null, prior: null, repricing: false, loading: false, checked: false, fund: null, checks: {}, open: {} };
   function sipsBucket(sym) {
     if (/^(LIQUIDBEES|LIQUIDCASE|LIQUIDETF|LIQUIDADD|LIQUIDIETF)$/.test(sym)) return "B3";
@@ -1575,34 +1624,66 @@
       if (g.stale && g.status === "PASS") g.status = "STALE";
       E[s] = g;
     });
-    // 2. Score the gate-passers (§7.2): quality 35, normalised growth 25, cash conversion 15, relative valuation 15, stability 10
-    var pool = Object.keys(E).map(function (s) { return E[s]; }).filter(function (g) { return g.status === "PASS" && g.inUni; });
-    var gv = pool.map(function (e) { var a = [e.d.profit3, e.d.profit5].filter(function (x) { return x != null && isFinite(x); }).map(function (x) { return Math.min(x, 40); }); return sipsMedian(a); });
-    var vv = pool.map(function (e) { if (!e.fin) return e.d.pe > 0 ? 1 / e.d.pe : null; var pb = e.d.mcap && e.d.equity > 0 ? e.d.mcap / e.d.equity : null; return pb > 0 ? 1 / pb : null; });
-    var q = sipsPct(pool.map(function (e) { return e.q; }), pool.map(function (e) { return e.fin ? "F" : "N"; }), 10);
-    var gr = sipsPct(gv, pool.map(function () { return "A"; }), 10);
-    var cc = sipsPct(pool.map(function (e) { return e.fin ? null : Math.min(e.cfo, 150); }), pool.map(function () { return "N"; }), 50);
-    var va = sipsPct(vv, pool.map(function (e) { return e.ind + "|" + (e.fin ? e.model : ""); }), 0);
-    var sb2 = sipsPct(pool.map(function (e) { return e.sd == null ? null : -e.sd; }), pool.map(function (e) { return e.fin ? "F" : "N"; }), 50);
-    pool.forEach(function (e, i) { e.score = 0.35 * q[i] + 0.25 * gr[i] + 0.15 * cc[i] + 0.15 * va[i] + 0.10 * sb2[i]; e.gv = gv[i]; });
-    pool.sort(function (a, b) { return b.score - a.score; }); pool.forEach(function (e, i) { e.rank = i + 1; });
+    // 2. Score the gate-passers (IPS v5.1 §7): ranking groups RG1 to RG6, percentile ranks inside the company's own group,
+    //    at least 5 valid values per group and factor, and a company missing a factor is INCOMPLETE: not ranked, no substitute percentile
+    var rgOf = function (e) { if (!e.fin) return "RG1"; if (e.model === "Bank") return "RG2"; if (e.model === "NBFC/HFC") return "RG3"; if (e.model === "Insurer") return /life/i.test(e.name || "") ? "RG4" : "RG5"; return "RG6"; };
+    var cand = Object.keys(E).map(function (s) { return E[s]; }).filter(function (g) { return g.status === "PASS" && g.inUni; });
+    cand.forEach(function (e) { e.rg = rgOf(e); e.f = {}; e.inc = []; });
+    var okNum = function (v) { return v != null && isFinite(v); };
+    var FV = {
+      Q: function (e) { return e.rg === "RG4" || e.rg === "RG5" ? null : e.q; },
+      G: function (e) { var a = [e.d.profit3, e.d.profit5].filter(okNum).map(function (x) { return Math.min(x, 40); }); return a.length ? sipsMedian(a) : null; },
+      C: function (e) { return okNum(e.cfo) ? Math.min(e.cfo, 150) : null; },
+      V: function (e) { if (e.rg === "RG4" || e.rg === "RG5") return null; if (e.rg === "RG2" || e.rg === "RG3") { var pb = e.d.mcap && e.d.equity > 0 ? e.d.mcap / e.d.equity : null; return pb > 0 ? 1 / pb : null; } return e.d.pe > 0 ? 1 / e.d.pe : null; },
+      S: function (e) { return e.rg === "RG4" || e.rg === "RG5" || !okNum(e.sd) ? null : -e.sd; }
+    };
+    var FN = { Q: "quality", G: "growth", C: "cash conversion", V: "valuation", S: "stability" };
+    var pctTies = function (vals) {
+      var n2 = vals.length, idx = vals.map(function (_, i) { return i; }).sort(function (x, y) { return vals[x] - vals[y]; }), out = new Array(n2), i = 0;
+      while (i < n2) { var j = i; while (j + 1 < n2 && vals[idx[j + 1]] === vals[idx[i]]) j++; var rk = (i + j) / 2 + 1; for (var k = i; k <= j; k++) out[idx[k]] = 100 * (rk - 1) / (n2 - 1); i = j + 1; }
+      return out;
+    };
+    var rankFactor = function (key, groupOf, only) {
+      var by = {}; cand.filter(only || function () { return true; }).forEach(function (e) { var g = groupOf(e); (by[g] = by[g] || []).push(e); });
+      Object.keys(by).forEach(function (g) {
+        var ids = by[g], v = ids.filter(function (e) { return okNum(FV[key](e)); });
+        if (v.length < SIPS.minGroup) { ids.forEach(function (e) { e.inc.push(FN[key] + (e.rg === "RG4" || e.rg === "RG5" ? " (needs embedded value, RoEV or combined ratio: not in the data feed)" : ": fewer than " + SIPS.minGroup + " companies in " + e.rg + " have it")); }); return; }
+        var pr = pctTies(v.map(function (e) { return FV[key](e); })); v.forEach(function (e, i) { e.f[key] = pr[i]; });
+        ids.forEach(function (e) { if (!okNum(FV[key](e))) e.inc.push(FN[key] + " missing"); });
+      });
+    };
+    var vInd = {}; cand.forEach(function (e) { if (e.rg === "RG1" && okNum(FV.V(e))) vInd[e.ind] = (vInd[e.ind] || 0) + 1; });
+    rankFactor("Q", function (e) { return e.rg; });
+    rankFactor("G", function (e) { return e.rg; });
+    cand.forEach(function (e) { if (e.rg !== "RG1") e.f.C = 50; });    // not applicable outside RG1: a constant 50 (§7.3)
+    rankFactor("C", function (e) { return e.rg; }, function (e) { return e.rg === "RG1"; });
+    rankFactor("V", function (e) { return e.rg === "RG1" && vInd[e.ind] >= SIPS.minGroup ? "IND:" + e.ind : e.rg; });
+    rankFactor("S", function (e) { return e.rg; });
+    cand.forEach(function (e) {
+      e.complete = !e.inc.length && ["Q", "G", "C", "V", "S"].every(function (k) { return okNum(e.f[k]); });
+      if (e.complete) e.score = 0.35 * e.f.Q + 0.25 * e.f.G + 0.15 * e.f.C + 0.15 * e.f.V + 0.10 * e.f.S;
+      e.gv = FV.G(e);
+    });
+    var pool = cand.filter(function (e) { return e.complete; }).sort(function (a, b) { return b.score - a.score; }); pool.forEach(function (e, i) { e.rank = i + 1; });
+    var byG = {}; pool.forEach(function (e) { (byG[e.rg] = byG[e.rg] || []).push(e); });
+    Object.keys(byG).forEach(function (g) { byG[g].forEach(function (e, i) { e.grank = i + 1; e.gn = byG[g].length; }); });
     var n = pool.length, ranks = {};
     // 3. Position limits (§9): 10% of the Direct Book, 7.5% for riskier names; soft limit at 90% of that
     var mcRank = {}; Object.keys(F).filter(function (s) { return F[s].in_universe && F[s].data && F[s].data.mcap; }).sort(function (a, b) { return F[b].data.mcap - F[a].data.mcap; }).forEach(function (s, i) { mcRank[s] = i + 1; });
-    var maxW = function (s) { var w = SIPS.hardCap, why = []; if (mcRank[s] > 100) { w = SIPS.riskCap; why.push("market cap rank " + mcRank[s]); } if (E[s] && E[s].sd != null && E[s].sd > 8) { w = SIPS.riskCap; why.push("return on capital varies by " + E[s].sd.toFixed(1) + " points"); } return { w: w, why: why }; };
+    var maxW = function (s) { var red = false, why = []; if (mcRank[s] > 100) { red = true; why.push("market cap rank " + mcRank[s]); } if (E[s] && E[s].sd != null && E[s].sd > 8) { red = true; why.push("return on capital varies by " + E[s].sd.toFixed(1) + " points"); } return { w: red ? SIPS.riskCap : SIPS.hardCap, t: red ? SIPS.reducedW : SIPS.targetW, red: red, why: why }; };
     var short = function (n2) { return String(n2 || "").replace(/\s+(Ltd\.?|Limited)\s*$/i, "").trim(); };
     held.forEach(function (r) {
       r.e = E[r.sym] || null; r.p = r.e && r.e.status === "PASS" && r.e.inUni ? r.e : null; r.ind = indOf(r.sym); r.mw = maxW(r.sym);
       r.lots = []; Object.keys(r.books || {}).forEach(function (k) { r.books[k].forEach(function (l) { if (l.qty > 0) r.lots.push({ date: l.date, qty: l.qty, cost: l.cost }); }); });
       r.lots.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
-      if (r.p) ranks[r.sym] = { r: r.p.rank, n: n };
+      if (r.p && r.p.grank) ranks[r.sym] = { r: r.p.grank, n: r.p.gn };
     });
     var rtxt = function (e) { var R = function (v) { return v != null ? Math.round(v) + "%" : "n/a"; }; if (!e) return "No fundamentals on file."; return e.model + ": 3-yr ROE " + R(e.roe) + (e.fin ? "" : ", ROCE " + R(e.roce) + ", debt/equity " + (e.de != null ? e.de.toFixed(2) : "n/a") + ", cash conversion " + R(e.cfo)) + (e.rank ? ". Score " + Math.round(e.score) + ", rank " + e.rank + " of " + n : ""); };
     // 4. Target list (§7.4)
     var target = [], indW = {}, grpN = {}, decided = {}; SIPS.decisions.forEach(function (d) { decided[d.sym] = d; });
     var addT = function (s, ind, w, grp) { if (target.length >= SIPS.targetNames || target.indexOf(s) >= 0 || decided[s]) return false; if ((indW[ind] || 0) + w > SIPS.indHard + 0.01) return false; if ((grpN[grp] || 0) >= SIPS.maxPerGroup) return false; target.push(s); indW[ind] = (indW[ind] || 0) + w; grpN[grp] = (grpN[grp] || 0) + 1; return true; };
-    held.filter(function (r) { return r.p; }).sort(function (a, b) { return b.value - a.value; }).forEach(function (r) { addT(r.sym, r.ind, Math.max(SIPS.targetW, Math.min(r.w, r.mw.w)), sipsGroup(r.sym)); });
-    pool.forEach(function (e) { if (e.needsCheck || e.stale) return; if (!held.some(function (h) { return h.sym === e.sym; })) addT(e.sym, e.ind, SIPS.targetW, sipsGroup(e.sym)); });
+    held.filter(function (r) { return r.p; }).sort(function (a, b) { return b.value - a.value; }).forEach(function (r) { addT(r.sym, r.ind, Math.min(r.w, r.mw.w), sipsGroup(r.sym)); });
+    pool.forEach(function (e) { if (e.needsCheck || e.stale) return; if (!held.some(function (h) { return h.sym === e.sym; })) addT(e.sym, e.ind, maxW(e.sym).t, sipsGroup(e.sym)); });
     // 5. Tax budget (§14): MF consolidations take the household exemption first
     var mfGain = 0;
     var mfPlan = typeof ips !== "undefined" ? (ips.view || ips.latest) : null;
@@ -1649,7 +1730,7 @@
       var capV = r.mw.w * db / 100, lvl = r.w > r.mw.w ? "hard" : r.w > r.mw.w * SIPS.softFrac ? "soft" : "ok";
       r.lvl = lvl;
       if (r.after > capV + 1) {
-        var x = r.after - capV, sp = lotSplit(r, x), basis = "At " + r.w.toFixed(1) + "% of the Direct Book it is above its " + r.mw.w + "% limit" + (r.mw.why.length ? " (lowered to 7.5% because " + r.mw.why.join(" and ") + ")" : "") + ".";
+        var x = r.after - capV, sp = lotSplit(r, x), basis = "At " + r.w.toFixed(1) + "% of the Direct Book it is above its " + r.mw.w + "% limit" + (r.mw.why.length ? " (reduced class: target " + r.mw.t + "%, cap " + r.mw.w + "%, because " + r.mw.why.join(" and ") + ")" : "") + ".";
         if (sp.now > 1 && action) { sells.push(row(r, "sell", "Trim now", "Tier 6 hard breach. " + basis + " These shares are over a year old, so the gain (" + inr.format(sp.nowGain) + ") is long-term and fits this year's exemption.", sp.now)); cash += sp.now; r.after -= sp.now; }
         else if (sp.now > 1) sp.later.unshift({ date: nextAct, amt: sp.now, why: "the next action review" });
         var byDate = {}; sp.later.forEach(function (l) { byDate[l.date] = byDate[l.date] || { amt: 0, why: l.why }; byDate[l.date].amt += l.amt; });
@@ -1658,11 +1739,22 @@
     });
     // merit review (tier 7): bottom quartile at two consecutive action reviews
     var prevRanks = action && prevMeta.action_review ? prevMeta.ranks || {} : {};
-    held.forEach(function (r) { if (r.p && prevRanks[r.sym] && r.p.rank > 0.75 * n && prevRanks[r.sym].r > 0.75 * prevRanks[r.sym].n) sells.push(row(r, "hold", "Merit review", "Tier 7: ranked in the bottom quarter of gate-passers at two action reviews in a row (now " + r.p.rank + " of " + n + "). Write a retain-or-exit note; exit within 2 quarters if the verdict is exit (§7.4).")); });
+    held.forEach(function (r) { if (r.p && r.p.grank && prevRanks[r.sym] && r.p.grank > 0.75 * r.p.gn && prevRanks[r.sym].r > 0.75 * prevRanks[r.sym].n) sells.push(row(r, "hold", "Merit review", "Tier 7: ranked in the bottom quarter of its own group (" + r.p.rg + ") at two action reviews in a row (now " + r.p.grank + " of " + r.p.gn + "). Write a retain-or-exit note; exit within 2 quarters if the verdict is exit (§7.4).")); });
+    held.forEach(function (r) { if (r.p && !r.p.complete && r.after !== 0) sells.push(row(r, "hold", "Score incomplete", "Gate PASS but not ranked: " + r.p.inc.join("; ") + ". It keeps its place by incumbency (§7.5, §7.4).")); });
     // 7. Buys: put sale proceeds to work, furthest below the 7.5% target first (§14.4), first tranche capped for new names (§8.3)
     var tv = {}, tv0 = {}; held.forEach(function (r) { tv[r.sym] = r.after; tv0[r.sym] = r.after; });
-    var gapOf = function (s) { return SIPS.targetW * db / 100 - (tv[s] || 0); }, added = {};
-    var roomOf = function (s) { var lim = ((tv0[s] || 0) > 0 ? SIPS.maxAdd : SIPS.initial * SIPS.targetW) * db / 100; return lim - (added[s] || 0); };
+    var mwOf = function (s) { var h = held.filter(function (r) { return r.sym === s; })[0]; return h ? h.mw : maxW(s); };
+    var qStart = sipsQuarterStart(today), wait = {};
+    var boughtQ = function (s) { return st.txns.filter(function (t) { return t.symbol === s && Number(t.qty) > 0 && t.txn_date >= qStart; }).reduce(function (a, t) { return a + Number(t.amount); }, 0); };
+    var lastBuy = function (s) { return st.txns.filter(function (t) { return t.symbol === s && Number(t.qty) > 0; }).reduce(function (d, t) { return t.txn_date > d ? t.txn_date : d; }, ""); };
+    var gapOf = function (s) { return mwOf(s).t * db / 100 - (tv[s] || 0); }, added = {};
+    // the least of: the tranche allowance, the gap to target, the room under the hard cap and the quarter's 5% allowance (the capital is the loop's `left`)
+    var roomOf = function (s) {
+      var m = mwOf(s), cur = tv0[s] || 0, lb = cur > 0 ? lastBuy(s) : "";
+      if (lb && sipsDays(lb, today) < SIPS.gapDays) { wait[s] = sipsAddDays(lb, SIPS.gapDays); return 0; }
+      var tr = (cur > 0 ? SIPS.laterPct : SIPS.initial * m.t) * db / 100;
+      return Math.min(tr, m.w * db / 100 - cur, SIPS.quarterPct * db / 100 - boughtQ(s)) - (added[s] || 0);
+    };
     var buys = [], left = cash, guard = 0;
     while (left > 1 && guard++ < 80) {
       var c = target.filter(function (s) { return gapOf(s) > 1 && roomOf(s) > 1; }).sort(function (a, b) { return gapOf(b) - gapOf(a); })[0];
@@ -1677,9 +1769,17 @@
       if (r) return row(r, kind, act, lead + " " + det + chk, amt);
       return { fund: s, full: e ? e.name : s, category: indOf(s), units: null, avg_nav: null, kind: kind, isNew: true, action: act, why: lead + " " + det + chk, amount: amt ? Math.round(amt) : null };
     };
-    var outBuys = buys.map(function (b) { var isNew = !held.some(function (h) { return h.sym === b.sym; }); return mkBuy(b.sym, "buy", isNew ? "Buy new stock" : "Buy", b.amount, (isNew ? "First tranche (half of the 7.5% target, §8.3). " : "") + "Funded by the sales above; brings it toward its " + SIPS.targetW + "% target." + (action ? "" : " Moves on " + fmtDate(nextAct) + ".")); });
+    var outBuys = buys.map(function (b) { var isNew = !held.some(function (h) { return h.sym === b.sym; }); return mkBuy(b.sym, "buy", isNew ? "Buy new stock" : "Buy", b.amount, (isNew ? "First tranche (half of the " + mwOf(b.sym).t + "% target, §8.3). " : "") + "Funded by the sales above; brings it toward its " + mwOf(b.sym).t + "% target." + (action ? "" : " Moves on " + fmtDate(nextAct) + ".")); });
+    // Part 4.3: eligibility is never weakened to fill a slot; what no qualifying stock can take goes to B2, then B3
+    if (left > 1) {
+      var b2h = all.filter(function (r) { return r.bk === "B2"; }).sort(function (a, b) { return b.value - a.value; })[0], b2hi = SIPS.buckets[1].hi * db / 100, b3hi = SIPS.buckets[2].hi * db / 100;
+      var toB2 = b2h ? Math.min(left, Math.max(0, b2hi - bv.B2)) : 0;
+      if (toB2 > 1) { b2h.ind = b2h.ind || "ETF"; outBuys.push(row(b2h, "buy", "Buy (B2)", "No qualifying stock can take this money now. Part 4.3 puts it next into B2 (" + b2h.sym + ") up to its " + SIPS.buckets[1].hi + "% band: B2 is equity, so the household direct-equity share is kept.", toB2)); left -= toB2; }
+      var toB3 = Math.min(left, Math.max(0, b3hi - bv.B3));
+      if (toB3 > 1) { outBuys.push({ fund: "LIQUIDBEES", full: "Liquidity (B3)", category: "Liquidity", units: null, avg_nav: null, kind: "hold", action: "Hold in B3", why: "No qualifying stock or B2 room can take this money. Part 4.3 holds it in B3 (liquid ETF or broker cash) up to its " + SIPS.buckets[2].hi + "% band.", amount: Math.round(toB3) }); left -= toB3; }
+    }
     var newMoney = 0;
-    target.forEach(function (s) { var gp = gapOf(s); if (gp > 1000) { newMoney += gp; var wasBought = buys.some(function (b) { return b.sym === s; }); outBuys.push(mkBuy(s, "watch", wasBought ? "Next tranches" : "With new money", gp, wasBought ? "Remaining " + inr.format(gp) + " to reach target, in tranches at least 4 weeks apart, each up to 2.5% of the Direct Book (§8.3)." : "On the target list but " + inr.format(gp) + " short of its " + SIPS.targetW + "% target. Fund it from new money, largest gap first.")); } });
+    target.forEach(function (s) { var gp = gapOf(s); if (gp > 1000) { newMoney += gp; var wasBought = buys.some(function (b) { return b.sym === s; }); outBuys.push(mkBuy(s, "watch", wasBought ? "Next tranches" : "With new money", gp, wasBought ? "Remaining " + inr.format(gp) + " to reach target, in tranches at least 4 weeks apart, each up to 2.5% of the Direct Book (§8.3)." : "On the target list but " + inr.format(gp) + " short of its " + mwOf(s).t + "% target." + (wait[s] ? " Next purchase from " + fmtDate(wait[s]) + ", 4 weeks after your last one (§8.3)." : " Fund it from new money, largest gap first."))); } });
     var heldAfter = held.reduce(function (a, r) { return a + (tv[r.sym] || 0); }, 0) + buys.reduce(function (a, b) { return a + (held.some(function (h) { return h.sym === b.sym; }) ? 0 : b.amount); }, 0);
     // 8. Household (§3, §13) and stress tests (§12)
     var mfv = mf.total || 0, deb = bv.B1 + bv.B2, he = deb + mfv, share = he ? 100 * deb / he : 0;
@@ -1712,10 +1812,11 @@
     tiles.push({ grp: "check", l: "L3, L5 Household look-through", txt: "UNVERIFIED", sub: (l3.length ? "Direct holdings alone already exceed 6% of household equity: " + l3.map(function (r) { return r.sym + " " + (100 * r.value / he).toFixed(1) + "%"; }).join(", ") + ". " : "") + "Mutual fund portfolio disclosures are not loaded, so combined exposure cannot be confirmed.", st: l3.length ? "above" : "unv" });
     var worst = [["S2", sNow.s2]].concat([["S3", sNow.s3], ["S7", sNow.s7]]).sort(function (a, b) { return b[1] - a[1]; })[0];
     tiles.push({ grp: "check", l: "Stress test (limit 25% in sector and single-stock cases)", txt: "S2 " + f1(sNow.s2), sub: "S1 " + f1(sNow.s1) + " (limit: benchmark loss + 5) · S3 " + f1(sNow.s3) + " · S7 " + f1(sNow.s7) + " · S8 " + f1(sNow.s8) + " (needs a Nifty 500 scenario input). After the trim plan: S2 " + f1(sPlan.s2) + ", S7 " + f1(sPlan.s7) + ". S4 to S6 need inputs (§12.3). Estimates, not forecasts.", st: worst[1] > 25 ? "above" : "in" });
+    tiles.push({ grp: "check", l: "Broker cash (IPS 3.1)", txt: "MISSING", st: "above", sub: "The Direct Book here is securities only. Tests that use it as the denominator (L1, L2, bucket bands, purchase sizes) are provisional (UNVERIFIED) until the Zerodha and Angel One closing balances are recorded." });
     tiles.push({ grp: "check", l: "Data status", txt: fresh + " of " + held.length + " held stocks current", sub: held.filter(function (r) { return !r.e || r.e.status === "MISSING" || r.e.status === "STALE"; }).map(function (r) { return r.sym + " " + (r.e ? r.e.status : "MISSING"); }).join(", ") || "all fundamentals fetched within " + SIPS.staleDays + " days. Financial-company tests need manual checks (UNVERIFIED).", st: fresh === held.length ? "in" : "above" });
     sells.sort(function (a, b) { var o = { sell: 0, plan: 1, hold: 2 }; return (o[a.kind] - o[b.kind]) || ((a.due || "") < (b.due || "") ? -1 : (a.due || "") > (b.due || "") ? 1 : 0) || (b.amount || 0) - (a.amount || 0); });
     return { run_date: today, buys: outBuys, sells: sells, book_value: Math.round(db), buckets: tiles,
-      meta: { cash: Math.round(cash), new_money: Math.round(newMoney), action_review: action, target: target, version: SIPS.version, screened: Object.keys(E).length, passed: pool.length, mf_gain: Math.round(mfGain), st_gain: Math.round(stGain), probation: probation, ranks: ranks,
+      meta: { cash: Math.round(cash), new_money: Math.round(newMoney), action_review: action, target: target, version: SIPS.version, screened: Object.keys(E).length, passed: cand.length, ranked: pool.length, cash_missing: true, mf_gain: Math.round(mfGain), st_gain: Math.round(stGain), probation: probation, ranks: ranks,
         stress: { now: sNow, plan: sPlan }, hh: { he: Math.round(he), share: Math.round(share * 10) / 10 },
         px: priceInfo(all, function (r) { return r.price > 0 ? r.pdate : null; }, function (r) { return (st.prices[r.sym] || {}).updated_at; }) } };
   }
@@ -1765,8 +1866,9 @@
     if (!$("sips-box")) return;
     var L = sips.view || sips.latest, t = todayISO(), meta = L ? L.meta || {} : {};
     var Ls = sips.latest || L, Lm = Ls ? Ls.meta || {} : {};   // the saved review: its own date and type, even when the plan is re-priced
+    renderRuleSet();
     $("sips-dates").innerHTML = L ? (sips.view ? priceNote(meta.px, "prices", t) : "") + "Last review <b>" + fmtDate(Ls.run_date) + "</b> (" + (Lm.action_review ? "action review" : "signal review, next action " + fmtDate(ipsNextAction(Ls.run_date))) + ") · Next review <b>" + fmtDate(ipsNext(t)) + "</b>" +
-      (meta.screened ? " · " + meta.passed + " of " + meta.screened + " stocks pass the Core gate" : "") : "No review yet";
+      (meta.screened ? " · " + meta.passed + " of " + meta.screened + " stocks pass the Core gate" + (meta.ranked != null ? ", " + meta.ranked + " have a complete score" : "") : "") : "No review yet";
     var sumK = function (l, k) { return (l || []).reduce(function (a, x) { return a + (x.kind === k && x.amount ? x.amount : 0); }, 0); };
     var sOut = L ? sumK(L.sells, "sell") : 0, bIn = L ? sumK(L.buys, "buy") : 0, nm = L ? sumK(L.buys, "watch") : 0, later = L ? sumK(L.sells, "plan") : 0;
     $("sips-flow").innerHTML = L ? '<div><div class="l">Freed by sells now</div><div class="a">' + inr.format(sOut) + '</div><div class="s">exits and long-term trims</div></div>' +
