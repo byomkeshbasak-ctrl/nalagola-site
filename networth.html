@@ -1218,7 +1218,30 @@
     adoption: "2026-11-04", // the v1.1 adoption review counts as an action review (§K)
     fundCap: 22, lead: 10
   };
-  var ips = { latest: null, loading: false, checked: false, screen: null, prev: null, open: {} };
+  var ips = { latest: null, view: null, repricing: false, scrTried: false, loading: false, checked: false, screen: null, prev: null, open: {} };
+  // IPS A.4: prices are STALE when older than 1 trading day. Weekends are skipped; exchange holidays are not known here.
+  function tradingDaysOld(d, t) {
+    if (!d) return 9999; var n = 0, x = new Date(d + "T00:00:00Z"), e = new Date(t + "T00:00:00Z");
+    while (x < e) { x = new Date(x.getTime() + 86400000); var w = x.getUTCDay(); if (w !== 0 && w !== 6) n++; }
+    return n;
+  }
+  function priceInfo(rows, dateOf, atOf) {
+    var o = { oldest: null, at: null, missing: 0 };
+    rows.forEach(function (r) {
+      var d = dateOf(r); if (!d) { o.missing++; return; }
+      if (!o.oldest || d < o.oldest) o.oldest = d;
+      var a = atOf(r); if (a && (!o.at || a > o.at)) o.at = a;
+    });
+    return o;
+  }
+  // The line above each plan: says which prices it was worked out on, and flags it when they are too old
+  function priceNote(px, what, t) {
+    if (!px) return "";
+    var age = px.oldest ? tradingDaysOld(px.oldest, t) : 9999;
+    if (px.missing || age > 1) return '<span class="neg">' + what.charAt(0).toUpperCase() + what.slice(1) + " STALE: " + (px.missing ? px.missing + " without a price" + (px.oldest ? ", " : "") : "") +
+      (px.oldest ? "the oldest is " + (age === 1 ? "1 trading day" : age + " trading days") + " old (" + fmtDate(px.oldest) + ")" : "") + ". Refresh prices before acting (IPS A.4).</span> · ";
+    return "Worked out on the latest " + what + (px.at ? " (updated <b>" + stampText(px.at).replace(" on ", ", ") + "</b>)" : " of <b>" + fmtDate(px.oldest) + "</b>") + " · ";
+  }
   function ipsSlot(d) { return d.slice(0, 8) + (Number(d.slice(8, 10)) >= 15 ? "15" : "01"); }
   function ipsNext(d) {
     if (Number(d.slice(8, 10)) < 15) return d.slice(0, 8) + "15";
@@ -1370,7 +1393,8 @@
     sells.sort(function (a, c) { return (c.amount || 0) - (a.amount || 0); });
     return { run_date: today, buys: buys, sells: sells, book_value: Math.round(total),
       buckets: IPS.buckets.map(function (b) { return { l: b.l, cur: Math.round(cur[b.k] * 10) / 10, after: Math.round(pctOf(bv[b.k]) * 10) / 10, t: b.t, lo: b.lo, hi: b.hi }; }),
-      cash: Math.round(cash), new_money: newMoney, action_review: action, screen_date: ips.screen ? ips.screen.date : null, version: IPS.version };
+      cash: Math.round(cash), new_money: newMoney, action_review: action, screen_date: ips.screen ? ips.screen.date : null, version: IPS.version,
+      px: priceInfo(held, function (r) { return r.f.nav_date; }, function () { return null; }) };
   }
   async function ipsCheck(force) {
     if (ips.loading || !mf.funds.length) return;
@@ -1392,12 +1416,24 @@
           if (force) toast("Review updated");
         }
       }
-    } finally { ips.loading = false; renderIPS(); }
+    } finally { ips.loading = false; renderIPS(); ipsReprice(); }
+  }
+  // The saved review (above) is the record taken at each review date. What is shown is always worked out again from the
+  // latest NAVs, so the amounts never lag behind the prices (IPS A.4 and the purchase constraint, which use prices of 1 day).
+  async function ipsReprice() {
+    if (ips.repricing || !mf.funds.length) return;
+    ips.repricing = true;
+    try {
+      if (!ips.screen && !ips.scrTried) { ips.scrTried = true; await ipsLoadScreen(); }
+      ips.view = ipsRun();
+    } catch (e) { ips.view = null; } finally { ips.repricing = false; renderIPS(); }
+    if (typeof sips !== "undefined" && sips.view && st.txns.length) sipsReprice();
   }
   function renderIPS() {
     var box = $("ips-box"); if (!box) return;
-    var L = ips.latest, t = todayISO(), meta = L ? (L.meta || L) : {};
-    $("ips-dates").innerHTML = L ? "Last review <b>" + fmtDate(L.run_date) + "</b> (" + (meta.action_review ? "action review" : "signal review, next action " + fmtDate(ipsNextAction(L.run_date))) + ") · Next review <b>" + fmtDate(ipsNext(t)) + "</b>" +
+    var L = ips.view || ips.latest, t = todayISO(), meta = L ? (L.meta || L) : {};
+    var Ls = ips.latest || L, Lm = Ls ? (Ls.meta || Ls) : {};   // the saved review: its own date and type, even when the plan is re-priced
+    $("ips-dates").innerHTML = L ? (ips.view ? priceNote(ips.view.px, "NAVs", t) : "") + "Last review <b>" + fmtDate(Ls.run_date) + "</b> (" + (Lm.action_review ? "action review" : "signal review, next action " + fmtDate(ipsNextAction(Ls.run_date))) + ") · Next review <b>" + fmtDate(ipsNext(t)) + "</b>" +
       (meta.screen_date ? " · Fund screen of " + fmtDate(meta.screen_date) : "") : "No review yet";
     var sumAmt = function (l) { return (l || []).reduce(function (a, x) { return a + ((x.kind === "buy" || x.kind === "sell") && x.amount ? x.amount : 0); }, 0); };
     var sOut = L ? sumAmt(L.sells) : 0, bIn = L ? sumAmt(L.buys) : 0, nm = L && (meta.new_money || !sOut);
@@ -1432,7 +1468,7 @@
       var k = tr.dataset.ipsrow; ips.open[k] = !ips.open[k]; renderIPS();
     });
   });
-  $("ips-run").addEventListener("click", function () { ipsCheck(true); });
+  $("ips-run").addEventListener("click", async function () { await loadMF(); ipsCheck(true); });
   // ---------- Stocks IPS v5.0 review: four buckets, graded limits, gate statuses, stress tests, household checks ----------
   var SIPS = {
     version: "v5.0", adoption: "2026-11-04", planEnd: "2027-10-31",
@@ -1450,7 +1486,7 @@
       [/^(M&M|M&MFIN)$/, "Mahindra"], [/^(RELIANCE|JIOFIN)$/, "Reliance"], [/^(GRASIM|HINDALCO|ABCAPITAL)$/, "Aditya Birla"], [/^TORNT/, "Torrent"], [/^(COROMANDEL|CHOLAFIN|TIINDIA)$/, "Murugappa"],
       [/^(LT|LTM|LTTS|LTF)$/, "L&T"], [/^(VEDL|VAML|HINDZINC)$/, "Vedanta"], [/^JSW/, "JSW"], [/^GODREJ/, "Godrej"], [/^(SBIN|SBICARD|SBILIFE)$/, "SBI"], [/^(LICI|LICHSGFIN)$/, "LIC"], [/^BHARTI/, "Bharti"]]
   };
-  var sips = { latest: null, loading: false, checked: false, fund: null, checks: {}, open: {} };
+  var sips = { latest: null, view: null, prior: null, repricing: false, loading: false, checked: false, fund: null, checks: {}, open: {} };
   function sipsBucket(sym) {
     if (/^(LIQUIDBEES|LIQUIDCASE|LIQUIDETF|LIQUIDADD|LIQUIDIETF)$/.test(sym)) return "B3";
     if (/^(GOLDBEES|GOLDCASE|GOLDETF|GOLDIETF|SILVERBEES|SILVERIETF)$/.test(sym)) return "B4";
@@ -1569,7 +1605,8 @@
     pool.forEach(function (e) { if (e.needsCheck || e.stale) return; if (!held.some(function (h) { return h.sym === e.sym; })) addT(e.sym, e.ind, SIPS.targetW, sipsGroup(e.sym)); });
     // 5. Tax budget (§14): MF consolidations take the household exemption first
     var mfGain = 0;
-    if (typeof ips !== "undefined" && ips.latest && ips.latest.sells) ips.latest.sells.forEach(function (x) {
+    var mfPlan = typeof ips !== "undefined" ? (ips.view || ips.latest) : null;
+    if (mfPlan && mfPlan.sells) mfPlan.sells.forEach(function (x) {
       if (x.kind !== "sell" || !x.full) return; var f = mf.funds.filter(function (z) { return z.name === x.full; })[0]; if (!f) return; var c = fundCalc(f); if (c.value > c.invested) mfGain += Math.min(c.value - c.invested, (x.amount || c.value) * (c.value - c.invested) / c.value);
     });
     var budget = Math.max(0, SIPS.hh.exemption - mfGain), stGain = 0;
@@ -1589,7 +1626,7 @@
     var row = function (r, kind, act, why, amt, extra) { var o = { fund: r ? r.sym : null, full: r ? r.name : null, category: r ? r.ind : "", units: r ? r.qty : null, avg_nav: r && r.qty ? r.invested / r.qty : null, kind: kind, action: act, why: why, amount: amt ? Math.round(amt) : null }; if (extra) for (var k in extra) o[k] = extra[k]; return o; };
     var defer = action ? "" : " Act on " + fmtDate(nextAct) + ".";
     // 6. Sells and holds in tier order (§10): decisions and governance first, then probation, then concentration
-    var sells = [], cash = 0, probation = {}, prevMeta = (sips.latest && sips.latest.meta) || {}, prevProb = prevMeta.probation || {};
+    var sells = [], cash = 0, probation = {}, prevMeta = (sips.prior && sips.prior.meta) || {}, prevProb = Object.assign({}, prevMeta.probation || {}, (sips.latest && sips.latest.meta && sips.latest.meta.probation) || {});
     var gainTxt = function (r) { var g = r.value - r.invested; return " Gain in it: " + (g >= 0 ? "+" : "−") + inr.format(Math.abs(g)) + "."; };
     var sellAll = function (r, act, why) {
       var lt = 0, sh = 0; r.lots.forEach(function (l) { var gv = l.qty * r.price - l.cost; if (sipsAddDays(l.date, 366) <= today) lt += gv; else sh += gv; });
@@ -1679,7 +1716,8 @@
     sells.sort(function (a, b) { var o = { sell: 0, plan: 1, hold: 2 }; return (o[a.kind] - o[b.kind]) || ((a.due || "") < (b.due || "") ? -1 : (a.due || "") > (b.due || "") ? 1 : 0) || (b.amount || 0) - (a.amount || 0); });
     return { run_date: today, buys: outBuys, sells: sells, book_value: Math.round(db), buckets: tiles,
       meta: { cash: Math.round(cash), new_money: Math.round(newMoney), action_review: action, target: target, version: SIPS.version, screened: Object.keys(E).length, passed: pool.length, mf_gain: Math.round(mfGain), st_gain: Math.round(stGain), probation: probation, ranks: ranks,
-        stress: { now: sNow, plan: sPlan }, hh: { he: Math.round(he), share: Math.round(share * 10) / 10 } } };
+        stress: { now: sNow, plan: sPlan }, hh: { he: Math.round(he), share: Math.round(share * 10) / 10 },
+        px: priceInfo(all, function (r) { return r.price > 0 ? r.pdate : null; }, function (r) { return (st.prices[r.sym] || {}).updated_at; }) } };
   }
   async function sipsCheck(force) {
     if (sips.loading || !st.txns.length) return;
@@ -1693,6 +1731,7 @@
       if (force || !sips.latest || sips.latest.run_date < ipsSlot(t) || ((sips.latest.meta || {}).version !== SIPS.version)) {
         await sipsLoadFund();
         if (typeof ips !== "undefined" && !ips.latest && !ips.checked) { try { var mq = await sb.from("mf_reviews").select("*").order("run_date", { ascending: false }).limit(1); if (!mq.error && mq.data && mq.data.length) ips.latest = mq.data[0]; } catch (e) {} }
+        sips.prior = await sipsPriorReview(t);
         var r = sipsRun();
         if (r) {
           await sb.from("st_reviews").delete().eq("run_date", t);
@@ -1701,12 +1740,32 @@
           if (force) toast("Review updated");
         }
       }
-    } finally { sips.loading = false; renderSIPS(); }
+    } finally { sips.loading = false; renderSIPS(); sipsReprice(); }
   }
+  // The last saved review from an earlier review period: the starting point for probation clocks and the two-review merit test
+  async function sipsPriorReview(t) {
+    var slot = ipsSlot(t);
+    if (sips.latest && sips.latest.run_date < slot) return sips.latest;
+    var q = await sb.from("st_reviews").select("*").lt("run_date", slot).order("run_date", { ascending: false }).order("created_at", { ascending: false }).limit(1);
+    return !q.error && q.data && q.data.length ? q.data[0] : null;
+  }
+  // The saved review is the record taken at each review date. What is shown is always worked out again from the latest
+  // prices (live or NSE close), so the buy and sell amounts never lag behind them (IPS A.4: prices of 1 trading day).
+  async function sipsReprice() {
+    if (sips.repricing || !st.txns.length) return;
+    sips.repricing = true;
+    try {
+      if (!sips.fund) await sipsLoadFund();
+      sips.prior = await sipsPriorReview(todayISO());
+      sips.view = sipsRun();
+    } catch (e) { sips.view = null; } finally { sips.repricing = false; renderSIPS(); }
+  }
+  async function repriceAll() { await ipsReprice(); await sipsReprice(); }
   function renderSIPS() {
     if (!$("sips-box")) return;
-    var L = sips.latest, t = todayISO(), meta = L ? L.meta || {} : {};
-    $("sips-dates").innerHTML = L ? "Last review <b>" + fmtDate(L.run_date) + "</b> (" + (meta.action_review ? "action review" : "signal review, next action " + fmtDate(ipsNextAction(L.run_date))) + ") · Next review <b>" + fmtDate(ipsNext(t)) + "</b>" +
+    var L = sips.view || sips.latest, t = todayISO(), meta = L ? L.meta || {} : {};
+    var Ls = sips.latest || L, Lm = Ls ? Ls.meta || {} : {};   // the saved review: its own date and type, even when the plan is re-priced
+    $("sips-dates").innerHTML = L ? (sips.view ? priceNote(meta.px, "prices", t) : "") + "Last review <b>" + fmtDate(Ls.run_date) + "</b> (" + (Lm.action_review ? "action review" : "signal review, next action " + fmtDate(ipsNextAction(Ls.run_date))) + ") · Next review <b>" + fmtDate(ipsNext(t)) + "</b>" +
       (meta.screened ? " · " + meta.passed + " of " + meta.screened + " stocks pass the Core gate" : "") : "No review yet";
     var sumK = function (l, k) { return (l || []).reduce(function (a, x) { return a + (x.kind === k && x.amount ? x.amount : 0); }, 0); };
     var sOut = L ? sumK(L.sells, "sell") : 0, bIn = L ? sumK(L.buys, "buy") : 0, nm = L ? sumK(L.buys, "watch") : 0, later = L ? sumK(L.sells, "plan") : 0;
@@ -1742,7 +1801,7 @@
   ["sips-buy", "sips-sell"].forEach(function (id) {
     $(id).addEventListener("click", function (e) { var tr = e.target.closest("[data-sipsrow]"); if (!tr) return; var k = tr.dataset.sipsrow; sips.open[k] = !sips.open[k]; renderSIPS(); });
   });
-  $("sips-run").addEventListener("click", function () { sipsCheck(true); });
+  $("sips-run").addEventListener("click", async function () { await loadStocks(); sipsCheck(true); });
 
 
   // FIFO lots, realised gain and XIRR for one fund
@@ -3565,6 +3624,7 @@
       toast(msg.length ? "Prices updated: " + msg.join(", ") : "Couldn't reach the price sources. Try again later.");
       await Promise.all([loadMF(), loadStocks(), loadOthers()]);
       renderNetWorth();
+      await repriceAll();
     } catch (e) { toast("Couldn't update prices: " + (e.message || e)); }
     await loadPxStamp();
     all.forEach(function (x) { x.disabled = false; }); b.textContent = label;
@@ -3582,6 +3642,7 @@
       toast("Live prices for " + d.updated + " of " + d.symbols + " holdings, refreshed at " + stampText(new Date().toISOString()).replace(" on ", ", ") + (miss ? ". No price for " + d.missing.join(", ") : ""));
       await Promise.all([loadStocks(), loadOthers()]);
       renderNetWorth();
+      await repriceAll();
     } catch (e) { toast("Couldn't get live prices: " + (e.message || e) + ". The last NSE close is still shown."); }
     await loadPxStamp();
     b.disabled = false; b.textContent = label;
