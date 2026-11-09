@@ -2038,11 +2038,11 @@
     var pdate = held.reduce(function (d, r) { return r.pdate && r.pdate > d ? r.pdate : d; }, "");
     st.total = T.val; st.invested = T.inv; st.day = T.day; st.pdate = pdate; st.count = held.length;
     $("st-total").textContent = inr.format(T.val);
-    dayLine("st-day", T.day, T.val, "Day's gain / loss" + (pdate ? " · close of " + fmtDate(pdate) : ""));
+    dayLine("st-day", T.day, T.val, "Day's gain / loss");
     $("st-total-s").textContent = ""; $("st-total-s").hidden = true;
     var k = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + (d || "") + "</div></div>"; };
     $("st-kpis").innerHTML = k("Invested", inr.format(T.inv), "Cost of shares still held") +
-      k("Today's gain / loss", (T.day > 0 ? "+" : "") + inr.format(T.day), pct(T.val - T.day ? T.day / (T.val - T.day) : NaN) + (pdate ? " · close of " + fmtDate(pdate) : ""), T.day >= 0 ? "pos" : "neg") +
+      k("Today's gain / loss", (T.day > 0 ? "+" : "") + inr.format(T.day), pct(T.val - T.day ? T.day / (T.val - T.day) : NaN), T.day >= 0 ? "pos" : "neg") +
       k("Unrealised gain", inr.format(gain), pct(T.inv ? gain / T.inv : NaN), gain >= 0 ? "pos" : "neg") +
       k("Realised gain", inr.format(T.real), "From sales (FIFO)", T.real >= 0 ? "pos" : "neg") +
       k("XIRR", isFinite(X) ? (X * 100).toFixed(1) + "%" : "–", "All trades, since first buy", X >= 0 ? "pos" : "neg");
@@ -3539,11 +3539,11 @@
     var last = { mf: null, stocks: null, live: null, liveAt: null };
     (r.data || []).forEach(function (x) {
       var d = {}; try { d = JSON.parse(x.detail || "{}"); } catch (e) {}
-      ["mf", "stocks", "live"].forEach(function (k) { if (!last[k] && d[k] && !d[k].error) { last[k] = x.ran_at; if (k === "live") last.liveAt = d.live.at || x.ran_at; } });
+      ["mf", "stocks", "live"].forEach(function (k) { if (!last[k] && d[k] && !d[k].error) { last[k] = x.ran_at; } });
     });
     // Show whichever stock update is newer: live prices from Yahoo Finance, or the NSE closing prices
     var st = "Prices not updated yet";
-    if (last.live && (!last.stocks || last.live > last.stocks)) st = "Live prices as of <b>" + stampText(last.liveAt).replace(" on ", ", ") + "</b> · Yahoo Finance";
+    if (last.live && (!last.stocks || last.live > last.stocks)) st = "Live prices as of <b>" + stampText(last.live).replace(" on ", ", ") + "</b> · Yahoo Finance";
     else if (last.stocks) st = "NSE closing prices, updated at <b>" + stampText(last.stocks).replace(" on ", ", ") + "</b>";
     if ($("st-stamp")) $("st-stamp").innerHTML = st;
     if ($("mf-stamp")) $("mf-stamp").innerHTML = last.mf ? "Last updated at <b>" + stampText(last.mf).replace(" on ", ", ") + "</b>" : "NAVs not updated yet";
@@ -3579,7 +3579,7 @@
       if (r.error && !d.updated) throw r.error;
       if (d.error) throw new Error(d.error);
       var miss = (d.missing || []).length;
-      toast("Live prices for " + d.updated + " of " + d.symbols + " holdings" + (d.at ? ", as of " + stampText(d.at).replace(" on ", ", ") : "") + (miss ? ". No price for " + d.missing.join(", ") : ""));
+      toast("Live prices for " + d.updated + " of " + d.symbols + " holdings, refreshed at " + stampText(new Date().toISOString()).replace(" on ", ", ") + (miss ? ". No price for " + d.missing.join(", ") : ""));
       await Promise.all([loadStocks(), loadOthers()]);
       renderNetWorth();
     } catch (e) { toast("Couldn't get live prices: " + (e.message || e) + ". The last NSE close is still shown."); }
