@@ -377,6 +377,7 @@
   .dues-wrap > * { min-width: 0; }
   #dues-form-card .form-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); align-items: end; }
   #book-table td:first-child, #book-table td.actions { white-space: nowrap; }
+  #book-table tr.book-detail > td { white-space: normal; }
   #book-table td { vertical-align: middle; }
   #book-table { font-size: 0.82rem; }
   #book-table th { font-size: 0.66rem; letter-spacing: 0.05em; }
@@ -505,8 +506,9 @@
   .bd-box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
   .bd-box h3 { font-size: 0.85rem; font-weight: 600; margin-bottom: 10px; }
   .bd-list { display: grid; gap: 4px; margin-bottom: 12px; font-size: 0.85rem; }
-  .bd-list .it { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 5px 0; border-bottom: 1px solid rgba(217,178,111,0.08); }
-  .bd-list .it span:nth-child(2) { font-variant-numeric: tabular-nums; }
+  .bd-list .it { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 5px 0; border-bottom: 1px solid rgba(217,178,111,0.08); }
+  .bd-list .it > span:first-child { overflow-wrap: anywhere; }
+  .bd-list .it > span:nth-child(2) { font-variant-numeric: tabular-nums; white-space: nowrap; }
   .bd-list .none { color: var(--muted); font-size: 0.82rem; }
   .bd-add { display: grid; grid-template-columns: 1.1fr 0.9fr 1.2fr auto; gap: 8px; }
   .bd-add input, .bd-add select { padding: 7px 9px; font-size: 0.85rem; }
