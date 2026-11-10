@@ -914,7 +914,7 @@
   var toNum = function (v) { if (v == null || v === "") return 0; var n = Number(String(v).replace(/[,₹\s]/g, "")); return isNaN(n) ? 0 : n; };
   var todayISO = function () { var d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
   var toastTimer;
-  function toast(t) { var el = $("toast"); el.textContent = t; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.hidden = true; }, 3200); }
+  function toast(t) { var el = $("toast"); el.textContent = t; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.hidden = true; }, Math.max(3200, t.length * 55)); }
   function show(v) { ["view-login", "view-denied", "view-app"].forEach(function (x) { $(x).hidden = x !== v; }); }
 
   if (!window.supabase) { document.body.innerHTML = '<p style="padding:24px">Could not load the login library. Check your internet connection and reload.</p>'; return; }
@@ -3298,6 +3298,11 @@
     e.preventDefault();
     var row = { name: $("cc-name").value.trim(), last4: $("cc-last4").value.trim() || null, opening_date: $("cc-odate").value, opening_due: toNum($("cc-odue").value) };
     if (!row.name) { toast("Enter the card name."); return; }
+    if (cc.editing) {
+      var early = state.cardPays.filter(function (p) { return p.card_code === cc.editing && p.pay_date < row.opening_date; }).map(function (p) { return p.pay_date; })
+        .concat(((typeof ex !== "undefined" && ex.list) || []).filter(function (x) { return x.paid_from === cc.editing && x.exp_date < row.opening_date; }).map(function (x) { return x.exp_date; })).sort();
+      if (early.length) { toast("This card has " + early.length + (early.length > 1 ? " entries" : " entry") + " dated before " + fmtDate(row.opening_date) + " (earliest " + fmtDate(early[0]) + "). They'd drop off the card. Set the opening date on or before " + fmtDate(early[0]) + "."); return; }
+    }
     var btn = $("cc-add-save"), r; btn.disabled = true;
     if (cc.editing) r = await sb.from("credit_cards").update(row).eq("code", cc.editing);
     else {
@@ -3329,6 +3334,11 @@
     e.preventDefault();
     var row = { pay_date: $("cp-date").value, card_code: $("cp-card").value, paid_from: $("cp-from").value, amount: toNum($("cp-amt").value), note: $("cp-note").value.trim() || null };
     if (!(row.amount > 0)) { toast("Enter an amount above zero."); return; }
+    var pc = state.cards.find(function (x) { return x.code === row.card_code; });
+    if (pc && row.pay_date < pc.opening_date) {
+      toast(cardName(pc.code) + " is tracked from " + fmtDate(pc.opening_date) + ", so a payment on " + fmtDate(row.pay_date) + " wouldn't reach the card. Change the date, or use Edit card to start the card earlier.");
+      return;
+    }
     var btn = $("cp-save"); btn.disabled = true;
     var r = cc.payEditing ? await sb.from("card_payments").update(row).eq("id", cc.payEditing) : await sb.from("card_payments").insert(row);
     btn.disabled = false;
