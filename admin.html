@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Admin | Nalagola CS Shop</title>
-<meta name="theme-color" content="#140a0e">
+<meta name="theme-color" content="#171717">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script>
 <!-- Excel reader (official SheetJS build) -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -527,68 +527,261 @@
   .clickable { cursor: pointer; text-decoration: underline; text-decoration-color: var(--line-strong); }
   .clickable:hover { color: var(--gold); }
 </style>
+<style id="ux-theme">
+  /* ===== Presentation layer, aligned with nalagolacsshop.com =====
+     Overrides look and layout only. Nothing here changes data, figures or behaviour. */
+  :root {
+    --bg: #171717;            /* charcoal */
+    --panel: #1F1C1A;
+    --panel-2: #29231F;       /* espresso */
+    --line: rgba(197, 164, 109, 0.18);
+    --line-strong: rgba(197, 164, 109, 0.42);
+    --gold: #C5A46D;
+    --gold-hi: #D4B887;
+    --text: #F4F0E8;          /* ivory */
+    --muted: #ADA79E;
+    --green: #86D3A2;
+    --red: #F29C9C;
+    --amber: #E3C27F;
+    --focus: rgba(197, 164, 109, 0.45);
+    --serif: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+    --sans: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  html { -webkit-text-size-adjust: 100%; }
+  body { font-family: var(--sans); line-height: 1.45; }
+  .serif { font-family: var(--serif); }
+  ::selection { background: rgba(197, 164, 109, 0.35); }
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  input:focus-visible, select:focus-visible { outline: none; }
+  .table-wrap:focus-visible, main:focus-visible { outline-offset: -2px; }
+  main:focus:not(:focus-visible) { outline: none; }
+
+  /* Skip link and the "opening" screen shown before the account check finishes */
+  .ux-skip { position: absolute; left: 8px; top: -60px; z-index: 50; background: var(--gold); color: var(--bg); font-weight: 600; padding: 10px 14px; border-radius: 10px; text-decoration: none; }
+  .ux-skip:focus { top: 8px; }
+  .ux-boot { min-height: 100vh; display: grid; place-content: center; justify-items: center; gap: 14px; color: var(--muted); font-size: 0.9rem; }
+  .ux-boot img { border-radius: 50%; box-shadow: 0 0 0 1px var(--line-strong); }
+  body:has(#view-login:not([hidden])) .ux-boot, body:has(#view-denied:not([hidden])) .ux-boot, body:has(#view-app:not([hidden])) .ux-boot { display: none; }
+
+  /* ---------- Buttons ---------- */
+  .primary { color: var(--bg); min-height: 40px; }
+  .primary:hover { background: var(--gold-hi); }
+  .ghost { min-height: 38px; border-color: rgba(244, 240, 232, 0.22); }
+  .ghost:hover { border-color: var(--gold); color: var(--gold); }
+  .icon-btn, .x-btn, .link-btn, .cost-up, .checks .go, .ind-reset, .ind-stop, .bd-toggle { min-height: 24px; min-width: 24px; }
+  .icon-btn:focus-visible, .x-btn:focus-visible, .link-btn:focus-visible { outline-offset: 0; border-radius: 4px; }
+
+  /* ---------- Sign in, reset and no-access ---------- */
+  .auth-card { max-width: 400px; background: var(--panel); border-color: var(--line-strong); border-radius: 14px; padding: 36px 30px 28px; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45); }
+  .auth-card img { width: 76px; height: 76px; box-shadow: 0 0 0 1px var(--line-strong); }
+  .auth-card h1 { font-family: var(--serif); font-weight: 600; font-size: 2rem; line-height: 1.1; margin-top: 16px; }
+  .auth-card .sub { color: var(--gold); font-size: 0.82rem; letter-spacing: 0.04em; }
+  .auth-card form { gap: 16px; }
+  .auth-card label { color: var(--text); font-size: 0.84rem; font-weight: 500; }
+  .auth-card input { min-height: 44px; }
+  .auth-card .primary { min-height: 46px; font-size: 0.95rem; }
+  .auth-card .link-btn { min-height: 36px; }
+  .ux-back { display: inline-block; margin-top: 18px; font-size: 0.82rem; color: var(--muted); text-underline-offset: 3px; }
+  .ux-back:hover { color: var(--gold); }
+  .msg { line-height: 1.5; }
+
+  /* ---------- Header ---------- */
+  .topbar { background: rgba(23, 23, 23, 0.92); border-bottom-color: rgba(244, 240, 232, 0.1); z-index: 30; }
+  .topbar-inner { gap: 10px 12px; padding: 10px 16px; }
+  .topbar img { width: 38px; height: 38px; box-shadow: 0 0 0 1px var(--line-strong); }
+  .topbar .title { font-family: var(--serif); font-size: 1.4rem; line-height: 1.1; white-space: nowrap; }
+  .topbar .title small { font-family: var(--sans); text-transform: none; letter-spacing: 0.02em; font-size: 0.78rem; font-weight: 600; color: var(--gold); }
+  .month-pick { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 3px; gap: 2px; }
+  .month-pick .ghost { border: 0; min-width: 38px; font-size: 1.15rem; line-height: 1; padding: 6px 10px; }
+  .month-pick input { border: 0; background: transparent; font-weight: 600; font-variant-numeric: tabular-nums; min-height: 36px; }
+  .ux-nw-short { display: none; }
+  .who { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  @media (max-width: 760px) {
+    .topbar-inner { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "logo title out" "month month nw"; padding: 8px 12px; gap: 8px 10px; }
+    .topbar img { grid-area: logo; width: 32px; height: 32px; }
+    .topbar .title { grid-area: title; font-size: 1.15rem; overflow: hidden; text-overflow: ellipsis; }
+    .topbar .spacer, .who { display: none; }
+    .month-pick { grid-area: month; justify-self: start; }
+    .topbar .nav-btn { grid-area: nw; justify-self: end; display: inline-flex; align-items: center; font-size: 0.84rem; padding: 8px 12px; }
+    .ux-nw-long { display: none; }
+    .ux-nw-short { display: inline; }
+    .month-pick input { width: 10.6em; padding-left: 6px; padding-right: 4px; }
+    .month-pick .ghost { min-width: 34px; padding: 6px 8px; }
+    #signout { grid-area: out; }
+  }
+  @media (max-width: 480px) { .topbar .title small { display: none; } }
+  @media (max-width: 380px) { .month-pick input { width: 10.4em; padding: 6px 2px; font-size: 0.86rem; } }
+
+  /* ---------- Page and summary ---------- */
+  .wrap { padding-top: 22px; }
+  .sum-head { align-items: flex-end; gap: 10px 14px; margin: 6px 0 14px; }
+  .ux-sum-t { flex: 1; min-width: 0; }
+  .sum-head h2 { font-family: var(--serif); font-weight: 600; font-size: clamp(1.9rem, 4.2vw, 2.6rem); line-height: 1.05; color: var(--text); }
+  .ux-scope { margin-top: 4px; font-size: 0.84rem; color: var(--muted); }
+  .ux-basis-btn { background: none; border: 0; padding: 6px 2px; min-height: 36px; color: var(--muted); font-size: 0.82rem; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  .ux-basis-btn:hover, .ux-basis-btn[aria-pressed="true"] { color: var(--gold); }
+
+  .kpi { position: relative; border-radius: 12px; padding: 14px 16px 15px; border-color: var(--line); }
+  .kpi .k, .cap-head .k { text-transform: none; letter-spacing: 0.01em; font-size: 0.8rem; font-weight: 500; color: var(--muted); }
+  .kpi .v { font-size: 1.6rem; letter-spacing: -0.01em; font-weight: 600; }
+  .kpis-main .kpi .s { display: block; position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .kpis-main.ux-basis .kpi .s { position: static; width: auto; height: auto; overflow: visible; clip: auto; white-space: normal; }
+  .kpi.profit { border-color: var(--gold); background: var(--panel-2); }
+  .kpi.profit .k { color: var(--gold); font-weight: 600; }
+  .kpi.profit .v { font-size: 1.85rem; }
+  @media (max-width: 1100px) { .kpis .kpi .v { font-size: 1.35rem; } .kpi.profit .v { font-size: 1.55rem; } }
+  @media (max-width: 420px) { .kpis { gap: 8px; } .kpi { padding: 12px 12px 13px; } .kpis .kpi .v { font-size: 1.15rem; } .kpi.profit .v { font-size: 1.35rem; } }
+  .pos, .neg { font-variant-numeric: tabular-nums; }
+  @media (max-width: 860px) { .kpis-main .kpi:last-child { grid-column: auto; } }
+  @media (max-width: 600px) {
+    .ux-sum-t { flex-basis: 100%; }
+    .sum-head { align-items: center; justify-content: space-between; }
+    .cap-head > div:first-child { flex-basis: 100%; }
+    .cap-head .spacer { display: none; }
+  }
+
+  .capital { border-color: var(--line-strong); }
+  .cap-head .v { font-family: var(--sans); }
+  .cap-line { border-radius: 10px; }
+  @media (max-width: 420px) { .cap-lines { grid-template-columns: 1fr 1fr; } .cap-head .v { font-size: 1.6rem; } }
+
+  /* ---------- Cards, sections, tabs ---------- */
+  .card { border-radius: 12px; }
+  .card h2 { font-size: 1rem; letter-spacing: 0.005em; }
+  .perf-head h2 { font-size: 1rem; }
+  .tabs { margin-top: 28px; gap: 2px; scrollbar-width: thin; scroll-snap-type: x proximity; mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); padding-right: 24px; }
+  .tab { scroll-snap-align: start; min-height: 44px; padding: 10px 14px 9px; border-bottom-width: 3px; color: var(--muted); font-weight: 500; }
+  .tab:hover { color: var(--text); }
+  .tab[aria-selected="true"] { color: var(--text); font-weight: 600; border-color: var(--gold); }
+  .tab:focus-visible { outline-offset: -3px; border-radius: 6px 6px 0 0; }
+  .seg { border-color: var(--line-strong); border-radius: 10px; }
+  .seg button { min-height: 34px; padding: 6px 12px; }
+  .seg button:hover { color: var(--text); }
+  .seg button[aria-pressed="true"] { background: var(--gold); color: var(--bg); font-weight: 600; }
+  .seg button:focus-visible { outline-offset: -3px; }
+
+  /* ---------- Tables ---------- */
+  th { text-transform: none; letter-spacing: 0.01em; font-size: 0.76rem; font-weight: 600; color: var(--muted); }
+  #book-table th { font-size: 0.7rem; letter-spacing: 0; }
+  td { border-bottom-color: rgba(244, 240, 232, 0.06); }
+  tbody tr:hover td { background: var(--panel-2); }
+  tfoot td { color: var(--text); }
+  tr.frozen td { color: #DCD5CB; }
+  #book-table tr.mm-row td:first-child { background: #33201F; }
+  .table-wrap { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+  .empty { color: var(--muted); }
+  .tag { border-color: rgba(244, 240, 232, 0.18); }
+
+  /* ---------- Charts ---------- */
+  .perf-box { border-radius: 10px; }
+  .perf-t { font-size: 0.9rem; }
+  .ux-sub { font-size: 0.76rem; color: var(--muted); line-height: 1.5; margin: 0 0 6px; max-width: 60ch; }
+  .perf-chart:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; border-radius: 6px; }
+  .perf-chart .ax { font-family: var(--sans); fill: #A39D94; }
+  .perf-chart .hit { touch-action: pan-y; }
+  .perf-key { font-size: 0.76rem; color: var(--muted); }
+  .perf-tip { border-color: var(--gold); background: #231F1C; font-size: 0.78rem; z-index: 4; }
+  .ux-help { margin-top: 6px; font-size: 0.72rem; color: var(--muted); }
+  .ux-data { margin-top: 8px; font-size: 0.8rem; }
+  .ux-data summary { cursor: pointer; color: var(--muted); min-height: 32px; display: flex; align-items: center; gap: 6px; width: max-content; max-width: 100%; }
+  .ux-data summary:hover, .ux-data[open] summary { color: var(--gold); }
+  .ux-data .table-wrap { margin-top: 6px; max-height: 300px; overflow: auto; }
+  .ux-data th { position: sticky; top: 0; background: var(--bg); }
+  .ux-data td, .ux-data th { padding: 6px 8px; }
+  .ux-data td:not(:first-child), .ux-data th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  @media (max-width: 600px) { .perf-chart .ax { font-size: 15px; } .perf-box { padding: 10px 8px 8px; } }
+  .pie-legend tr[tabindex] { cursor: default; }
+  .pie-legend tr[tabindex]:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+  .ux-sr { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: -1px; padding: 0; border: 0; }
+  .pie-legend caption { caption-side: top; text-align: left; font-size: 0.72rem; color: var(--muted); padding-bottom: 4px; }
+
+  /* ---------- Forms and misc ---------- */
+  input, select { border-color: rgba(244, 240, 232, 0.16); background: #141414; }
+  input:hover, select:hover { border-color: var(--line-strong); }
+  input::placeholder { color: #8E887F; }
+  .drop { border-color: var(--line-strong); }
+  .toast { background: var(--panel-2); border-color: var(--gold); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45); }
+  .checks { border-radius: 12px; }
+
+  /* Touch screens: larger targets */
+  @media (pointer: coarse) {
+    .ghost, .primary, .tab { min-height: 44px; }
+    .seg button { min-height: 40px; }
+    .icon-btn, .x-btn, .link-btn, .cost-up { min-height: 32px; }
+    .ux-data summary { min-height: 40px; }
+  }
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+  }
+</style>
 </head>
 <body>
+<a class="ux-skip" href="#main" data-ux>Skip to the accounts</a>
+<p class="ux-boot" id="ux-boot" role="status" data-ux><img src="logo.webp" alt="" width="56" height="56"><span>Opening the shop accounts…</span></p>
 
 <!-- ============ LOGIN ============ -->
-<div class="auth-wrap" id="view-login" hidden>
+<div class="auth-wrap" id="view-login" role="main" hidden>
   <div class="auth-card">
     <img src="logo.webp" alt="">
     <h1 class="serif">Nalagola CS Shop</h1>
-    <p class="sub">Admin sign in</p>
+    <p class="sub">Owner sign in</p>
     <form id="login-form" autocomplete="on">
       <label>Email <input type="email" id="login-email" autocomplete="username" required></label>
       <label>Password <input type="password" id="login-password" autocomplete="current-password" required></label>
-      <div id="login-msg" class="msg err" hidden></div>
+      <div id="login-msg" class="msg err" role="alert" hidden></div>
       <button class="primary" type="submit" id="login-btn">Sign in</button>
       <button class="link-btn" type="button" id="forgot-btn">Forgot password?</button>
     </form>
+    <a class="ux-back" href="index.html" data-ux>Back to the shop website</a>
     <form id="reset-form" hidden>
       <label>New password (at least 8 characters)
         <input type="password" id="new-password" autocomplete="new-password" minlength="8" required>
       </label>
-      <div id="reset-msg" class="msg" hidden></div>
+      <div id="reset-msg" class="msg" role="alert" hidden></div>
       <button class="primary" type="submit">Save new password</button>
     </form>
   </div>
 </div>
 
 <!-- ============ NO ACCESS ============ -->
-<div class="auth-wrap" id="view-denied" hidden>
+<div class="auth-wrap" id="view-denied" role="main" hidden>
   <div class="auth-card">
     <img src="logo.webp" alt="">
     <h1 class="serif">No admin access</h1>
     <p class="sub" style="margin-top:10px">You're signed in, but this account isn't set up as the shop admin.</p>
     <button class="ghost" style="margin-top:20px" id="denied-signout">Sign out</button>
+    <a class="ux-back" href="index.html" data-ux>Back to the shop website</a>
   </div>
 </div>
 
 <!-- ============ APP ============ -->
 <div id="view-app" hidden>
-  <header class="topbar">
+  <header class="topbar" aria-label="Shop accounts">
     <div class="topbar-inner">
       <img src="logo.webp" alt="">
-      <div class="title serif">Nalagola CS Shop <small>Accounts</small></div>
+      <h1 class="title serif"><span class="ux-name">Nalagola CS Shop</span> <small>Accounts</small></h1>
       <div class="spacer"></div>
-      <div class="month-pick">
+      <div class="month-pick" role="group" aria-label="Month">
         <button class="ghost" id="prev-month" aria-label="Previous month">&lsaquo;</button>
-        <input type="month" id="month" aria-label="Month">
+        <input type="month" id="month" aria-label="Selected month">
         <button class="ghost" id="next-month" aria-label="Next month">&rsaquo;</button>
       </div>
       <span class="who" id="who"></span>
-      <a class="ghost nav-btn" href="networth.html">Personal Networth Tracker</a>
+      <a class="ghost nav-btn" href="networth.html" aria-label="Personal Networth Tracker"><span class="ux-nw-long">Personal Networth Tracker</span><span class="ux-nw-short" aria-hidden="true" data-ux>Net worth</span></a>
       <button class="ghost" id="signout">Sign out</button>
     </div>
   </header>
 
-  <main class="wrap">
+  <main class="wrap" id="main" tabindex="-1">
     <section class="checks" id="checks" hidden aria-live="polite"></section>
 
     <div class="sum-head">
-      <h2 id="sum-title">October 2026</h2>
-      <div class="seg" id="sum-view"><button type="button" data-view="month" aria-pressed="true">This month</button><button type="button" data-view="all" aria-pressed="false">Overall total</button></div>
+      <div class="ux-sum-t"><h2 id="sum-title" aria-live="polite">October 2026</h2><p class="ux-scope" id="ux-scope" data-ux></p></div>
+      <button type="button" class="ux-basis-btn" id="ux-basis" aria-pressed="false" aria-controls="ux-kpis" data-ux>How each figure is worked out</button>
+      <div class="seg" id="sum-view" role="group" aria-label="Summary period"><button type="button" data-view="month" aria-pressed="true">This month</button><button type="button" data-view="all" aria-pressed="false">Overall total</button></div>
     </div>
-    <section class="kpis kpis-main" aria-label="Summary">
+    <section class="kpis kpis-main" id="ux-kpis" aria-label="Summary figures">
       <div class="kpi"><div class="k" id="k-sales-l">Current month revenue</div><div class="v" id="k-sales">–</div><div class="s" id="k-sales-s"></div></div>
       <div class="kpi"><div class="k">Average sales/day</div><div class="v" id="k-avg">–</div><div class="s" id="k-avg-s"></div></div>
       <div class="kpi"><div class="k">Gross profit</div><div class="v" id="k-gp">–</div><div class="s" id="k-gp-s"></div></div>
@@ -667,48 +860,50 @@
       <div class="card perf-card">
         <div class="perf-head">
           <h2>Performance tracker</h2>
-          <div class="seg" id="perf-mode"><button type="button" data-mode="month" aria-pressed="true">Month on month</button><button type="button" data-mode="day" aria-pressed="false">Day by day</button></div>
+          <div class="seg" id="perf-mode" role="group" aria-label="Chart period"><button type="button" data-mode="month" aria-pressed="true">Month on month</button><button type="button" data-mode="day" aria-pressed="false">Day by day</button></div>
         </div>
         <div class="perf-chips" id="perf-chips" style="display:none"></div>
         <div class="perf-grid">
           <div class="perf-box">
-            <div class="perf-t">Revenue <span>bars</span> &amp; average daily sales <span>line</span></div>
-            <div class="perf-chart" id="perf-rev"></div>
+            <div class="perf-t" id="perf-rt">Revenue <span>bars</span> &amp; average daily sales <span>line</span></div>
+            <p class="ux-sub" data-ux>Bars use the left axis (revenue). The blue line uses the right axis (average sales a day).</p>
+            <div class="perf-chart" id="perf-rev" aria-labelledby="perf-rt"></div>
             <div class="perf-key"><span><i style="background:var(--gold)"></i>Revenue</span><span><i class="ln" style="background:#8fa8e0"></i>Average sales a day</span></div>
           </div>
           <div class="perf-box">
             <div class="perf-t" id="perf-pt">Net profit <span>stacked area</span></div>
-            <div class="perf-chart" id="perf-pro"></div>
+            <p class="ux-sub" data-ux>Green is shop net profit, pink is bar counter net profit stacked on top, and the white line is the total. Anything under the zero line is a loss.</p>
+            <div class="perf-chart" id="perf-pro" aria-labelledby="perf-pt"></div>
             <div class="perf-key"><span><i style="background:#7fcf9a"></i>Shop net profit</span><span><i style="background:#e08fb4"></i>Bar counter net profit</span><span><i class="ln" style="background:#f4ece4"></i>Total</span></div>
           </div>
         </div>
       </div>
     </section>
 
-    <nav class="tabs" role="tablist">
-      <button class="tab" role="tab" data-tab="sales" aria-selected="true">Monthly dashboard</button>
-      <button class="tab" role="tab" data-tab="book" aria-selected="false">Daily ledger</button>
-      <button class="tab" role="tab" data-tab="dues" aria-selected="false">Dues</button>
-      <button class="tab" role="tab" data-tab="expenses" aria-selected="false">Expenses</button>
-      <button class="tab" role="tab" data-tab="income" aria-selected="false">Other income</button>
-      <button class="tab" role="tab" data-tab="items" aria-selected="false">Items &amp; costs</button>
-      <button class="tab" role="tab" data-tab="indent" aria-selected="false">Indent</button>
-      <button class="tab" role="tab" data-tab="bar" aria-selected="false">Bar counter</button>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button class="tab" role="tab" id="tab-sales" aria-controls="pane-sales" data-tab="sales" aria-selected="true">Monthly dashboard</button>
+      <button class="tab" role="tab" id="tab-book" aria-controls="pane-book" data-tab="book" aria-selected="false">Daily ledger</button>
+      <button class="tab" role="tab" id="tab-dues" aria-controls="pane-dues" data-tab="dues" aria-selected="false">Dues</button>
+      <button class="tab" role="tab" id="tab-expenses" aria-controls="pane-ledger" data-tab="expenses" aria-selected="false">Expenses</button>
+      <button class="tab" role="tab" id="tab-income" aria-controls="pane-ledger" data-tab="income" aria-selected="false">Other income</button>
+      <button class="tab" role="tab" id="tab-items" aria-controls="pane-items" data-tab="items" aria-selected="false">Items &amp; costs</button>
+      <button class="tab" role="tab" id="tab-indent" aria-controls="pane-indent" data-tab="indent" aria-selected="false">Indent</button>
+      <button class="tab" role="tab" id="tab-bar" aria-controls="pane-bar" data-tab="bar" aria-selected="false">Bar counter</button>
     </nav>
 
     <!-- ===== Monthly dashboard ===== -->
-    <section id="pane-sales">
+    <section id="pane-sales" role="tabpanel">
       <div class="card sub-card">
         <div class="list-head">
           <h2>Month by month</h2>
           <span class="list-total">Click a month for its days</span>
         </div>
-        <div class="table-wrap"><table id="month-table"></table></div>
+        <div class="table-wrap" role="region" aria-label="Month by month" tabindex="0"><table id="month-table" aria-label="Month by month"></table></div>
       </div>
     </section>
 
     <!-- ===== Expenses / supplier payments (manual) ===== -->
-    <section id="pane-ledger" hidden>
+    <section id="pane-ledger" role="tabpanel" hidden>
       <div class="panel">
         <div class="ledger-left">
         <div class="card" id="inc-cat-card" hidden>
@@ -727,17 +922,17 @@
         <div class="card">
           <div class="list-head">
             <h2 id="list-title">Expenses</h2>
-            <div class="seg" id="led-view" hidden><button type="button" data-view="month" aria-pressed="true">Month</button><button type="button" data-view="all" aria-pressed="false">Overall</button></div>
+            <div class="seg" id="led-view" role="group" aria-label="Period" hidden><button type="button" data-view="month" aria-pressed="true">Month</button><button type="button" data-view="all" aria-pressed="false">Overall</button></div>
             <span class="list-total">Total <b id="list-total">₹0</b></span>
             <button class="ghost" id="export-btn" type="button">Export CSV</button>
           </div>
-          <div class="table-wrap"><table id="entry-table"></table></div>
+          <div class="table-wrap" role="region" aria-label="Entries for the selected period" tabindex="0"><table id="entry-table" aria-label="Entries for the selected period"></table></div>
         </div>
       </div>
     </section>
 
     <!-- ===== Items & costs ===== -->
-    <section id="pane-items" hidden>
+    <section id="pane-items" role="tabpanel" hidden>
       <div class="panel">
         <div class="card">
           <h2 id="co-title">Cases ordered</h2>
@@ -752,8 +947,8 @@
             <h2 id="items-title">Items</h2>
             <button type="button" class="cost-up" id="item-add-btn" aria-expanded="false" aria-controls="item-add">Add item</button>
             <label class="cost-up" id="cost-drop" title="Upload a cost price file (.xlsx, .xls or .csv)">Upload cost prices<input type="file" id="cost-file" accept=".xlsx,.xls,.csv"></label>
-            <input class="search" id="items-search" type="search" placeholder="Search items">
-            <div class="seg" id="items-filter">
+            <input class="search" id="items-search" type="search" placeholder="Search items" aria-label="Search items">
+            <div class="seg" id="items-filter" role="group" aria-label="Filter items">
               <button type="button" data-f="all" aria-pressed="true">All</button>
               <button type="button" data-f="missing" aria-pressed="false">No cost</button>
             </div>
@@ -772,13 +967,13 @@
             <div id="ia-margin"></div>
             <div class="form-actions"><button class="primary" type="submit">Add item</button><button class="ghost" type="button" id="ia-cancel">Cancel</button></div>
           </form>
-          <div class="table-wrap tall"><table id="items-table"></table></div>
+          <div class="table-wrap tall" role="region" aria-label="Items and costs" tabindex="0"><table id="items-table" aria-label="Items and costs"></table></div>
         </div>
       </div>
     </section>
 
     <!-- ===== Dues (customer credit) ===== -->
-    <section id="pane-dues" hidden>
+    <section id="pane-dues" role="tabpanel" hidden>
       <div class="dues-wrap">
         <div class="card" id="dues-form-card" hidden>
           <h2 id="dues-form-title">Edit entry</h2>
@@ -807,21 +1002,21 @@
             <h2 id="cust-title">Customers</h2>
             <span class="list-total">Outstanding <b id="dues-total">₹0</b></span>
             <span class="list-total" id="dues-opening"></span>
-            <div class="seg" id="cust-filter">
+            <div class="seg" id="cust-filter" role="group" aria-label="Filter customers">
               <button type="button" data-f="all" aria-pressed="true">All</button>
               <button type="button" data-f="open" aria-pressed="false">Owing</button>
             </div>
             <button class="ghost" id="dues-csv" type="button">Export CSV</button>
           </div>
           <div class="rep-tiles" id="rep-tiles"></div>
-          <div class="table-wrap"><table id="cust-table"></table></div>
+          <div class="table-wrap" role="region" aria-label="Customers and dues" tabindex="0"><table id="cust-table" aria-label="Customers and dues"></table></div>
         </div>
       </div>
       <div hidden><span id="dues-list-title"></span><button id="dues-clear" type="button"></button><table id="dues-table"></table></div>
         </section>
 
     <!-- ===== Indent (to be built) ===== -->
-    <section id="pane-indent" hidden>
+    <section id="pane-indent" role="tabpanel" hidden>
       <div class="card" style="margin-top:18px">
         <div class="list-head">
           <h2 id="ind-title">Indent</h2>
@@ -843,12 +1038,12 @@
           <label>Search <input type="search" id="ind-q" placeholder="Item name" autocomplete="off"></label>
         </div>
         <form id="ind-cases" class="ind-cases" hidden></form>
-        <div class="table-wrap"><table id="ind-table"></table></div>
+        <div class="table-wrap" role="region" aria-label="Indent" tabindex="0"><table id="ind-table" aria-label="Indent"></table></div>
       </div>
     </section>
 
     <!-- ===== Bar counter ===== -->
-    <section id="pane-bar" hidden>
+    <section id="pane-bar" role="tabpanel" hidden>
       <section class="kpis" style="margin-top:18px">
         <div class="kpi"><div class="k">Collection</div><div class="v" id="bar-in">–</div><div class="s" id="bar-in-s"></div></div>
         <div class="kpi"><div class="k">Goods given to rep</div><div class="v" id="bar-gv">–</div><div class="s" id="bar-gv-s">At selling price, this month</div></div>
@@ -862,9 +1057,10 @@
       <div class="card sub-card">
         <div class="list-head">
           <h2 id="bch-title">Revenue and net profit</h2>
-          <div class="seg" id="bch-mode"><button type="button" data-mode="month" aria-pressed="true">Month on month</button><button type="button" data-mode="day" aria-pressed="false">Day by day</button></div>
+          <div class="seg" id="bch-mode" role="group" aria-label="Chart period"><button type="button" data-mode="month" aria-pressed="true">Month on month</button><button type="button" data-mode="day" aria-pressed="false">Day by day</button></div>
         </div>
-        <div class="perf-chart" id="bch-chart"></div>
+        <p class="ux-sub" data-ux>Gold is revenue from goods at selling price. Green is net profit (selling price minus cost). Anything under the zero line is a loss.</p>
+        <div class="perf-chart" id="bch-chart" aria-labelledby="bch-title"></div>
         <div class="perf-key"><span><i class="ln" style="background:var(--gold)"></i>Revenue (goods at selling price)</span><span><i class="ln" style="background:#7fcf9a"></i>Net profit (selling − cost)</span></div>
       </div>
 
@@ -877,7 +1073,7 @@
           <button class="ghost" id="rep-open-btn" type="button">Opening balance</button>
         </div>
         <p class="hint">Balance he owes you = previous balance + goods received (at selling price) − collection (cash in the daily ledger plus online).</p>
-        <div class="table-wrap"><table id="rep-table"></table></div>
+        <div class="table-wrap" role="region" aria-label="Bar representative account" tabindex="0"><table id="rep-table" aria-label="Bar representative account"></table></div>
       </div>
 
       <!-- Vendors -->
@@ -912,15 +1108,15 @@
           <div class="hint" id="bp-inv-note" hidden></div>
           <div class="form-actions"><button class="primary" type="submit">Save payment</button><button class="ghost" type="button" id="bp-cancel">Cancel</button></div>
         </form>
-        <div class="table-wrap"><table id="vend-table"></table></div>
+        <div class="table-wrap" role="region" aria-label="Vendors" tabindex="0"><table id="vend-table" aria-label="Vendors"></table></div>
         <button type="button" class="goods-sum" id="goods-sum" aria-expanded="false"></button>
-        <div class="table-wrap" id="goods-wrap" hidden><table id="goods-table"></table></div>
+        <div class="table-wrap" id="goods-wrap" role="region" aria-label="Goods received" tabindex="0" hidden><table id="goods-table" aria-label="Goods received"></table></div>
       </div>
 
     </section>
 
     <!-- ===== Daily ledger ===== -->
-    <section id="pane-book" hidden>
+    <section id="pane-book" role="tabpanel" hidden>
       <div class="card upload-card">
           <h2>Upload day's stock report</h2>
           <label class="drop" id="rep-drop">
@@ -936,7 +1132,7 @@
           <span class="list-total" id="stock-on-hand"></span>
           <button class="ghost" id="book-csv" type="button">Export CSV</button>
         </div>
-        <div class="table-wrap"><table id="book-table"></table></div>
+        <div class="table-wrap" role="region" aria-label="Daily ledger" tabindex="0"><table id="book-table" aria-label="Daily ledger"></table></div>
       </div>
       <div class="card detail" id="rep-detail" hidden></div>
     </section>
@@ -944,7 +1140,7 @@
   </main>
 </div>
 
-<div class="toast" id="toast" hidden></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <datalist id="dl-cat">
   <option>Whisky</option><option>Beer</option><option>Rum</option><option>Vodka</option><option>Gin</option>
@@ -4378,6 +4574,181 @@
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   }
+})();
+</script>
+<script id="ux-enhance">
+/* Presentation and accessibility helpers. Read-only: this script never calls Supabase,
+   never changes stored data and never computes figures. Charts are read through their
+   own tooltip code, so the table and keyboard views show exactly what the hover shows. */
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var on = function (el, ev, fn) { if (el) el.addEventListener(ev, fn); };
+
+  // Hide the "opening" screen once a view is shown (fallback for browsers without :has)
+  function boot() {
+    var v = ["view-login", "view-denied", "view-app"].some(function (id) { var e = $(id); return e && !e.hidden; });
+    if (v && $("ux-boot")) $("ux-boot").hidden = true;
+  }
+  ["view-login", "view-denied", "view-app"].forEach(function (id) { var e = $(id); if (e) new MutationObserver(boot).observe(e, { attributes: true, attributeFilter: ["hidden"] }); });
+  boot();
+
+  // Summary scope line and the "how each figure is worked out" switch
+  function scope() {
+    var b = document.querySelector('#sum-view [aria-pressed="true"]'), el = $("ux-scope"); if (!b || !el) return;
+    el.textContent = b.getAttribute("data-view") === "all" ? "Figures below add up every month on record." : "Figures below are for this month only.";
+  }
+  if ($("sum-view")) new MutationObserver(scope).observe($("sum-view"), { attributes: true, subtree: true, attributeFilter: ["aria-pressed"] });
+  scope();
+  on($("ux-basis"), "click", function () {
+    var k = $("ux-kpis"), open = !k.classList.contains("ux-basis");
+    k.classList.toggle("ux-basis", open); this.setAttribute("aria-pressed", open ? "true" : "false");
+  });
+
+  // Tabs: one tab stop, arrow keys move between tabs, Enter or Space opens one
+  var tabs = Array.prototype.slice.call(document.querySelectorAll(".tabs .tab"));
+  function syncTabs() {
+    tabs.forEach(function (t) {
+      var sel = t.getAttribute("aria-selected") === "true"; t.tabIndex = sel ? 0 : -1;
+      if (sel) { var p = $(t.getAttribute("aria-controls")); if (p) p.setAttribute("aria-labelledby", t.id); }
+    });
+  }
+  tabs.forEach(function (t) { new MutationObserver(syncTabs).observe(t, { attributes: true, attributeFilter: ["aria-selected"] }); });
+  syncTabs();
+  on(document.querySelector(".tabs"), "keydown", function (e) {
+    var i = tabs.indexOf(document.activeElement); if (i < 0) return;
+    var n = e.key === "ArrowRight" ? i + 1 : e.key === "ArrowLeft" ? i - 1 : e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 : null;
+    if (n === null) return;
+    e.preventDefault(); n = (n + tabs.length) % tabs.length; tabs[n].tabIndex = 0; tabs[i].tabIndex = tabs[i].getAttribute("aria-selected") === "true" ? 0 : -1;
+    tabs[n].focus(); tabs[n].scrollIntoView({ block: "nearest", inline: "nearest" });
+  });
+
+  // Scrollable table areas get a tab stop only when they actually scroll
+  var wraps = Array.prototype.slice.call(document.querySelectorAll('.table-wrap[role="region"]'));
+  function syncWrap(w) { var s = w.scrollWidth > w.clientWidth + 1 || w.scrollHeight > w.clientHeight + 1; if (s) w.setAttribute("tabindex", "0"); else w.removeAttribute("tabindex"); }
+  var ro = window.ResizeObserver ? new ResizeObserver(function (es) { es.forEach(function (e) { syncWrap(e.target); }); }) : null;
+  wraps.forEach(function (w) {
+    syncWrap(w); if (ro) ro.observe(w);
+    var t = w.querySelector("table"); if (t) new MutationObserver(function () { syncWrap(w); }).observe(t, { childList: true });
+  });
+
+  // ---------- Charts: keyboard, touch, and a table of the same figures ----------
+  var CHARTS = ["perf-rev", "perf-pro", "bch-chart"], uid = 0;
+  function parts(box) {
+    var svg = box.querySelector("svg");
+    return { svg: svg, hit: box.querySelector(".hit"), tip: box.querySelector(".perf-tip"), hov: box.querySelector(".hov"), W: svg && svg.viewBox && svg.viewBox.baseVal ? svg.viewBox.baseVal.width : 0 };
+  }
+  function moveTo(box, clientX) {
+    var p = parts(box); if (!p.hit || !p.svg) return;
+    var r = p.svg.getBoundingClientRect();
+    p.hit.dispatchEvent(new MouseEvent("mousemove", { clientX: clientX, clientY: r.top + r.height / 2, bubbles: true }));
+  }
+  function hide(box) { var p = parts(box); if (p.hit) p.hit.dispatchEvent(new MouseEvent("mouseleave")); }
+  // Collect every point by sweeping the chart's own hover handler across its width
+  function sweep(box) {
+    var p = parts(box); if (!p.hit || !p.tip || !p.hov || !p.W) return null;
+    var r = p.svg.getBoundingClientRect(); if (!r.width) return null;
+    var out = [], seen = {};
+    for (var k = 0; k <= p.W; k += 0.5) {
+      moveTo(box, r.left + k * r.width / p.W);
+      var x = p.hov.getAttribute("x1");
+      if (!seen[x] && !p.tip.hidden) { seen[x] = 1; out.push({ x: Number(x), html: p.tip.innerHTML, text: tipText(p.tip) }); }
+    }
+    hide(box);
+    out.sort(function (a, b) { return a.x - b.x; });
+    return out;
+  }
+  function tipText(tip) {
+    var b = tip.querySelector("b"), t = b ? b.textContent + ". " : "";
+    tip.querySelectorAll("div").forEach(function (d) { var s = d.querySelectorAll("span"); if (s.length === 2) t += s[0].textContent + " " + s[1].textContent + ". "; });
+    return t.trim();
+  }
+  function showPoint(box, i) {
+    var st = box._ux, p = parts(box); if (!st.pts || !st.pts.length) return;
+    i = Math.max(0, Math.min(st.pts.length - 1, i)); st.i = i;
+    var r = p.svg.getBoundingClientRect();
+    moveTo(box, r.left + st.pts[i].x * r.width / p.W);
+    st.live.textContent = (i + 1) + " of " + st.pts.length + ". " + st.pts[i].text;
+  }
+  function renderTable(box) {
+    var st = box._ux; if (!st.details || !st.details.open) return;
+    var holder = st.details.querySelector(".ux-data-body");
+    var pts = sweep(box); st.pts = pts;
+    if (!pts) { holder.innerHTML = '<p class="empty" style="padding:8px 0">Open this section on screen to see the figures.</p>'; return; }
+    if (!pts.length) { holder.innerHTML = '<p class="empty" style="padding:8px 0">Nothing to show for this period.</p>'; return; }
+    var cols = [], rows = pts.map(function (pt) {
+      var d = document.createElement("div"); d.innerHTML = pt.html;
+      var b = d.querySelector("b"), row = { label: b ? b.textContent : "", v: {} };
+      d.querySelectorAll("div").forEach(function (x) { var s = x.querySelectorAll("span"); if (s.length === 2) { var n = s[0].textContent; if (cols.indexOf(n) < 0) cols.push(n); row.v[n] = s[1].textContent; } });
+      return row;
+    });
+    var esc = function (t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+    holder.innerHTML = '<div class="table-wrap"><table><caption class="ux-sr">' + esc(st.name()) + '</caption><thead><tr><th scope="col">Period</th>' +
+      cols.map(function (c) { return '<th scope="col">' + esc(c) + "</th>"; }).join("") + "</tr></thead><tbody>" +
+      rows.map(function (r) { return '<tr><th scope="row">' + esc(r.label) + "</th>" + cols.map(function (c) { return "<td>" + esc(r.v[c] == null ? "" : r.v[c]) + "</td>"; }).join("") + "</tr>"; }).join("") +
+      "</tbody></table></div>";
+  }
+  function setupChart(id) {
+    var box = $(id); if (!box) return;
+    var lab = $(box.getAttribute("aria-labelledby"));
+    var st = box._ux = { pts: null, i: -1, name: function () { return lab ? lab.textContent.trim() : "Chart"; } };
+    var n = ++uid;
+    st.help = document.createElement("p"); st.help.className = "ux-sr"; st.help.id = "ux-chart-help-" + n; st.help.setAttribute("data-ux", "");
+    st.help.textContent = "Use the left and right arrow keys to read each point. Home and End jump to the first and last point.";
+    st.live = document.createElement("p"); st.live.className = "ux-sr"; st.live.setAttribute("aria-live", "polite"); st.live.setAttribute("data-ux", "");
+    st.details = document.createElement("details"); st.details.className = "ux-data"; st.details.setAttribute("data-ux", "");
+    st.details.innerHTML = "<summary>Show these figures as a table</summary><div class=\"ux-data-body\"></div>";
+    var after = box.nextElementSibling && box.nextElementSibling.classList.contains("perf-key") ? box.nextElementSibling : box;
+    after.parentNode.insertBefore(st.details, after.nextSibling);
+    box.parentNode.insertBefore(st.help, box); box.parentNode.insertBefore(st.live, box);
+    box.tabIndex = 0; box.setAttribute("role", "group"); box.setAttribute("aria-describedby", st.help.id);
+    var label = function () {
+      var svg = box.querySelector("svg");
+      if (svg) { svg.setAttribute("role", "img"); svg.setAttribute("aria-label", st.name() + ". The same figures are in the table below the chart."); }
+    };
+    new MutationObserver(function () { st.pts = null; st.i = -1; label(); renderTable(box); }).observe(box, { childList: true });
+    label();
+    on(st.details, "toggle", function () { renderTable(box); });
+    on(box, "keydown", function (e) {
+      var k = e.key;
+      if (k === "Escape") { hide(box); st.live.textContent = ""; return; }
+      if (["ArrowRight", "ArrowLeft", "Home", "End"].indexOf(k) < 0) return;
+      e.preventDefault();
+      if (!st.pts) st.pts = sweep(box);
+      if (!st.pts || !st.pts.length) return;
+      var i = st.i < 0 ? (k === "ArrowLeft" || k === "End" ? st.pts.length - 1 : 0) : k === "ArrowRight" ? st.i + 1 : k === "ArrowLeft" ? st.i - 1 : k === "Home" ? 0 : st.pts.length - 1;
+      showPoint(box, i);
+    });
+    on(box, "focusout", function () { hide(box); st.i = -1; });
+    // Touch and pen: tap or drag across the chart to read a point
+    var touch = function (e) { if (e.pointerType === "mouse" || !e.target.closest(".hit")) return; st.touchAt = Date.now(); moveTo(box, e.clientX); };
+    on(box, "pointerdown", touch); on(box, "pointermove", touch);
+    box.addEventListener("mouseleave", function (e) { if (e.isTrusted && Date.now() - (st.touchAt || 0) < 1500) e.stopPropagation(); }, true);
+  }
+  CHARTS.forEach(setupChart);
+  // A tap anywhere else closes chart and pie tooltips
+  document.addEventListener("pointerdown", function (e) {
+    if (e.pointerType === "mouse") return;
+    CHARTS.forEach(function (id) { var b = $(id); if (b && !b.contains(e.target)) hide(b); });
+    ["bd-exp", "bd-inc"].forEach(function (id) { var el = $(id); if (el && !el.contains(e.target)) el.dispatchEvent(new MouseEvent("mouseleave")); });
+  });
+
+  // ---------- Category pies: legend rows are focusable and highlight their slice ----------
+  function setupPie(id) {
+    var el = $(id); if (!el) return;
+    var dress = function () {
+      var t = el.querySelector(".pie-legend"); if (!t) return;
+      if (!t.querySelector("caption")) { var c = document.createElement("caption"); c.setAttribute("data-ux", ""); c.textContent = "Amount and share of the total for each category"; t.insertBefore(c, t.firstChild); }
+      t.querySelectorAll("tr[data-slice]").forEach(function (r) { r.tabIndex = 0; });
+    };
+    new MutationObserver(dress).observe(el, { childList: true }); dress();
+    on(el, "focusin", function (e) { var r = e.target.closest && e.target.closest("tr[data-slice]"); if (r) r.dispatchEvent(new MouseEvent("mousemove", { bubbles: true })); });
+    on(el, "focusout", function (e) { if (!el.contains(e.relatedTarget)) el.dispatchEvent(new MouseEvent("mouseleave")); });
+    var touchAt = 0;
+    on(el, "pointerdown", function (e) { if (e.pointerType === "mouse") return; var s = e.target.closest && e.target.closest("path[data-slice]"); if (s) { touchAt = Date.now(); s.dispatchEvent(new MouseEvent("mousemove", { clientX: e.clientX, clientY: e.clientY, bubbles: true })); } });
+    el.parentNode.addEventListener("mouseleave", function (e) { if (e.target === el && e.isTrusted && Date.now() - touchAt < 1500) e.stopPropagation(); }, true);
+  }
+  ["bd-exp", "bd-inc"].forEach(setupPie);
 })();
 </script>
 </body>
