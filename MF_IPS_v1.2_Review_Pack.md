@@ -1,23 +1,24 @@
 # Mutual Fund IPS v1.2: Review Pack
 
-**Prepared:** 10 Nov 2026 · **For:** Mutual_Fund_IPS_v1.2.md (draft for investor approval; v1.1 stays operative until you sign)
-**Contents:** 1. What was and was not possible · 2. Change log · 3. Data freshness report · 4. Quantitative validation report · 5. Open decision register · 6. Final quality-control report
+**Prepared:** 10 Nov 2026 · **For:** Mutual_Fund_IPS_v1.2.md, **approved by the investor and effective 10 Nov 2026** (v1.1 superseded). The Mutual funds tab runs the v1.2 rules.
+**Contents:** 1. What was and was not possible · 2. Change log · 3. Data freshness report · 4. Quantitative validation report · 5. Decision register · 6. Final quality-control report
 
 ---
 
 ## 1. What was and was not possible
 
 **Verified from primary or official sources**
-- All 11 NAVs and their dates, from the AMFI NAV file downloaded late on 9 Nov 2026 and re-checked on the morning of 10 Nov (no scheme changed). All 11 match the tracker exactly.
-- Units, from your portfolio record. Lot totals tie to the unit counts for every fund.
-- Axis Greater China: AUM as on 31 Aug 2026 (₹4,061.57 cr), benchmark (MSCI Golden Dragon, INR), underlying fund (Schroder ISF Greater China), manager, geographic split, from Axis's own factsheets.
-- Edelweiss US Technology: underlying fund (JPMorgan Funds – US Technology Fund), declared benchmark (Russell 1000 Equal Weighted Technology), Direct all-in ratio 1.51%, exit load, from Edelweiss's own factsheet, dated 30 Sep 2025 (stale).
+- All 11 NAVs and dates, from the AMFI file downloaded late on 9 Nov 2026 and re-checked on the morning of 10 Nov (no scheme changed). All match the tracker.
+- Units, from your portfolio record: lot totals tie to the unit counts, and you confirmed they are reconciled to your CAS.
+- Axis Greater China: AUM as on 31 Aug 2026 (₹4,061.57 cr), benchmark (MSCI Golden Dragon, INR), underlying fund, manager, geographic split, from Axis's own factsheets.
+- Edelweiss US Technology: underlying fund, declared benchmark (Russell 1000 Equal Weighted Technology), Direct all-in ratio 1.51%, exit load, from Edelweiss's factsheet dated 30 Sep 2025 (stale).
+- Your statement that all four international windows are closed.
 
-**Not verifiable in this pass, so marked UNVERIFIED and not used as PASS**
-- Expense ratios, AUM and managers for most funds. Fund-ranking pages disagree widely (for example Bandhan Small Cap's AUM is quoted from ₹5,166 cr to ₹35,856 cr, and its ratio from 0.35% to 0.63%), and none is an AMC or AMFI document.
-- Security-level portfolio disclosures from the AMCs, benchmark return data, international subscription windows, the Nifty 500 200-DMA reading, and the tax inputs listed in Appendix 1.
+**Not verifiable in this pass, so UNVERIFIED and never PASS:** expense ratios, AUM and managers for most funds (fund-ranking pages disagree widely and none is an AMC document); AMC security-level disclosures; benchmark return data; the Nifty 500 200-DMA reading.
 
-**About your prompt.** The first paste stopped in the middle of a sentence in §6.1. The second paste was complete (sections 1 to 12) and I applied all of it.
+**Two findings that need you**
+- **Your records contradict your answer on realised gains.** Nine funds were redeemed between 27 May and 9 Jun 2026 (this financial year): long-term gain about ₹95,444, net short-term loss about ₹12,947. You told me no long-term gains were realised. Three more entries filed under Axis Greater China look like a tenth sale (about ₹65,795 more long-term gain). §A2.6 of the IPS shows the tax under all three views; the reserve I used (₹2,916) covers all of them.
+- **The three odd Axis entries are probably a real purchase and sale of another fund**, so I did not delete them. Axis's own cost (₹1,99,990) and lots are right. What they distort is the realised gain shown under Axis (about ₹65,795) and the fund's return history. Tell me which fund they belong to and I will move them.
 
 ---
 
@@ -25,30 +26,24 @@
 
 | Section | v1.1 issue | v1.2 change | Reason |
 |---|---|---|---|
-| Header | Valuation quoted as ₹34.5 L at 3 Nov NAVs | ₹35,54,638 at AMFI NAVs of 6 and 9 Nov 2026; status line: draft, v1.1 operative until signed | Latest-data rule; proposed rules must not be treated as approved |
-| What changed | Only v1.1 changes listed | v1.2 table added; v1.1 table kept as history | Preserve the audit trail |
-| A | Book benchmark: S&P 500 for the whole international sleeve | Blended at strategic weights: 78 / 8 / 6 / 8 = 100% | International sleeve holds three different exposures |
-| B.1 | Tech slot "6% max" with no rule for the unused part; China slot labelled EM | Both marked OPEN (D-03, D-05); slot shares shown to add to 100% only with a fixed 6% | Do not convert a maximum into a target silently |
-| B.2 | Fund count 8–10 while 11 funds are held | Transitional exception to 1 Jan 2027 | Documented, with an end date |
-| B.3 (new) | Target, band and hard limit used interchangeably | Three terms defined; a bucket above target takes no new money | Prevent drift towards the band edge |
-| B.4 (new) | 20% slot with a single fund against an 18% at-cost limit | Rule for single-fund slots; OPEN D-01 | The conflict is real and was unstated |
-| C | Value snapshot at 3 Nov NAVs presented as holdings | Recomputed table with NAV, date and units per fund | No stale-number carry-forward |
-| D.3 | Slot indices for domestic slots and US broad only | Added US thematic and China slot benchmarks | Measurement of the whole sleeve |
-| D.4 | Gates silent on evidence quality | Evidence rule: PASS needs a dated official source | Aggregator figures disagree |
-| F.1 | Bucket, slot, fund, then size | Precedence of limits; amount is the least of five limits; bucket above target gets nothing | Prevent a fund getting money that breaches a limit |
-| F.2 | "Nothing idle" with no rule when no eligible bucket exists | Not forced; OPEN D-06; liquid fund up to 30 days | Avoid forcing money into a bucket above target |
-| G.5 (new) | Consolidation judged by fund count | Ten computed checks; executable only when every input is verified | Consolidation could breach the ceiling |
-| H.3 | Tax lots not considered for Bandhan | Lot-level note, and a record check before the 24-month test | Lot ages and cost drive the cost of acting |
-| I.1 | International window treated as a manual check | A required input; unverified means no international purchase | Fresh money needs a verified window |
-| I.3 (new) | One benchmark for three slots | Slot benchmarks with basis and limits | §6 of your brief |
-| J | Small-cap row only | Thirteen decisions with IDs, deadlines and defaults | Every open item has an owner date |
-| K | Gate checks manual; no output specification | Dashboard output fields; note that code still implements v1.1 | Traceability |
-| L | No prohibition on stale data or limit-breaching transfers | Three added | Enforce Part M and §B.2 |
-| M (new) | No data-freshness rules | Valuation date, sources, freshness by calculation, missing data, five statuses, twelve record fields | §2 and §7 of your brief |
-| N (new) | Benchmark described in one line | Blended benchmark table, three measurement levels, attribution list, annual review | §6.4 and §6.5 of your brief |
-| Appendices | None | Data freshness register; quantitative validation with formulas; decision register | §2.6, §9, §11 |
+| Header | Valuation quoted as ₹34.5 L at 3 Nov NAVs; no approval status for the new rules | ₹35,54,638 at AMFI NAVs of 6 and 9 Nov 2026; status: draft, decisions D-01 to D-13 recorded 10 Nov 2026 | Latest-data rule; proposed rules must not be treated as approved |
+| A | Book benchmark: S&P 500 for the whole international sleeve | Blended at strategic weights: 78 / 8 / 6 / 8 = 100% | The sleeve holds three exposures |
+| B.1 | Tech slot "6% max" with no rule for the unused part; slot named China / EM | Tech is a 0–6% satellite, unused part toward US broad (D-03); slot renamed Greater China (D-05) | Settled by the investor |
+| B.2, B.4 | A 20% slot with one fund against an 18% at-cost limit | A single-fund slot above 18% may reach its slot share at cost (D-01); the 22% ceiling stays | Settled by the investor; adds concentration |
+| B.2 | Fund count 8–10 while 11 are held | Transitional exception to 1 Jan 2027 (D-08) | Documented, with an end date |
+| B.3 | Target, band, hard limit used interchangeably | Three terms defined; a bucket above target takes no new money, except D-06 money | |
+| C | 3 Nov snapshot shown as holdings | Recomputed table with NAV, date and units per fund | No stale-number carry-forward |
+| D.3, I.3 | One benchmark for three slots | Slot benchmarks; tech benchmark is the fund's Russell 1000 Equal Weighted Technology (D-04), no proxy | §6 of your brief |
+| D.4 | Gates silent on evidence quality | PASS needs a dated official source | Aggregator figures disagree |
+| F.1 | Bucket, slot, fund, size | Precedence of limits; amount is the least of five limits; step 7 places money with no eligible destination in the smallest-overweight bucket (D-06) | Settled by the investor |
+| F.2 | Nothing-idle rule with no fallback | Same, with the D-06 fallback and an "above target" flag | |
+| G.5 | Consolidation judged by fund count | Ten computed checks | Consolidation could breach the ceiling |
+| H.3 | Tax lots and gains already realised ignored | Lot-level note; realised gains this year; record check | Lot ages, loss set-off and cost drive the result |
+| I.1 | International window a manual check | A required input; all four closed on 10 Nov 2026 | |
+| J, Appendix 3 | Small-cap row only | 15 decisions: 13 decided, 2 open (D-14, D-15) | |
+| M, N | No freshness rules; one-line benchmark | Valuation date, sources, statuses; blended benchmark and attribution | §2, §6, §7 of your brief |
 
-Unchanged on purpose: objectives, return objective, horizon, risk tolerance, the five buckets and their targets and bands, the scoring model, the challenger rule, exit rules, the tax rules in §H.2, the glide path, and the disclaimer.
+Unchanged on purpose: objectives, return objective, horizon, risk tolerance, the five buckets and their targets and bands, the scoring model, the challenger rule, exit rules, the §H.2 tax rules, the glide path, and the disclaimer.
 
 ---
 
@@ -57,20 +52,14 @@ Unchanged on purpose: objectives, return objective, horizon, risk tolerance, the
 | Input | Latest date | Source | Verification | Limitation |
 |---|---|---|---|---|
 | NAV, 7 domestic schemes | 9 Nov 2026 | AMFI file | PASS | |
-| NAV, Parag Parikh and 4 international schemes | 6 Nov 2026 | AMFI file | PASS | These schemes lag by design; the date is shown per fund |
-| Units, 11 funds | Last entry 30 Jun 2026 | Investor record | PASS | Not reconciled to a CAS; Axis cost record wrong (A2.8) |
-| Cost basis, 10 of 11 funds | | Investor record | PASS | Axis Greater China cost understated by ₹65,795.42 |
-| AUM: Axis Greater China | 31 Aug 2026 | Axis e-factsheet | PASS | |
-| AUM: Bandhan, Invesco, Edelweiss US Tech | Sep 2026, Sep 2026, Apr 2026 | Aggregators | UNVERIFIED | Pages disagree for Invesco and Bandhan |
-| TER: Edelweiss US Tech | 30 Sep 2025 | Edelweiss factsheet | UNVERIFIED (stale) | 1.51% against a 1.5% gate |
-| TER: all others | | Aggregators | UNVERIFIED | Ranges: Bandhan 0.35–0.63%, Invesco 0.40–0.66% |
-| Managers | | Axis and Bandhan factsheets; aggregators | UNVERIFIED | Axis's foreign manager since 1 Mar 2024 (under 3 years) |
-| Holdings and overlap | | None retrieved from an AMC | UNVERIFIED | |
-| Exit load: Bandhan, Invesco | | AMC-linked and aggregator pages agree | INDICATIVE | Read the SID before acting |
-| Benchmark identity: Axis, Edelweiss US Tech | | AMC factsheets | PASS | |
-| Benchmark return data | Not downloaded | | UNVERIFIED | |
-| International windows, 200-DMA | Not checked | | UNVERIFIED | |
-| Tax inputs | | Records; v1.1 rules | UNVERIFIED | Exemption used this FY not on file |
+| NAV, Parag Parikh and 4 international schemes | 6 Nov 2026 | AMFI file | PASS | These schemes lag by design |
+| Units, 11 funds | Last entry 30 Jun 2026 | Investor record; CAS-reconciled per investor | PASS | CAS not seen |
+| Cost basis | | Investor record, first-in-first-out | PASS | Axis's own cost and lots are right; three entries under it belong to another fund (D-07) |
+| International windows | 10 Nov 2026 | Investor statement | PASS for routing | No AMC notice retrieved |
+| AUM, TER, manager, exit load | Various | Mostly aggregators | UNVERIFIED / INDICATIVE | See Appendix 1 |
+| Axis Greater China AUM, benchmark, manager | 31 Aug 2026 | Axis e-factsheet | PASS | Manager tenure under 3 years |
+| Realised gains this year | 27 May – 16 Jun 2026 | Tracker | UNVERIFIED | Conflicts with investor's statement (D-15) |
+| Benchmark returns, holdings, 200-DMA | Not retrieved | | UNVERIFIED | |
 
 ---
 
@@ -78,9 +67,9 @@ Unchanged on purpose: objectives, return objective, horizon, risk tolerance, the
 
 ### 4.1 Before and after
 
-"Before" is the v1.1 snapshot (3 Nov 2026 NAVs). It is historical and is shown only for comparison.
+"Before" is the v1.1 snapshot (3 Nov 2026 NAVs). It is historical.
 
-| Fund | v1.1 value (₹) | v1.1 % | v1.2 value (₹) | v1.2 % | Change in value (₹) |
+| Fund | v1.1 value (₹) | v1.1 % | v1.2 value (₹) | v1.2 % | Change (₹) |
 |---|---:|---:|---:|---:|---:|
 | Parag Parikh Flexi Cap | 628,116 | 18.2% | 650,582 | 18.3% | +22,466 |
 | Invesco India Smallcap | 531,499 | 15.4% | 560,195 | 15.8% | +28,696 |
@@ -95,34 +84,37 @@ Unchanged on purpose: objectives, return objective, horizon, risk tolerance, the
 | Franklin US Opportunities | 114,771 | 3.3% | 108,350 | 3.0% | -6,421 |
 | **Total** | **3,449,862** | **100%** | **3,554,638** | **100%** | **+104,776** |
 
-### 4.2 The figures v1.1 told you not to reuse, recomputed
+### 4.2 The figures v1.1 told you not to reuse
 
-| v1.1 figure | v1.1 value | Recomputed (9 Nov 2026) |
+| v1.1 figure | v1.1 value | Recomputed |
 |---|---:|---:|
 | Total portfolio | ₹34,49,862 | ₹35,54,638 |
 | Invesco India Smallcap | ₹5,31,499 | ₹5,60,195 |
 | Bandhan Small Cap | ₹2,91,119 | ₹3,01,036 |
 | Combined small cap | 23.8% | 24.23% (**above the 24% band**) |
-| Illustrative small-cap need | ₹1,58,473 | No need: bucket is ₹1,50,304 above target. After Bandhan leaves, need is ₹1,49,760 |
-| Illustrative residual proceeds | ₹1,32,646 | ₹2,03,308 (§A2.6 of the IPS) |
+| Illustrative small-cap need | ₹1,58,473 | None today; after Bandhan leaves, ₹1,49,760, all of which Invesco can take |
+| Illustrative residual proceeds | ₹1,32,646 | ₹1,46,414 after the transfer (§A2.6) |
 
-### 4.3 Allocation after the indicative consolidation
+### 4.3 After the indicative consolidation (INDICATIVE)
 
-| Measure | Before | After (INDICATIVE) | Limit | Result |
+| Measure | Before | After | Limit | Result |
 |---|---:|---:|---|---|
-| Invesco, % of book (value) | 15.76% | 18.40% | 22% ceiling | PASS |
-| Invesco, % of total cost | 15.16% | 18.00% | 18% at cost | At the limit |
-| Small-cap bucket | 24.23% | 18.40% | Band 16–24%, target 20% | Band PASS; below target |
-| International bucket | 16.39% | 21.36% | Band 15–25%, target 22% | Band PASS; if the window is open |
-| Fund count | 11 | 10 | 8–10 | PASS (transitional exception ends) |
+| Invesco, % of book | 15.76% | 20.19% | 22% ceiling | PASS |
+| Invesco, % of total cost | 15.16% | 20.00% | 20% slot share (D-01) | At the limit |
+| Small-cap bucket | 24.23% | 20.19% | Band 16–24%, target 20% | Band PASS |
+| Core anchor bucket | 30.18% | 33.97% | Band 25–35%, target 30% | Band PASS; +3.97 pp (D-14) |
+| International bucket | 16.39% | 16.41% | Band 15–25%, target 22% | Band PASS; under target (windows closed) |
+| Fund count | 11 | 10 | 8–10 | PASS |
 
 v1.1's own plan (all of Bandhan into Invesco) gives Invesco 24.23%: **FAIL**, ₹79,211 over the ceiling.
 
+**Tax on the Bandhan redemption:** ₹2,916.32 (view 1, your statement), ₹223.34 (view 2, nine identified exits), ₹2,750.84 (view 3, with the unidentified sale). Under view 3 the year already carries about ₹3,028 of long-term tax before Bandhan.
+
 ---
 
-## 5. Open decision register
+## 5. Decision register
 
-See Appendix 3 of the IPS: D-01 to D-13, each with description, recommended default, reason, who approves, deadline and the consequence of not deciding.
+See Appendix 3 of the IPS: 13 decisions recorded on 10 Nov 2026; D-14 (how far D-06 money may push a bucket above target) and D-15 (gains realised this year) are open.
 
 ---
 
@@ -130,22 +122,32 @@ See Appendix 3 of the IPS: D-01 to D-13, each with description, recommended defa
 
 | # | Check | Status | Evidence |
 |---|---|---|---|
-| 1 | Latest NAVs used | PASS | AMFI file of 9 Nov 2026; 11 of 11 match the tracker (dates 6 and 9 Nov) |
-| 2 | Units and fund values verified | PASS | Lot totals tie to units for all 11 funds. Limit: no CAS reconciliation |
-| 3 | Allocation totals reconcile | PASS | Buckets 30+20+20+8+22 = 100; domestic 78; international 22 |
-| 4 | Slot shares reconcile with the international bucket | OPEN | 8+6+8 = 22 only if the technology slot is a fixed 6% (D-03) |
-| 5 | Small-cap consolidation does not breach the single-fund ceiling | PASS | Capped transfer gives Invesco 18.40% against 22%. The v1.1 version fails at 24.23% |
-| 6 | Small-cap bucket within its band today | FAIL | 24.23% against 24% (above by ₹8,118); acts at the 1 Jan 2027 action review under §H.1 |
-| 7 | Fund count within 8–10 or a documented exception | PASS | 11 funds today; exception to 1 Jan 2027 (D-08) |
-| 8 | Single fund within 18% at cost and 22% ceiling | FAIL | Parag Parikh is 19.65% of corrected cost (limit 18%). Within the 22% ceiling, so no trim; no new money under §F.1 |
-| 9 | Benchmark weights total 100% | PASS | 78 + 8 + 6 + 8 = 100 |
-| 10 | International benchmarks appropriate | OPEN | China: identity verified from Axis's factsheet. US technology: choice open (D-04). US broad: incumbent's own benchmark not retrieved. Return data not downloaded |
-| 11 | Deployment and consolidation rules consistent | PASS | §F.1 step 6, §G.5 and A2.6 use the same five limits and give the same transfer |
-| 12 | Cross-references correct | PASS | Scripted check: every § reference resolves to a heading or to a numbered item in Part G |
-| 13 | No recommendation presented as executable on stale or unverified data | PASS | The Bandhan consolidation is labelled INDICATIVE throughout |
-| 14 | Tracker records | FAIL | Axis Greater China cost understated by ₹65,795.42 (A2.8; D-07) |
-| 15 | Gate data (TER, AUM, managers, holdings) | UNVERIFIED | Official sources not retrieved for most funds |
-| 16 | International windows, 200-DMA regime, benchmark returns, tax exemption | UNVERIFIED | Not retrieved |
-| 17 | Proposed rules not treated as approved | PASS | Status line and [PROPOSED] marks; v1.1 stays operative until signed |
+| 1 | Latest NAVs used | PASS | AMFI file of 9–10 Nov 2026; 11 of 11 match the tracker |
+| 2 | Units and fund values verified | PASS | Lot totals tie to units; CAS-reconciled per investor |
+| 3 | Allocation totals reconcile | PASS | Buckets 30+20+20+8+22 = 100; slots 18+12+20+20+8+8+6+8 = 100 with tech as a satellite (D-03) |
+| 4 | Small-cap consolidation does not breach the single-fund ceiling | PASS | Invesco 20.19% against 22%. The v1.1 version fails at 24.23% |
+| 5 | Small-cap bucket within its band today | FAIL | 24.23% against 24%; acts at the 1 Jan 2027 action review |
+| 6 | Fund count within 8–10 or a documented exception | PASS | 11 today; exception to 1 Jan 2027 (D-08) |
+| 7 | Single fund within its cost limit and the 22% ceiling | FAIL | Parag Parikh 19.65% of tracker cost (limit 18%); within the ceiling, so no trim and no new money |
+| 8 | Benchmark weights total 100% | PASS | 78 + 8 + 6 + 8 |
+| 9 | International benchmarks appropriate | PASS for identity; UNVERIFIED for data | Greater China: Axis's declared index. US technology: the fund's declared index (D-04). US broad: the incumbent's own benchmark not retrieved. Return data not downloaded |
+| 10 | Deployment and consolidation rules consistent | PASS | §F.1 step 6, §G.5 and §A2.6 use the same limits and give the same transfer |
+| 11 | Cross-references correct | PASS | Scripted check: every § reference resolves |
+| 12 | No recommendation executable on stale or unverified data | PASS | The consolidation is INDICATIVE throughout |
+| 13 | Tracker records | FAIL | Three entries filed under Axis belong to another fund (A2.8; D-07: waiting for the fund name) |
+| 14 | Gains realised this year | OPEN | Statement and records disagree (D-15) |
+| 15 | Extent of D-06 placement | OPEN | Core would reach 33.97% (D-14) |
+| 16 | Gate data (TER, AUM, managers, holdings), benchmark returns, 200-DMA | UNVERIFIED | Official sources not retrieved |
+| 17 | Proposed rules not treated as approved | PASS | Status line and [PROPOSED] marks; v1.1 operative until you confirm |
 
-**Reading this report.** Items 1 to 3, 5, 7, 9, 11 to 13 and 17 are in order. Items 6, 8 and 14 are real findings in the live book and its records. Items 4, 10 and the decisions in Appendix 3 need you. Items 15 and 16 need data that is not in this pass. No action in v1.2 is executable until they are cleared.
+**Reading this report.** Items 1 to 4, 6, 8 and 10 to 12 and 17 are in order. Items 5, 7 and 13 are real findings in the live book and its records. Items 14 and 15 need you. Item 16 needs data that is not in this pass. Nothing in v1.2 is executable until those are cleared.
+
+
+---
+
+## 7. Implementation record (10 Nov 2026)
+
+- **Policy:** Mutual_Fund_IPS_v1.2.md carries the approval and the effective date; the [PROPOSED] marks were removed. D-14 and D-15 stay open with their defaults. v1.1 carries a "superseded" note.
+- **Mutual funds tab (networth.html):** applies v1.2: slot renamed Greater China; the cost limit of 18% (the slot share for a single-fund slot above 18%); ceiling, category and band limits in §F.1 step 6; money with no eligible destination placed under D-06 (never into a fund with a pending decision); subscription windows read from a stated setting that expires after 30 days; exit load and a tax reserve netted from a redemption's proceeds (§G.5); an allocation monitor with the fields §K requires; an INDICATIVE tag on every buy and on the consolidation; and the first load after the upgrade saves one v1.2 review.
+- **Tested** in a browser on your real fund data (11 funds, 9 redeemed funds, the Bandhan lots): the card's plan equals the policy's worked example to the rupee. 15 of 15 checks pass.
+- **Windows:** the page cannot read subscription windows. They are recorded as closed on 10 Nov 2026 and expire as unverified after 30 days; tell me when one reopens.

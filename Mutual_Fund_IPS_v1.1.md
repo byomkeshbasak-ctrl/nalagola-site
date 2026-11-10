@@ -1,5 +1,8 @@
 # Investment Policy Statement: Mutual Fund Portfolio
 
+> **Superseded.** Mutual Fund IPS v1.2 was approved by the investor and took effect on 10 Nov 2026. This v1.1 file is kept for history and is no longer the operative policy.
+
+
 **Investor:** Byomkesh (age 40)
 **Portfolio:** Standalone mutual fund book (Direct–Growth), reviewed separately from the direct-equity / Angel One book
 **Corpus at v1.1:** ≈ ₹34.5 L across 11 funds (Personal Networth Tracker, NAV of 3 Nov 2026)

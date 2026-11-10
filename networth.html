@@ -338,6 +338,8 @@
   .ips-detail td { white-space: normal; padding: 4px 14px 14px 30px; font-size: 0.78rem; line-height: 1.5; color: var(--muted); border-top: 0; }
   .ips-act.watch { background: rgba(140,170,230,.15); color: #9db6e8; }
   .ips-t tfoot td { font-weight: 600; }
+  .ips-st { margin-left: 6px; padding: 1px 6px; border: 1px solid var(--line-strong); border-radius: 999px; font-size: 0.62rem; letter-spacing: 0.06em; color: var(--muted); white-space: nowrap; }
+  .ips-mon th, .ips-mon td { font-size: 0.74rem; padding: 6px 8px; }
   .ips-act { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; white-space: nowrap; }
   .ips-act.buy { background: rgba(143,209,158,.15); color: #8fd19e; }
   .ips-act.sell { background: rgba(224,122,122,.15); color: #e07a7a; }
@@ -667,6 +669,7 @@
       </div>
       <div class="ips-flow" id="ips-flow"></div>
       <div class="ips-buckets" id="ips-buckets"></div>
+      <div class="table-wrap" style="margin-top:14px"><table class="ips-t ips-mon" id="ips-monitor"></table></div>
       <div class="ips-sec"><span class="ips-dot buy"></span><h3>Buy</h3><span class="ips-sum" id="ips-buy-sum"></span></div>
       <div class="table-wrap"><table class="ips-t" id="ips-buy"></table></div>
       <div class="ips-sec"><span class="ips-dot sell"></span><h3>Sell / consolidate</h3><span class="ips-sum" id="ips-sell-sum"></span></div>
@@ -1182,7 +1185,7 @@
 
   // ---------- IPS v1.1 review: buy / sell signals on the 1st and 15th, with a whole-universe fund screen ----------
   var IPS = {
-    version: "v1.1",
+    version: "v1.2",
     buckets: [
       { k: "core", l: "Core anchor", t: 30, lo: 25, hi: 35 },
       { k: "mid", l: "Mid cap", t: 20, lo: 16, hi: 24, cap: 26 },
@@ -1198,8 +1201,8 @@
       { k: "small", b: "small", l: "Small cap", sub: 20, screen: "small" },
       { k: "lm", b: "lm", l: "Large & mid", sub: 8, screen: "lm" },
       { k: "us", b: "intl", l: "US broad", sub: 8, screen: "us", window: true },
-      { k: "ustech", b: "intl", l: "US thematic", sub: 6, window: true },
-      { k: "china", b: "intl", l: "China / EM", sub: 8, frozen: true }
+      { k: "ustech", b: "intl", l: "US thematic", sub: 6, sat: true, window: true },
+      { k: "china", b: "intl", l: "Greater China", sub: 8, frozen: true, window: true }
     ],
     // held funds -> slot and role (keep, pair, consolidate, review, frozen)
     funds: [
@@ -1217,8 +1220,13 @@
     ],
     midWinner: null, // "motilal" or "edelweiss" if you decide before the deadline (§J)
     decideBy: "2027-01-01", // §J default applies from the 1 Jan 2027 action review
-    adoption: "2026-11-04", // the v1.1 adoption review counts as an action review (§K)
-    fundCap: 22, lead: 10
+    adoption: null, // v1.2 took effect on 10 Nov 2026 and is not an action review; the first one is 1 Jan 2027 (§K, D-02)
+    fundCap: 22, lead: 10, costLimit: 18,
+    // Subscription windows are an input the page cannot read: they are what the investor last stated (§F.1 step 7, §I.1).
+    // "closed" or older than 30 days blocks every international purchase. Change a window to "open" and set asOf when one reopens.
+    windows: { asOf: "2026-11-10", fresh: 30, us: "closed", ustech: "closed", china: "closed" },
+    exitLoad: [{ m: /bandhan\s*small\s*cap/i, pct: 1, days: 365 }, { m: /invesco\s*india\s*small\s*cap/i, pct: 1, days: 365 }],
+    tax: { stcg: 0.20, ltcg: 0.125, exempt: 125000, cess: 0.04 }
   };
   var ips = { latest: null, view: null, repricing: false, scrTried: false, loading: false, checked: false, screen: null, prev: null, open: {} };
   // IPS A.4: prices are STALE when older than 1 trading day. Weekends are skipped; exchange holidays are not known here.
@@ -1269,6 +1277,43 @@
     ips.screen = { date: last, rows: q.data.filter(function (r) { return r.run_date === last; }) };
     ips.prev = prev ? { date: prev, rows: q.data.filter(function (r) { return r.run_date === prev; }) } : null;
   }
+  function ipsDaysBetween(a, b) { return Math.round((Date.parse(b + "T00:00:00Z") - Date.parse(a + "T00:00:00Z")) / 86400000); }
+  function ipsWindowOpen(s) { return !(s.window || s.frozen) || (IPS.windows[s.k] === "open" && ipsDaysBetween(IPS.windows.asOf, todayISO()) <= IPS.windows.fresh); }
+  // Long-term and short-term gains the tracker shows as already realised in this financial year (first in, first out; equity: over 12 months is long term)
+  function mfRealisedFY(today) {
+    var fy = (+today.slice(5, 7) >= 4 ? today.slice(0, 4) : String(+today.slice(0, 4) - 1)) + "-04-01", lt = 0, st = 0, by = {};
+    mf.txns.forEach(function (t) { (by[t.fund_name] = by[t.fund_name] || []).push(t); });
+    Object.keys(by).forEach(function (k) {
+      var lots = [], tx = by[k].slice().sort(function (a, c) { return a.txn_date < c.txn_date ? -1 : a.txn_date > c.txn_date ? 1 : Number(c.units) - Number(a.units); });
+      tx.forEach(function (t) {
+        var u = Number(t.units), a = Number(t.amount);
+        if (u > 0) { lots.push({ d: t.txn_date, u: u, p: a / u }); return; }
+        var need = -u, px = -a / need;
+        while (need > 0.0005 && lots.length) {
+          var l = lots[0], take = Math.min(need, l.u), g = take * (px - l.p);
+          if (t.txn_date >= fy && t.txn_date <= today) { var y = +l.d.slice(0, 4) + 1, lt1 = (y + l.d.slice(4)) < t.txn_date; if (lt1) lt += g; else st += g; }
+          l.u -= take; need -= take; if (l.u < 0.0005) lots.shift();
+        }
+      });
+    });
+    return { lt: lt, st: st };
+  }
+  // Tax for the year (indicative): a short-term loss sets off against short-term gain first, then long-term; long-term above the exemption at 12.5%, short-term at 20%, plus cess
+  function ipsFyTax(lt, st) {
+    var T = IPS.tax; if (st < 0) { lt = Math.max(0, lt + st); st = 0; }
+    return (T.stcg * Math.max(st, 0) + T.ltcg * Math.max(0, lt - T.exempt)) * (1 + T.cess);
+  }
+  function ipsExit(r, today) {
+    var ltG = 0, stG = 0, load = 0, ex = null;
+    IPS.exitLoad.forEach(function (e) { if (e.m.test(r.f.name)) ex = e; });
+    r.lots.forEach(function (l) {
+      var v = l.units * r.nav, g = v - l.cost, y = +l.date.slice(0, 4) + 1, lt1 = (y + l.date.slice(4)) < today;
+      if (lt1) ltG += g; else stG += g;
+      if (ex && ipsDaysBetween(l.date, today) < ex.days) load += v * ex.pct / 100;
+    });
+    var rl = mfRealisedFY(today), v1 = ipsFyTax(ltG, stG), v2 = ipsFyTax(rl.lt + ltG, rl.st + stG) - ipsFyTax(rl.lt, rl.st);
+    return { ltG: ltG, stG: stG, load: load, v1: v1, v2: v2, reserve: Math.max(v1, v2), hasLoad: !!ex };
+  }
   function ipsRun() {
     var held = mf.funds.map(function (f) { var c = fundCalc(f); c.f = f; return c; }).filter(function (r) { return r.units > 0; });
     var total = held.reduce(function (a, r) { return a + r.value; }, 0);
@@ -1284,7 +1329,7 @@
       if (r.slot) { bv[r.slot.b] += r.value; sv[r.slot.k] += r.value; }
       r.sc = r.slot && r.slot.screen ? scoreOf(scr, r.slot.screen, r.f.scheme_code) : null;
     });
-    var cur = {}; IPS.buckets.forEach(function (b) { cur[b.k] = pctOf(bv[b.k]); });
+    var cur = {}, bv0 = {}; IPS.buckets.forEach(function (b) { cur[b.k] = pctOf(bv[b.k]); bv0[b.k] = bv[b.k]; });
     var short = function (n) { return String(n).replace(/\s*(-\s*)?(direct|growth|plan|option|fund of funds?|equity|active|regular)\b.*$/i, "").replace(/\s+fund$/i, "").trim(); };
     var shortNew = function (n) { return String(n).replace(/\s*(-\s*)?(direct|growth|regular)\b.*$/i, "").replace(/\s*\(erstwhile.*$/i, "").replace(/\s+fund$/i, "").trim(); };
     var scTxt = function (x) { return x ? "score " + Math.round(x.score) + ", rank " + x.rank + " of " + x.n : "not scored (under 5 years of history)"; };
@@ -1304,7 +1349,7 @@
     var lmFold = false;
     held.forEach(function (r) { if (r.map && r.map.role === "review" && pastDeadline && r.sc && r.sc.score < 50) lmFold = true; });
     // 1. Sells
-    var cash = 0;
+    var cash = 0, leak = 0, redeemedCost = 0, total0 = total;
     held.forEach(function (r) {
       var m = r.map, g = r.value - r.invested, gt = " Gain sitting in it: " + (g >= 0 ? "+" : "−") + inr.format(Math.abs(g)) + ".";
       if (!m) { sells.push(row(r, "hold", "Review", "Not part of any IPS slot (§B.1). Decide whether to exit." + gt)); return; }
@@ -1313,8 +1358,10 @@
         var why = m.role === "consolidate" ? "Duplicate small-cap fund. The small-cap slot keeps one fund (§B.1, §J)."
           : m.role === "pair" ? "Mid-cap duplicate. " + short(midWin.f.name) + " keeps the slot (" + (IPS.midWinner ? "your choice" : "higher screener score at the deadline") + ", §J)."
           : "Scored below 50 in its slot at the deadline, so the 8% slot is folded into Core and Mid (§J).";
-        sells.push(row(r, "sell", action ? "Redeem in full" : "Redeem at action review", why + " " + scTxt(r.sc) + ". Use the ₹1.25 L LTCG exemption this financial year (§H)." + gt + defer, r.value));
-        cash += r.value; bv[r.slot.b] -= r.value; sv[r.slot.k] -= r.value; r.after = 0; return;
+        var ex = ipsExit(r, today);
+        var exTxt = " Estimated exit load " + inr.format(ex.load) + (ex.hasLoad ? "" : " (none on file)") + " and tax " + inr.format(ex.reserve) + " (INDICATIVE, §G.5): long-term gain " + inr.format(Math.max(0, ex.ltG)) + ", short-term " + (ex.stG >= 0 ? inr.format(ex.stG) : "−" + inr.format(-ex.stG)) + ". The reserve is the higher of tax if nothing else was realised this year (" + inr.format(ex.v1) + ") and tax on the gains the tracker shows realised (" + inr.format(ex.v2) + "); confirm with a CA (D-15).";
+        sells.push(row(r, "sell", action ? "Redeem in full" : "Redeem at action review", why + " " + scTxt(r.sc) + ". Use the ₹1.25 L LTCG exemption this financial year (§H)." + exTxt + gt + defer, r.value, { status: "INDICATIVE" }));
+        cash += r.value - ex.load - ex.reserve; leak += ex.load + ex.reserve; redeemedCost += r.invested; bv[r.slot.b] -= r.value; sv[r.slot.k] -= r.value; r.after = 0; return;
       }
       if (m.role === "pair" && !midWin) sells.push(row(r, "hold", "Keep one", "Overlaps the other mid-cap fund. Decide by " + fmtDate("2026-12-31") + "; if not, the higher screener score keeps the slot at the " + fmtDate(IPS.decideBy) + " review (§J). This fund: " + scTxt(r.sc) + "." + (midLean ? " Current lean: " + short(midLean.f.name) + "." : "") + gt));
       else if (m.role === "frozen" && m.into) sells.push(row(r, "hold", "Hold", "China funds are closed to fresh money. Merge into " + m.into + " when a window reopens and each lot is past 24 months, so the gain is long-term (§H.3, §J)." + gt));
@@ -1322,6 +1369,7 @@
       var capV = IPS.fundCap * total / 100;
       if (r.after > capV) { var x = r.after - capV; sells.push(row(r, "sell", action ? "Trim" : "Trim at action review", "At " + r.w.toFixed(1) + "% it is above the " + IPS.fundCap + "% single-fund ceiling (§B.2)." + defer, x)); cash += x; bv[r.slot.b] -= x; sv[r.slot.k] -= x; r.after -= x; }
     });
+    total -= leak;   // the exit load and the tax reserve leave the book
     IPS.buckets.forEach(function (b) {
       var capV = (b.cap || 100) * total / 100;
       if (bv[b.k] > capV + 1) {
@@ -1347,45 +1395,73 @@
       if (qualified) chal[s.k] = { c: c, detail: detail + " Held this lead in two screens in a row, so new money for this slot goes here (§E.3). Check TER, AUM and manager tenure before buying (§D.4)." };
       else watch.push({ s: s, c: c, detail: detail + " Becomes a buy if it keeps this lead at the next screen on " + fmtDate(ipsNext(ips.screen.date)) + " and passes the manual checks (§E.3, §D.4)." });
     });
-    // 3. Buys: put every rupee freed back to work (§F.2); slots below band first, then the largest gaps
+    // 3. Buys (v1.2 §F.1): hard limits first, then bucket bands, then slot shares. Money in hand is never left idle (§F.2).
     var buyable = function (s) {
-      if (s.frozen || s.k === "lm") return false;
+      if (s.frozen) return false;
       if (s.k === "mid" && !midWin && !chal.mid) return false;
-      return true;
+      if (s.k === "lm" && lmFold) return false;
+      return ipsWindowOpen(s);
     };
-    var got = {}, add = function (s, amt) { got[s.k] = (got[s.k] || 0) + amt; bv[s.b] += amt; sv[s.k] += amt; };
+    // D-06 money is never placed into a fund whose keep-or-fold decision is still pending (D-10, D-11)
+    var placeable = function (s) { return buyable(s) && !(s.k === "lm" && !pastDeadline) && !(s.k === "mid" && !pastDeadline && !IPS.midWinner); };
+    var bucketOf = function (k) { return IPS.buckets.filter(function (x) { return x.k === k; })[0]; };
+    var nFunds = function (s) { return held.filter(function (r) { return r.slot === s && r.after > 0; }).length; };
+    var costLim = function (s) { return s.sub > IPS.costLimit && nFunds(s) <= 1 ? s.sub : IPS.costLimit; };   // §B.2, D-01
+    var slotCost = {}; IPS.slots.forEach(function (s) { slotCost[s.k] = 0; });
+    held.forEach(function (r) { if (r.slot && r.after > 0) slotCost[r.slot.k] += r.invested * (r.value ? r.after / r.value : 0); });
+    var totCost = held.reduce(function (a, r) { return a + r.invested; }, 0) - redeemedCost;
+    var got = {}, over = {}, add = function (s, amt) { got[s.k] = (got[s.k] || 0) + amt; bv[s.b] += amt; sv[s.k] += amt; slotCost[s.k] += amt; };
+    // the least of: the 22% ceiling, the at-cost limit, the category limit, and either the slot share (pass 1) or the bucket's upper band (D-06)
+    var room = function (s, mode) {
+      var b = bucketOf(s.b), r = Math.min(IPS.fundCap * total / 100 - sv[s.k], costLim(s) * totCost / 100 - slotCost[s.k], (b.cap || 100) * total / 100 - bv[b.k]);
+      return mode === "target" ? Math.min(r, s.sub * total / 100 - sv[s.k]) : Math.min(r, b.hi * total / 100 - bv[b.k]);
+    };
     var newMoney = cash < 1;
-    var pool = newMoney ? IPS.buckets.reduce(function (a, b) { return a + Math.max(0, b.t * total / 100 - bv[b.k]); }, 0) : cash;
+    var pool = newMoney ? IPS.buckets.reduce(function (a, b) { return IPS.slots.some(function (s) { return s.b === b.k && buyable(s); }) ? a + Math.max(0, b.t * total / 100 - bv[b.k]) : a; }, 0) : cash;
+    totCost += pool;
     var left = pool, guard = 0;
-    while (left > 1 && guard++ < 60) {
-      var order = IPS.buckets.map(function (b) { var w = pctOf(bv[b.k]); return { b: b, w: w, below: w < b.lo, gap: b.t - w }; })
-        .filter(function (o) { return IPS.slots.some(function (s) { return s.b === o.b.k && buyable(s); }); })
+    // pass 1: buckets under target, furthest below their band first, then the largest gap in rupees
+    while (left > 1 && guard++ < 80) {
+      var order = IPS.buckets.map(function (b) { var w = pctOf(bv[b.k]); return { b: b, below: w < b.lo, gap: b.t * total / 100 - bv[b.k] }; })
+        .filter(function (o) { return o.gap > 1 && IPS.slots.some(function (s) { return s.b === o.b.k && buyable(s) && room(s, "target") > 1; }); })
         .sort(function (a, c) { return a.below !== c.below ? (a.below ? -1 : 1) : c.gap - a.gap; });
       if (!order.length) break;
       var o = order[0];
-      var ss = IPS.slots.filter(function (s) { return s.b === o.b.k && buyable(s) && sv[s.k] < IPS.fundCap * total / 100; })
-        .map(function (s) { return { s: s, gap: s.sub * total / 100 - sv[s.k] }; }).sort(function (a, c) { return c.gap - a.gap; });
-      if (!ss.length) break;
-      var bucketGap = o.b.t * total / 100 - bv[o.b.k], step;
-      if (o.gap > 0.05) step = Math.min(left, Math.max(bucketGap, 0), ss[0].gap > 0 ? ss[0].gap : bucketGap);
-      else step = left;
-      if (!(step > 1)) step = Math.min(left, Math.max(bucketGap, 1));
+      var ss = IPS.slots.filter(function (s) { return s.b === o.b.k && buyable(s) && room(s, "target") > 1; })
+        .map(function (s) { return { s: s, gap: s.sub * total / 100 - sv[s.k], room: room(s, "target") }; }).sort(function (a, c) { return c.gap - a.gap; });
+      var step = Math.min(left, o.gap, ss[0].room);
+      if (!(step > 1)) break;
       add(ss[0].s, step); left -= step;
-      if (newMoney && o.gap <= 0.05) break;
+    }
+    // pass 2 (D-06): money in hand that no bucket under target can take goes to the bucket with the smallest overweight, inside the hard limits and the band
+    if (!newMoney) {
+      guard = 0;
+      while (left > 1 && guard++ < 80) {
+        var ord2 = IPS.buckets.map(function (b) { return { b: b, over: pctOf(bv[b.k]) - b.t }; })
+          .filter(function (o) { return IPS.slots.some(function (s) { return s.b === o.b.k && placeable(s) && room(s, "band") > 1; }); })
+          .sort(function (a, c) { return Math.abs(a.over - c.over) < 0.05 ? c.b.t - a.b.t : a.over - c.over; });
+        if (!ord2.length) break;
+        var o2 = ord2[0];
+        var s2 = IPS.slots.filter(function (s) { return s.b === o2.b.k && placeable(s) && room(s, "band") > 1; })
+          .map(function (s) { return { s: s, short: s.sub * total / 100 - sv[s.k], room: room(s, "band") }; }).sort(function (a, c) { return c.short - a.short; })[0];
+        var step2 = Math.min(left, s2.room);
+        if (!(step2 > 1)) break;
+        add(s2.s, step2); left -= step2; over[s2.s.k] = true;
+      }
     }
     Object.keys(got).forEach(function (k) {
       var s = ipsSlotDef(k), b = IPS.buckets.filter(function (x) { return x.k === s.b; })[0], amt = got[k];
       var head = b.l + " goes from " + cur[s.b].toFixed(1) + "% to " + pctOf(bv[s.b]).toFixed(1) + "% (target " + b.t + "%, band " + b.lo + "–" + b.hi + "%).";
-      var win = s.window ? " Only if the AMC's overseas window is open that day; otherwise put this into the next most under-target domestic bucket (§F.1 step 5)." : "";
+      var win = (s.window ? " Window recorded open on " + fmtDate(IPS.windows.asOf) + "; confirm it is still open that day (§F.1 step 7)." : "") + (over[k] && pctOf(bv[s.b]) > b.t + 0.05 ? " Placed above target under D-06 (§F.1 step 7): no bucket under target could take it. It is the first source of rebalancing when one can." : "");
       var fundTiming = newMoney ? "" : (action ? "" : " Funded by sells, so it moves on " + fmtDate(nextAct) + ".");
       if (chal[k]) {
         var c = chal[k].c;
         buys.push({ fund: shortNew(c.name), full: c.name, category: (c.is_index ? "Index fund" : s.l) + " · new", units: null, avg_nav: null, kind: "buy", isNew: true,
-          action: newMoney ? "Buy new fund (new money)" : "Buy new fund", why: head + " " + chal[k].detail + win + fundTiming, amount: Math.round(amt) });
+          action: newMoney ? "Buy new fund (new money)" : "Buy new fund", why: head + " " + chal[k].detail + win + fundTiming, amount: Math.round(amt), status: "INDICATIVE" });
         return;
       }
-      var r = s.k === "mid" ? midWin : held.filter(function (h) { return h.slot === s && h.map.role === "keep"; })[0];
-      buys.push(row(r, "buy", newMoney ? "Buy with new money" : "Buy", head + (r ? " " + scTxt(r.sc) + "." : "") + win + fundTiming, amt));
+      var r = s.k === "mid" ? midWin : held.filter(function (h) { return h.slot === s && h.after > 0 && h.map.role !== "consolidate"; })[0];
+      buys.push(row(r, "buy", newMoney ? "Buy with new money" : "Buy", head + (r ? " " + scTxt(r.sc) + "." : "") + win + fundTiming, amt, { status: "INDICATIVE" }));
     });
     buys.sort(function (a, c) { return (c.amount || 0) - (a.amount || 0); });
     watch.forEach(function (w) {
@@ -1393,7 +1469,17 @@
     });
     if (!midWin && !chal.mid && cur.mid < 20) buys.push(row(null, "hold", "Decide first", "Mid cap is under target, but one mid-cap fund must be chosen before adding (§J)."));
     sells.sort(function (a, c) { return (c.amount || 0) - (a.amount || 0); });
-    return { run_date: today, buys: buys, sells: sells, book_value: Math.round(total),
+    var monitor = IPS.buckets.map(function (b) {
+      var fs = held.filter(function (r) { return r.slot && r.slot.b === b.k; }), w = cur[b.k], d = w - b.t, dts = fs.map(function (r) { return r.f.nav_date; }).filter(Boolean).sort();
+      var placed = IPS.slots.filter(function (s) { return s.b === b.k; }).reduce(function (a, s) { return a + (got[s.k] || 0); }, 0);
+      var tgt = IPS.slots.filter(function (s) { return s.b === b.k; }).map(function (s) { return got[s.k] ? short((held.filter(function (r) { return r.slot === s; })[0] || {}).f ? held.filter(function (r) { return r.slot === s; })[0].f.name : s.l) : ""; }).filter(Boolean);
+      var blocked = !IPS.slots.some(function (s) { return s.b === b.k && buyable(s); });
+      return { l: b.l, t: b.t, cur: w, dev: d, lo: b.lo, hi: b.hi, limit: b.cap ? "Category ≤ " + b.cap + "%" : "Fund " + IPS.fundCap + "% ceiling",
+        status: (w < b.lo || w > b.hi) ? "Breach" : d > 0.5 ? "Above target" : d < -0.5 ? "Underweight" : "On target",
+        need: Math.round(b.t * total0 / 100 - bv0[b.k]), placed: Math.round(placed), dest: tgt.join(", ") || (blocked && d < -0.05 ? "None: window closed / frozen" : "None"),
+        navDate: dts.length ? (dts[0] === dts[dts.length - 1] ? dts[0] : dts[0] + " to " + dts[dts.length - 1]) : "", stale: dts.length && tradingDaysOld(dts[0], today) > 3 };
+    });
+    return { run_date: today, buys: buys, sells: sells, book_value: Math.round(total0), monitor: monitor,
       buckets: IPS.buckets.map(function (b) { return { l: b.l, cur: Math.round(cur[b.k] * 10) / 10, after: Math.round(pctOf(bv[b.k]) * 10) / 10, t: b.t, lo: b.lo, hi: b.hi }; }),
       cash: Math.round(cash), new_money: newMoney, action_review: action, screen_date: ips.screen ? ips.screen.date : null, version: IPS.version,
       px: priceInfo(held, function (r) { return r.f.nav_date; }, function () { return null; }) };
@@ -1407,13 +1493,13 @@
         ips.latest = !q.error && q.data && q.data.length ? q.data[0] : null; ips.checked = true;
       }
       var t = todayISO();
-      if (force || !ips.latest || ips.latest.run_date < ipsSlot(t)) {
+      if (force || !ips.latest || ips.latest.run_date < ipsSlot(t) || ((ips.latest.meta || {}).version !== IPS.version)) {
         await ipsLoadScreen();
         var r = ipsRun();
         if (r) {
           await sb.from("mf_reviews").delete().eq("run_date", t);
           var ins = await sb.from("mf_reviews").insert({ run_date: r.run_date, buys: r.buys, sells: r.sells, buckets: r.buckets, book_value: r.book_value,
-            meta: { cash: r.cash, new_money: r.new_money, action_review: r.action_review, screen_date: r.screen_date, version: r.version } }).select().single();
+            meta: { cash: r.cash, new_money: r.new_money, action_review: r.action_review, screen_date: r.screen_date, version: r.version, monitor: r.monitor } }).select().single();
           ips.latest = ins.error ? r : ins.data;
           if (force) toast("Review updated");
         }
@@ -1451,7 +1537,7 @@
     var line = function (x, key) {
       var open = !!ips.open[key];
       return '<tr class="ips-row' + (open ? " open" : "") + '" data-ipsrow="' + key + '" title="Click to ' + (open ? "hide" : "see") + ' the rationale"><td class="fn"><span class="chev">' + (open ? "▾" : "▸") + "</span><b>" + (x.fund ? esc(x.fund) : "–") + "</b>" + (x.isNew ? '<span class="ips-new">New</span>' : "") + "</td><td>" + esc(x.category || "") + '</td><td class="num">' + (x.units ? num3.format(x.units) : "–") +
-        '</td><td class="num">' + (x.avg_nav ? inr2.format(x.avg_nav) : "–") + '</td><td><span class="ips-act ' + (x.kind || "") + '">' + esc(x.action) + '</span></td><td class="num">' + (x.amount ? inr.format(x.amount) : "–") + "</td></tr>" +
+        '</td><td class="num">' + (x.avg_nav ? inr2.format(x.avg_nav) : "–") + '</td><td><span class="ips-act ' + (x.kind || "") + '">' + esc(x.action) + '</span>' + (x.status ? ' <span class="ips-st" title="Not an instruction to act: the §D.4 gates and the tax view are still unverified (§M.5)">' + esc(x.status) + "</span>" : "") + '</td><td class="num">' + (x.amount ? inr.format(x.amount) : "–") + "</td></tr>" +
         (open ? '<tr class="ips-detail"><td colspan="6">' + esc(x.why) + "</td></tr>" : "");
     };
     var tbl = function (list, pre, empty) {
@@ -1459,6 +1545,10 @@
       var tot = sumAmt(list);
       return head + list.map(function (x, i) { return line(x, pre + i); }).join("") + "</tbody>" + (tot ? '<tfoot><tr><td>Total</td><td></td><td></td><td></td><td></td><td class="num">' + inr.format(tot) + "</td></tr></tfoot>" : "");
     };
+    var mon = meta.monitor || (L && L.monitor);
+    $("ips-monitor").innerHTML = mon ? '<thead><tr><th>Bucket</th><th class="num">Target</th><th class="num">Now</th><th class="num">vs target</th><th>Band · limit</th><th>Status</th><th class="num">To reach target</th><th class="num">Placed by the plan</th><th>Destination</th><th>NAV date</th><th>Data</th></tr></thead><tbody>' + mon.map(function (m) {
+      return "<tr><td>" + esc(m.l) + '</td><td class="num">' + m.t + '%</td><td class="num">' + m.cur.toFixed(1) + '%</td><td class="num">' + (m.dev >= 0 ? "+" : "−") + Math.abs(m.dev).toFixed(1) + " pp</td><td>" + m.lo + "–" + m.hi + "% · " + esc(m.limit) + "</td><td>" + esc(m.status) + '</td><td class="num">' + (m.need > 0 ? inr.format(m.need) : "–") + '</td><td class="num">' + (m.placed ? inr.format(m.placed) : "–") + "</td><td>" + esc(m.dest) + "</td><td>" + esc(m.navDate || "–") + "</td><td>" + (m.stale ? "NAV stale · " : "NAV verified · ") + "gates unverified</td></tr>";
+    }).join("") + "</tbody>" : "";
     $("ips-buy").innerHTML = L ? tbl(L.buys, "b", "Every bucket is at or above its target. No buys needed.") : '<tbody><tr><td class="empty">Loading…</td></tr></tbody>';
     $("ips-sell").innerHTML = L ? tbl(L.sells, "s", "Nothing to sell or consolidate.") : "";
     $("ips-buy-sum").innerHTML = L && bIn ? "Total <b>" + inr.format(bIn) + "</b>" : "";
@@ -1490,7 +1580,7 @@
   };
   // The rules below are coded from one IPS version. The newest IPS files in the repository are read live, so the card shows
   // that document's own version and status (GOV-01: every output labelled APPROVED or ADVISORY), and warns when a newer one is uploaded.
-  var ENGINE_IPS = { stock: "5.1", mf: "1.1" };
+  var ENGINE_IPS = { stock: "5.1", mf: "1.2" };
   var IPS_REPO = "byomkeshbasak-ctrl/nalagola-site";
   var IPS_FILES = { stock: /^Investment_Policy_Statement_v(\d+)[._](\d+)\.md$/, mf: /^Mutual_Fund_IPS_v(\d+)[._](\d+)\.md$/ };
   var ipsDocs = { stock: null, mf: null, tried: false };
