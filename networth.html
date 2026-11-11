@@ -492,6 +492,173 @@
     *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
   }
 </style>
+<style id="ux-stocks">
+  /* ===== Stocks & ETFs dashboard. Looks only; every rule is scoped to .st-dash so no other tab is touched. ===== */
+  .st-dash {
+    --bg: #171717; --panel: #29231F; --panel-2: #342C26; --line: rgba(197, 164, 109, 0.16); --line-strong: rgba(197, 164, 109, 0.34);
+    --text: #F4F0E8; --muted: #AAA39A; --gold: #C5A46D; --green: #54B889; --red: #D97878; --amber: #D6AD68;
+    display: grid; gap: 14px; min-width: 0;
+  }
+  .st-dash > * { min-width: 0; }
+  .st-dash .pos { color: var(--green); } .st-dash .neg { color: var(--red); }
+
+  /* Header and portfolio value */
+  .st-hero { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px 22px; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25); }
+  .st-hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px 18px; flex-wrap: wrap; }
+  .st-h { font-family: "Cormorant Garamond", Georgia, "Times New Roman", serif; font-size: 1.75rem; font-weight: 600; line-height: 1.1; letter-spacing: 0.005em; }
+  .st-sub { margin-top: 3px; font-size: 0.82rem; color: var(--muted); }
+  .st-hero .px-stamp { margin-top: 6px; font-size: 0.76rem; color: var(--muted); }
+  .st-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .st-actions .primary { padding-left: 18px; padding-right: 18px; }
+  .st-actions .ghost { background: transparent; }
+  .st-value { margin-top: 20px; }
+  .st-value-l { font-size: 0.8rem; color: var(--muted); }
+  #st-total { margin-top: 2px; font-size: clamp(2.3rem, 6vw, 3.2rem); font-weight: 600; line-height: 1.08; font-variant-numeric: tabular-nums; letter-spacing: -0.015em; color: var(--text); }
+  .st-dash .day-mv { margin-top: 6px; font-size: 1.1rem; }
+  .st-dash .day-mv small { font-size: 0.8rem; }
+
+  /* Supporting KPIs */
+  .st-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .st-kpis > div { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; transition: border-color 0.15s, background 0.15s; }
+  .st-kpis > div:hover { border-color: var(--line-strong); background: var(--panel-2); }
+  .st-kpis > div:nth-child(2) { display: none; } /* today's gain or loss sits next to the portfolio value above */
+  .st-kpis .l { font-size: 0.78rem; color: var(--muted); }
+  .st-kpis .a { margin-top: 4px; font-size: 1.4rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .st-kpis .d { margin-top: 3px; font-size: 0.76rem; color: var(--muted); }
+  @media (max-width: 820px) { .st-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .st-kpis .a { font-size: 1.2rem; } .st-hero { padding: 16px 16px 18px; } }
+
+  /* Cards */
+  .st-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px 18px; min-width: 0; }
+  .st-card-h { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px 14px; flex-wrap: wrap; margin-bottom: 12px; }
+  .st-card-h h3 { font-size: 1rem; font-weight: 600; }
+  .st-card-sub { margin-top: 2px; font-size: 0.76rem; color: var(--muted); max-width: 62ch; line-height: 1.45; }
+  .st-note { margin-top: 10px; font-size: 0.74rem; color: var(--muted); line-height: 1.5; max-width: 80ch; }
+  .st-seg-stack { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
+  .st-grid-2 { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 14px; }
+  @media (max-width: 920px) { .st-grid-2 { grid-template-columns: minmax(0, 1fr); } }
+  .st-dash .seg { border-color: var(--line-strong); }
+  .st-dash .seg button[aria-pressed="true"] { background: var(--gold); color: #171717; font-weight: 600; }
+
+  /* Portfolio value chart */
+  .st-perf-sum { display: flex; flex-wrap: wrap; gap: 6px 28px; margin: 0 0 10px; }
+  .st-perf-sum > div { min-width: 0; }
+  .st-perf-sum .l { font-size: 0.72rem; color: var(--muted); }
+  .st-perf-sum .a { font-size: 1.02rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .st-perf svg { width: 100%; height: auto; display: block; }
+  .st-perf { outline: none; }
+  .st-perf:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; border-radius: 6px; }
+  .st-perf .gl { stroke: rgba(244, 240, 232, 0.08); }
+  .st-perf .ax { fill: var(--muted); font-size: 10.5px; font-family: "Manrope", system-ui, sans-serif; }
+  .st-perf .ln { fill: none; stroke: var(--gold); stroke-width: 2; stroke-linejoin: round; }
+  .st-perf .ar { fill: rgba(197, 164, 109, 0.14); }
+  .st-perf .pt { fill: var(--gold); }
+  .st-perf .hov { stroke: rgba(244, 240, 232, 0.45); stroke-width: 1; stroke-dasharray: 3 3; }
+  .st-perf .dot { fill: #171717; stroke: var(--gold); stroke-width: 2; }
+  .st-perf .hit { touch-action: pan-y; }
+  .st-perf .area-tip { min-width: 176px; }
+  @media (max-width: 640px) { .st-perf .ax { font-size: 20px; } .st-perf .ln { stroke-width: 3; } .st-perf .dot { stroke-width: 3.5; } .st-perf .pt { display: none; } }
+  .st-dash .area-tip { background: #231E1A; border-color: var(--gold); }
+  .st-dash .area-tip b { color: var(--text); }
+  .st-dash .area-tip em { font-style: normal; color: var(--muted); }
+  .st-data { margin-top: 8px; font-size: 0.8rem; }
+  .st-data summary { cursor: pointer; color: var(--muted); min-height: 32px; display: flex; align-items: center; gap: 6px; width: max-content; max-width: 100%; list-style: none; }
+  .st-data summary::-webkit-details-marker { display: none; }
+  .st-data summary::before { content: "▸"; font-size: 0.75rem; }
+  .st-data[open] summary::before { content: "▾"; }
+  .st-data summary:hover, .st-data[open] summary { color: var(--gold); }
+  .st-data .table-wrap { margin-top: 6px; max-height: 280px; overflow: auto; }
+  .st-data th { position: sticky; top: 0; background: var(--panel); }
+  .st-data td, .st-data th { padding: 6px 10px; }
+  .st-data td:not(:first-child), .st-data th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* Allocation donut: calmer colours, same layout */
+  .st-dash .pie-wrap svg path { stroke: var(--panel); }
+  .st-dash .pie-key { gap: 7px; }
+  @media (max-width: 520px) { .st-dash .pie-wrap { grid-template-columns: minmax(0, 1fr); justify-items: center; } .st-dash .pie-key { width: 100%; } }
+
+  /* Profit / loss bars: one zero line, bars grow right for gains and left for losses */
+  .st-pl { list-style: none; display: grid; gap: 7px; font-size: 0.8rem; }
+  .st-pl-row, .st-pl-head { display: grid; grid-template-columns: minmax(70px, 108px) minmax(0, 1fr) 92px 62px; align-items: center; gap: 10px; }
+  .st-pl-head { font-size: 0.7rem; color: var(--muted); padding-bottom: 2px; border-bottom: 1px solid var(--line); }
+  .st-pl-head span:nth-child(3), .st-pl-head span:nth-child(4), .st-pl-row .amt, .st-pl-row .ret { text-align: right; }
+  .st-pl-row .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .st-pl-row.sold .nm { color: var(--muted); font-weight: 500; }
+  .st-pl-row .bar { position: relative; height: 16px; }
+  .st-pl-row .bar .zero { position: absolute; top: -3px; bottom: -3px; width: 1px; background: rgba(244, 240, 232, 0.55); }
+  .st-pl-row .bar .b { position: absolute; top: 2px; bottom: 2px; min-width: 2px; }
+  .st-pl-row .bar .b.pos { background: var(--green); border-radius: 0 3px 3px 0; }
+  .st-pl-row .bar .b.neg { background: var(--red); border-radius: 3px 0 0 3px; }
+  .st-pl-row .amt, .st-pl-row .ret { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .st-pl-row .ret { color: var(--muted); font-size: 0.76rem; }
+  .st-pl-foot { margin-top: 10px; font-size: 0.74rem; color: var(--muted); line-height: 1.5; }
+  @media (max-width: 520px) { .st-pl-row, .st-pl-head { grid-template-columns: 64px minmax(0, 1fr) 80px 52px; gap: 7px; } }
+
+  /* Treemap */
+  .st-tm { position: relative; width: 100%; }
+  .tm-tile { position: absolute; box-sizing: border-box; margin: 0; border: 0; border-top: 3px solid var(--line-strong); border-radius: 6px; padding: 6px 8px; color: var(--text); text-align: left; cursor: pointer; overflow: hidden; font: inherit; display: flex; flex-direction: column; gap: 1px; line-height: 1.25; }
+  .tm-tile:hover { filter: brightness(1.18); }
+  .tm-tile:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; z-index: 2; }
+  .tm-tile b { font-size: 0.84rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tm-tile span, .tm-tile em { font-style: normal; font-size: 0.74rem; font-variant-numeric: tabular-nums; white-space: nowrap; color: rgba(244, 240, 232, 0.86); }
+  .tm-tip { position: absolute; z-index: 6; pointer-events: none; background: #231E1A; border: 1px solid var(--gold); border-radius: 8px; padding: 9px 11px; font-size: 0.76rem; min-width: 200px; max-width: 260px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); line-height: 1.5; }
+  .tm-tip b { display: block; color: var(--text); font-size: 0.84rem; }
+  .tm-tip em { display: block; font-style: normal; color: var(--muted); margin-bottom: 3px; }
+  .tm-tip div { display: flex; justify-content: space-between; gap: 14px; font-variant-numeric: tabular-nums; }
+  .st-tm-legend { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; font-size: 0.74rem; color: var(--muted); }
+  .st-tm-legend i { display: inline-block; width: 22px; height: 10px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; border-top: 2px solid; }
+
+  /* Insights */
+  .st-sec-h h3 { font-size: 1rem; font-weight: 600; }
+  .st-sec-h p { margin: 2px 0 10px; font-size: 0.76rem; color: var(--muted); }
+  .st-ins { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  @media (max-width: 1020px) { .st-ins { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 620px) { .st-ins { grid-template-columns: minmax(0, 1fr); } }
+  .st-in { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px 15px; min-width: 0; transition: border-color 0.15s; }
+  .st-in:hover { border-color: var(--line-strong); }
+  .st-in h4 { font-size: 0.8rem; font-weight: 500; color: var(--muted); }
+  .st-in-big { margin-top: 3px; font-size: 1.55rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .st-in-txt { margin-top: 4px; font-size: 0.76rem; color: var(--muted); line-height: 1.5; }
+  .st-in-list { list-style: none; margin-top: 10px; display: grid; gap: 7px; font-size: 0.78rem; }
+  .st-in-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; }
+  .st-in-list .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .st-in-list .vals { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .st-in-list .vals em { font-style: normal; color: var(--muted); margin-left: 8px; }
+  .st-in-list .track { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: rgba(244, 240, 232, 0.07); overflow: hidden; }
+  .st-in-list .track i { display: block; height: 100%; background: var(--gold); border-radius: 2px; }
+  .st-in-list .track i.pos { background: var(--green); } .st-in-list .track i.neg { background: var(--red); }
+  .st-in-rvu { margin-top: 10px; display: grid; gap: 9px; font-size: 0.78rem; }
+  .st-in-rvu > div { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; }
+  .st-in-rvu .a { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .st-in-rvu .track { grid-column: 1 / -1; position: relative; height: 6px; border-radius: 3px; background: rgba(244, 240, 232, 0.07); }
+  .st-in-rvu .track i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+
+  /* Holdings table */
+  .st-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .st-f { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
+  .st-f-q { flex: 1 1 220px; min-width: 0; }
+  .st-f-q input { width: 100%; }
+  .st-f-l { font-size: 0.76rem; color: var(--muted); white-space: nowrap; }
+  .st-tools input, .st-tools select { min-height: 38px; padding: 7px 10px; font-size: 0.84rem; border-radius: 10px; width: auto; }
+  .st-f-q input { width: 100%; }
+  .st-dir { min-height: 38px; font-size: 0.82rem; }
+  .st-hold th { text-transform: none; letter-spacing: 0.01em; font-size: 0.76rem; font-weight: 600; background: rgba(244, 240, 232, 0.025); }
+  .st-hold #st-table td { padding-top: 11px; padding-bottom: 11px; border-bottom-color: rgba(244, 240, 232, 0.07); }
+  .st-hold #st-table tr.fund.alt > td { background: rgba(244, 240, 232, 0.028); }
+  .st-hold #st-table tr.fund:hover > td { background: var(--panel-2); }
+  .st-hold #st-table td.fn b { font-size: 0.95rem; }
+  .st-hold #st-table td.fn small.co { color: var(--text); opacity: 0.78; }
+  .st-hold #st-table tfoot td { font-weight: 600; border-top: 1px solid var(--line-strong); background: rgba(244, 240, 232, 0.03); }
+  .st-hold #st-table tr.st-none td { text-align: center; color: var(--muted); padding: 22px 10px; }
+  .st-hold tr[hidden] { display: none; }
+  @media (max-width: 899px) {
+    .st-hold #st-table th:first-child, .st-hold #st-table td.fn { position: sticky; left: 0; z-index: 1; background: var(--panel); box-shadow: 1px 0 0 var(--line); }
+    .st-hold #st-table tr.fund.alt > td.fn { background: #2D2621; }
+    .st-hold #st-table tr.fund:hover > td.fn { background: var(--panel-2); }
+    .st-hold #st-table td.fn { min-width: 132px; }
+    .st-hold #st-table tfoot td:first-child { position: sticky; left: 0; background: #2D2621; }
+  }
+  .st-hold .exited-btn { margin-top: 14px; }
+</style>
 </head>
 <body>
 <a class="ux-skip" href="#main" data-ux>Skip to the tracker</a>
@@ -675,19 +842,26 @@
 
     <!-- ===== Stocks ===== -->
     <section class="pane" id="pane-stocks" role="tabpanel" aria-labelledby="tab-stocks" hidden>
-    <section class="card" aria-label="Stocks">
-      <div class="head">
-        <div>
-          <div class="k">Stocks &amp; ETFs</div>
+    <section class="st-dash" aria-label="Stocks">
+      <div class="st-hero">
+        <div class="st-hero-top">
+          <div class="st-title">
+            <h2 class="st-h">Stocks &amp; ETFs</h2>
+            <p class="st-sub" data-ux>Portfolio overview</p>
+            <div class="px-stamp" id="st-stamp"></div>
+          </div>
+          <div class="st-actions">
+            <button class="ghost" id="st-live" type="button" title="Current prices from Yahoo Finance. The official NSE close replaces them after the market shuts.">Live prices</button>
+            <button class="ghost px-btn" type="button">Refresh prices</button>
+            <button class="primary" id="st-add" type="button">Add trade</button>
+          </div>
+        </div>
+        <div class="st-value">
+          <div class="st-value-l" data-ux>Current portfolio value</div>
           <div class="v" id="st-total">–</div>
           <div class="day-mv" id="st-day"></div>
           <div class="s" id="st-total-s"></div>
-          <div class="px-stamp" id="st-stamp"></div>
         </div>
-        <div class="spacer"></div>
-        <button class="ghost" id="st-live" type="button" title="Current prices from Yahoo Finance. The official NSE close replaces them after the market shuts.">Live prices</button>
-        <button class="ghost px-btn" type="button">Refresh prices</button>
-        <button class="ghost" id="st-add" type="button">Add trade</button>
       </div>
 
       <form class="form" id="st-form" hidden>
@@ -706,24 +880,67 @@
       <datalist id="st-syms"></datalist>
       <datalist id="st-sectors"></datalist>
 
-      <div class="mf-kpis" id="st-kpis"></div>
-      <div class="charts">
-        <div class="chart-card">
-          <div class="chart-h"><h3>By sector</h3></div>
-          <div id="st-pie"></div>
+      <div class="st-kpis" id="st-kpis"></div>
+
+      <section class="st-card" aria-labelledby="st-perf-t">
+        <div class="st-card-h">
+          <div><h3 id="st-perf-t">Portfolio value over time</h3><p class="st-card-sub" id="st-perf-sub" data-ux></p></div>
+          <div class="seg" id="st-perf-range" role="group" aria-label="Period" hidden></div>
         </div>
-        <div class="chart-card">
-          <div class="chart-h"><h3>Profit / loss by stock</h3>
-            <div class="seg" id="st-pl-mode"><button type="button" data-mode="open" aria-pressed="true">Holdings</button><button type="button" data-mode="all" aria-pressed="false">Incl. sold</button></div>
+        <div class="st-perf-sum" id="st-perf-sum" data-ux></div>
+        <div class="area-wrap st-perf" id="st-perf" data-ux><div class="empty">Loading your portfolio history…</div></div>
+        <div id="st-perf-extra" data-ux></div>
+        <p class="st-note" id="st-perf-note" data-ux></p>
+      </section>
+
+      <div class="st-grid-2">
+        <section class="st-card" aria-labelledby="st-pie-t">
+          <div class="st-card-h">
+            <div><h3 id="st-pie-t">Allocation</h3><p class="st-card-sub" data-ux>Share of current portfolio value</p></div>
+            <div class="seg" id="st-alloc-mode" role="group" aria-label="Group allocation by"><button type="button" data-mode="sector" aria-pressed="true">Sector</button><button type="button" data-mode="stock" aria-pressed="false">Stock</button></div>
+          </div>
+          <div id="st-pie"></div>
+        </section>
+        <section class="st-card" aria-labelledby="st-pl-t">
+          <div class="st-card-h">
+            <div><h3 id="st-pl-t">Profit / loss by stock</h3><p class="st-card-sub" id="st-pl-sub" data-ux></p></div>
+            <div class="st-seg-stack">
+              <div class="seg" id="st-pl-mode" role="group" aria-label="Which stocks"><button type="button" data-mode="open" aria-pressed="true">Holdings</button><button type="button" data-mode="all" aria-pressed="false">Incl. sold</button></div>
+              <div class="seg" id="st-pl-filter" role="group" aria-label="Show"><button type="button" data-mode="all" aria-pressed="true">All</button><button type="button" data-mode="gain" aria-pressed="false">Top 5 gainers</button><button type="button" data-mode="loss" aria-pressed="false">Top 5 losers</button></div>
+            </div>
           </div>
           <div id="st-pl"></div>
-        </div>
+        </section>
       </div>
-      <div class="sec-h"><h3>Current Holdings</h3></div>
-      <div class="table-wrap" role="region" aria-label="Stock holdings"><table id="st-table"></table></div>
-      <button class="ghost exited-btn" id="st-exited-btn" type="button" hidden></button>
-      <div class="table-wrap" id="st-exited" hidden style="margin-top:10px" role="region" aria-label="Sold stocks"><table id="st-exited-table"></table></div>
-      <div class="mf-note" id="st-note"></div>
+
+      <section class="st-card" aria-labelledby="st-tm-t">
+        <div class="st-card-h">
+          <div><h3 id="st-tm-t">Portfolio concentration</h3><p class="st-card-sub" data-ux>Box size is the share of portfolio value. Colour is the unrealised gain or loss on cost.</p></div>
+        </div>
+        <div class="st-tm" id="st-tm" data-ux></div>
+        <div class="st-tm-legend" id="st-tm-legend" data-ux></div>
+      </section>
+
+      <section class="st-sec" aria-labelledby="st-ins-t" data-ux>
+        <div class="st-sec-h"><h3 id="st-ins-t">Portfolio insights</h3><p>Read from the figures on this page. They describe the portfolio and are not advice to buy or sell.</p></div>
+        <div class="st-ins" id="st-ins"></div>
+      </section>
+
+      <section class="st-card st-hold" aria-labelledby="st-hold-t">
+        <div class="st-card-h">
+          <div><h3 id="st-hold-t">Current holdings</h3><p class="st-card-sub" id="st-hold-sub" data-ux></p></div>
+        </div>
+        <div class="st-tools" role="group" aria-label="Search, filter and sort holdings" data-ux>
+          <label class="st-f st-f-q"><span class="ux-sr">Search holdings by symbol or company</span><input type="search" id="st-q" placeholder="Search symbol or company" autocomplete="off"></label>
+          <label class="st-f"><span class="ux-sr">Sector</span><select id="st-sec-f"><option value="">All sectors</option></select></label>
+          <label class="st-f"><span class="st-f-l">Sort by</span><select id="st-sort"><option value="value">Current value</option><option value="weight">Portfolio weight</option><option value="gain">Gain / loss (₹)</option><option value="pct">Return on cost (%)</option><option value="xirr">XIRR</option></select></label>
+          <button type="button" class="ghost st-dir" id="st-dir" aria-label="Sort order: highest first. Activate to reverse.">High to low</button>
+        </div>
+        <div class="table-wrap" role="region" aria-label="Stock holdings"><table id="st-table"></table></div>
+        <button class="ghost exited-btn" id="st-exited-btn" type="button" hidden></button>
+        <div class="table-wrap" id="st-exited" hidden style="margin-top:10px" role="region" aria-label="Sold stocks"><table id="st-exited-table"></table></div>
+        <div class="mf-note" id="st-note"></div>
+      </section>
     </section>
 
     <section class="card ips-card" id="sips-box" aria-label="Recommended Portfolio Allocation">
@@ -2478,6 +2695,7 @@
     plBars("st-pl", plRows, (plMode.st === "all" ? "Realised + unrealised, all stocks ever held" : "Unrealised gain on shares held now") + " · net " + (plTot >= 0 ? "+" : "−") + inr.format(Math.abs(plTot)));
     var secs = {}; Object.keys(st.prices).forEach(function (k2) { if (st.prices[k2].sector) secs[st.prices[k2].sector] = 1; });
     $("st-sectors").innerHTML = Object.keys(secs).sort().map(function (x) { return '<option value="' + esc(x) + '">'; }).join("");
+    stDash({ rows: rows, held: held, exited: exited, T: T, X: X, gain: gain, plRows: plRows, sec: sec });
     renderNetWorth();
   }
   function stTxRows(r, span) {
@@ -2489,6 +2707,300 @@
       }).join("") + "</tbody></table></td></tr>";
   }
   function sectorOf(sym) { var p = st.prices[sym]; return (p && p.sector) || "Unclassified"; }
+
+  // ---------- Stocks dashboard: read-only presentation ----------
+  // Reads only what renderStocks() has already worked out, plus the saved net worth history. It adds no new money
+  // figures (only shares of a total and rankings of existing values), writes nothing and makes no network calls.
+  var stUi = { alloc: "sector", plFilter: "all", q: "", sector: "", sort: "value", dir: "desc", perf: 0, c: null, tm: [] };
+  var ST_PAL = ["#C5A46D", "#E9DDBF", "#8D7C55", "#A9A296", "#6E8F86", "#B58D73", "#7D8B98", "#9C7F8F", "#B8A27A", "#587A72", "#C9B79B", "#8E7D9B"];
+  var stSg = function (v) { return (v < 0 ? "−" : "+") + inr.format(Math.abs(v)); };
+  var stCls = function (v) { return v >= 0 ? "pos" : "neg"; };
+  var stPct = function (x) { return pct(x).replace("-", "−"); };
+  var stWt = function (c, r) { return c.T.val ? r.value / c.T.val : 0; };
+  var stRet = function (r) { return r.invested > 0 ? r.gain / r.invested : null; };
+  function stDash(c) {
+    stUi.c = c;
+    [stAlloc, stPl, stTreemap, stInsights, stTable, stPerf].forEach(function (f) {
+      try { f(c); } catch (e) { if (window.console) console.warn("Stocks view:", e && e.message); }
+    });
+  }
+
+  // Allocation: sector or stock, using the same current values the table's weights are built from
+  function stAlloc(c) {
+    var el = $("st-pie"), noPx = c.held.filter(function (r) { return !(r.value > 0); }).length, parts, centre;
+    if (stUi.alloc === "stock") {
+      var hs = c.held.filter(function (r) { return r.value > 0; });
+      var keep = hs.length > 12 ? 11 : hs.length;
+      parts = hs.slice(0, keep).map(function (r) { return { l: r.sym, v: r.value }; });
+      if (hs.length > keep) parts.push({ l: "Other (" + (hs.length - keep) + " stocks)", v: hs.slice(keep).reduce(function (a, r) { return a + r.value; }, 0), other: true });
+      centre = [inr.format(c.T.val).replace("₹", "₹ "), hs.length + (hs.length === 1 ? " stock" : " stocks")];
+    } else {
+      parts = Object.keys(c.sec).filter(function (k) { return c.sec[k] > 0; }).map(function (k) { return { l: k, v: c.sec[k] }; });
+      centre = [inr.format(c.T.val).replace("₹", "₹ "), parts.length + (parts.length === 1 ? " sector" : " sectors")];
+    }
+    parts.sort(function (a, b) { return b.v - a.v; }).forEach(function (p, i) { p.c = p.other ? "#6B655E" : ST_PAL[i % ST_PAL.length]; });
+    donut("st-pie", parts, centre);
+    if (noPx) el.insertAdjacentHTML("beforeend", '<p class="st-note">' + noPx + (noPx === 1 ? " holding has" : " holdings have") + " no price yet, so " + (noPx === 1 ? "it isn't" : "they aren't") + " in this chart.</p>");
+  }
+
+  // Profit / loss: diverging bars around one zero line, from the P&L values renderStocks() already produced
+  function stPl(c) {
+    var el = $("st-pl"), sub = $("st-pl-sub"), all = plMode.st === "all", f = stUi.plFilter;
+    var by = {}; c.rows.forEach(function (r) { by[r.sym] = r; });
+    var items = c.plRows.map(function (x) { var r = by[x.l]; return { sym: x.l, v: x.v, sold: !!x.sold, ret: r && r.qty > 0 ? stRet(r) : null, nopx: !!(r && r.qty > 0 && !(r.value > 0)) }; })
+      .sort(function (a, b) { return b.v - a.v; });
+    var shown = f === "gain" ? items.filter(function (x) { return x.v > 0; }).slice(0, 5) : f === "loss" ? items.filter(function (x) { return x.v < 0; }).slice(-5).reverse() : items;
+    sub.textContent = (all ? "Realised plus unrealised gain, every stock you have held. " : "Unrealised gain on the shares you hold now. ") +
+      (f === "gain" ? "The five largest ₹ gains. " : f === "loss" ? "The five largest ₹ losses. " : "Sorted by ₹ profit or loss, highest first. ") + "The % column is the unrealised return on cost.";
+    if (!items.length) { el.innerHTML = '<div class="empty">Nothing to show yet.</div>'; return; }
+    if (!shown.length) { el.innerHTML = '<div class="empty">' + (f === "gain" ? "No stock is showing a gain right now." : "No stock is showing a loss right now.") + "</div>"; return; }
+    var vals = shown.map(function (x) { return x.v; }), mp = Math.max(0, Math.max.apply(null, vals)), mn = Math.max(0, -Math.min.apply(null, vals)), span = (mp + mn) || 1, z = mn / span;
+    var sum = function (l) { return l.reduce(function (a, x) { return a + x.v; }, 0); };
+    el.innerHTML = '<ul class="st-pl" role="list"><li class="st-pl-head" aria-hidden="true"><span>Stock</span><span></span><span>₹ gain / loss</span><span>% on cost</span></li>' +
+      shown.map(function (x) {
+        var w = (100 * Math.abs(x.v) / span).toFixed(2), left = (x.v >= 0 ? 100 * z : 100 * z - Math.abs(100 * x.v / span)).toFixed(2);
+        return '<li class="st-pl-row' + (x.sold ? " sold" : "") + '"><span class="nm" title="' + esc(x.sym) + '">' + esc(x.sym) + '</span><span class="bar" aria-hidden="true"><i class="zero" style="left:' + (100 * z).toFixed(2) + '%"></i><i class="b ' + (x.v >= 0 ? "pos" : "neg") + '" style="left:' + left + "%;width:" + w + '%"></i></span><span class="amt ' + stCls(x.v) + '">' + stSg(x.v) + '</span><span class="ret"' + (x.nopx ? ' title="No price yet, so this counts as a full loss until a price is added"' : "") + ">" + (x.nopx ? "no price" : x.ret == null ? (x.sold ? "sold" : "–") : stPct(x.ret)) + "</span></li>";
+      }).join("") + "</ul>" +
+      '<div class="st-pl-foot">' + (f === "all" ? "Net " + stSg(sum(items)) + " across " + items.length + (items.length === 1 ? " stock" : " stocks") : "These " + shown.length + ": " + stSg(sum(shown)) + " · all " + items.length + " stocks: " + stSg(sum(items))) + "</div>";
+  }
+
+  // Concentration treemap (squarified): box area = current value, colour = unrealised return on cost
+  function stSquarify(items, W, H) {
+    var total = items.reduce(function (a, i) { return a + i.v; }, 0), k = W * H / total, rest = items.map(function (i) { return { it: i, a: i.v * k }; });
+    var rects = [], x = 0, y = 0, w = W, h = H;
+    var worst = function (row, side) { var s = row.reduce(function (a, r) { return a + r.a; }, 0), mx = Math.max.apply(null, row.map(function (r) { return r.a; })), mn = Math.min.apply(null, row.map(function (r) { return r.a; })); return Math.max(side * side * mx / (s * s), s * s / (side * side * mn)); };
+    while (rest.length) {
+      var side = Math.min(w, h), row = [rest[0]], i = 1;
+      while (i < rest.length && worst(row.concat([rest[i]]), side) <= worst(row, side)) { row.push(rest[i]); i++; }
+      rest = rest.slice(row.length);
+      var s = row.reduce(function (a, r) { return a + r.a; }, 0);
+      if (w >= h) { var cw = s / h, cy = y; row.forEach(function (r) { var rh = r.a / cw; rects.push({ x: x, y: cy, w: cw, h: rh, it: r.it }); cy += rh; }); x += cw; w -= cw; }
+      else { var rh2 = s / w, cx = x; row.forEach(function (r) { var rw = r.a / rh2; rects.push({ x: cx, y: y, w: rw, h: rh2, it: r.it }); cx += rw; }); y += rh2; h -= rh2; }
+    }
+    return rects;
+  }
+  var stTmW = 0;
+  function stTone(ret) {
+    if (ret == null) return { bg: "rgba(214,173,104,0.16)", top: "#D6AD68" };
+    var a = (0.14 + 0.24 * Math.min(Math.abs(ret) / 0.30, 1)).toFixed(2);
+    return ret >= 0 ? { bg: "rgba(84,184,137," + a + ")", top: "#54B889" } : { bg: "rgba(217,120,120," + a + ")", top: "#D97878" };
+  }
+  function stTreemap(c) {
+    var el = $("st-tm"), leg = $("st-tm-legend");
+    var hs = c.held.filter(function (r) { return r.value > 0; }), noPx = c.held.length - hs.length;
+    if (!hs.length) { el.style.height = ""; el.innerHTML = '<div class="empty">No holdings with a price to show yet.</div>'; leg.innerHTML = ""; stUi.tm = []; return; }
+    var W = el.clientWidth || 700, H = Math.round(W < 520 ? Math.max(280, W * 0.95) : Math.min(380, Math.max(260, W * 0.4)));
+    stTmW = W; el.style.height = H + "px";
+    var rects = stSquarify(hs.map(function (r) { return { r: r, v: r.value }; }), W, H); stUi.tm = rects;
+    el.innerHTML = rects.map(function (q, i) {
+      var r = q.it.r, ret = stRet(r), tone = stTone(ret), w = Math.max(1, q.w - 2), h = Math.max(1, q.h - 2);
+      var inner = w >= 70 && h >= 46 ? "<b>" + esc(r.sym) + "</b><span>" + (100 * stWt(c, r)).toFixed(1) + "%</span><em>" + (ret == null ? "–" : stPct(ret)) + "</em>" : w >= 44 && h >= 28 ? "<b>" + esc(r.sym) + "</b>" : "";
+      return '<button type="button" class="tm-tile" data-i="' + i + '" style="left:' + (q.x + 1).toFixed(1) + "px;top:" + (q.y + 1).toFixed(1) + "px;width:" + w.toFixed(1) + "px;height:" + h.toFixed(1) + "px;background:" + tone.bg + ";border-top-color:" + tone.top + '" aria-label="' +
+        esc(r.sym + ", " + (100 * stWt(c, r)).toFixed(1) + "% of the portfolio, value " + inr.format(r.value) + ", unrealised " + (r.gain < 0 ? "loss " : "gain ") + inr.format(Math.abs(r.gain)) + (ret == null ? "" : ", " + stPct(ret) + " on cost")) + '">' + inner + "</button>";
+    }).join("") + '<div class="tm-tip" id="st-tm-tip" hidden></div>';
+    var hasNone = hs.some(function (r) { return stRet(r) == null; });
+    leg.innerHTML = '<span><i style="background:rgba(217,120,120,0.38);border-color:#D97878"></i>Loss</span><span><i style="background:rgba(84,184,137,0.38);border-color:#54B889"></i>Gain</span>' +
+      (hasNone ? '<span><i style="background:rgba(214,173,104,0.16);border-color:#D6AD68"></i>No cost recorded</span>' : "") +
+      "<span>Colour reaches full strength at a 30% gain or loss. Each box prints its share of the portfolio and its return; small boxes are in the table below.</span>" +
+      (noPx ? "<span>" + noPx + (noPx === 1 ? " holding has" : " holdings have") + " no price yet and " + (noPx === 1 ? "isn't" : "aren't") + " drawn.</span>" : "");
+  }
+  function stTmShow(tile) {
+    var el = $("st-tm"), tip = $("st-tm-tip"), q = tile && stUi.tm[+tile.dataset.i], c = stUi.c; if (!q || !tip || !c) return;
+    var r = q.it.r, ret = stRet(r), row = function (a, b, cls) { return "<div><span>" + a + '</span><span class="' + (cls || "") + '">' + b + "</span></div>"; };
+    tip.innerHTML = "<b>" + esc(r.sym) + "</b><em>" + esc(r.name || sectorOf(r.sym)) + "</em>" + row("Share of portfolio", (100 * stWt(c, r)).toFixed(1) + "%") + row("Current value", inr.format(r.value)) +
+      row("Unrealised gain / loss", stSg(r.gain), stCls(r.gain)) + row("Return on cost", ret == null ? "–" : stPct(ret), ret == null ? "" : stCls(ret));
+    tip.hidden = false;
+    var tw = tip.offsetWidth, th = tip.offsetHeight, x = q.x + q.w + 8;
+    if (x + tw > el.clientWidth) x = q.x - tw - 8;
+    if (x < 0) x = Math.max(0, Math.min(el.clientWidth - tw, q.x + 6));
+    tip.style.left = x + "px"; tip.style.top = Math.min(Math.max(0, q.y), Math.max(0, el.clientHeight - th)) + "px";
+  }
+  function stTmHide() { var t = $("st-tm-tip"); if (t) t.hidden = true; }
+
+  // Insights: plain observations from the existing figures; nothing here recommends a trade
+  function stInsights(c) {
+    var el = $("st-ins"), hs = c.held.filter(function (r) { return r.value > 0; }), cand = hs.filter(function (r) { return r.invested > 0; }), left = c.held.length - hs.length;
+    if (!hs.length) { el.innerHTML = '<div class="empty" style="grid-column:1/-1">Insights appear once you hold a stock that has a price.</div>'; return; }
+    var skip = left ? " " + left + (left === 1 ? " holding without a price is left out." : " holdings without a price are left out.") : "";
+    var card = function (h, big, txt, body) { return '<article class="st-in"><h4>' + h + "</h4>" + (big ? '<div class="st-in-big">' + big + "</div>" : "") + '<p class="st-in-txt">' + txt + "</p>" + body + "</article>"; };
+    var list = function (rows) { return '<ul class="st-in-list" role="list">' + rows.join("") + "</ul>"; };
+    var li = function (nm, a, b, w, cls) { return "<li><span class=\"nm\" title=\"" + esc(nm) + "\">" + esc(nm) + '</span><span class="vals">' + a + (b ? "<em>" + b + "</em>" : "") + '</span><span class="track" aria-hidden="true"><i class="' + (cls || "") + '" style="width:' + Math.max(2, Math.min(100, w)).toFixed(1) + '%"></i></span></li>'; };
+    var out = [];
+    // 1. Largest holdings and how concentrated the portfolio is
+    var top = hs.slice(0, 5), topSum = top.reduce(function (a, r) { return a + r.value; }, 0), topW = c.T.val ? 100 * topSum / c.T.val : 0;
+    out.push(card("Largest holdings", hs.length > 5 ? topW.toFixed(1) + "%" : hs.length + (hs.length === 1 ? " holding" : " holdings"),
+      hs.length > 5 ? "Your five largest holdings account for " + topW.toFixed(1) + "% of the current portfolio." : "Your whole portfolio is in " + (hs.length === 1 ? "one stock." : "these " + hs.length + " stocks."),
+      list(top.map(function (r) { return li(r.sym, (100 * stWt(c, r)).toFixed(1) + "%", inr.format(r.value), 100 * r.value / top[0].value); }))));
+    // 2. Largest sector
+    var secs = Object.keys(c.sec).filter(function (k) { return c.sec[k] > 0; }).sort(function (a, b) { return c.sec[b] - c.sec[a]; });
+    if (secs.length) out.push(card("Largest sector", (100 * c.sec[secs[0]] / c.T.val).toFixed(1) + "%", esc(secs[0]) + " is the largest sector, worth " + inr.format(c.sec[secs[0]]) + " of the current value.",
+      list(secs.slice(0, 4).map(function (k) { return li(k, (100 * c.sec[k] / c.T.val).toFixed(1) + "%", inr.format(c.sec[k]), 100 * c.sec[k] / c.sec[secs[0]]); }))));
+    // 3 and 4. Best and weakest by % return on cost
+    var n = Math.min(3, Math.floor(cand.length / 2)), byRet = cand.slice().sort(function (a, b) { return stRet(b) - stRet(a); }), maxR = Math.max.apply(null, cand.map(function (r) { return Math.abs(stRet(r)); })) || 1;
+    var rl = function (r) { return li(r.sym, stSg(r.gain), stPct(stRet(r)), 100 * Math.abs(stRet(r)) / maxR, stCls(r.gain)); };
+    if (n >= 1) {
+      var best = byRet.slice(0, n), worst = byRet.slice(-n).reverse();
+      out.push(card("Top performers", stPct(stRet(best[0])), esc(best[0].sym) + " has the highest return on cost. Ranked by % return." + skip, list(best.map(rl))));
+      out.push(card("Weakest performers", stPct(stRet(worst[0])), esc(worst[0].sym) + " has the lowest return on cost. Ranked by % return." + skip, list(worst.map(rl))));
+    }
+    // 5. Realised against unrealised
+    var a = c.T.real, b = c.gain, mx = Math.max(Math.abs(a), Math.abs(b)) || 1;
+    var rv = function (name, v) { var w = 50 * Math.abs(v) / mx; return "<div><span>" + name + '</span><span class="a ' + stCls(v) + '">' + stSg(v) + '</span><span class="track" aria-hidden="true"><i style="background:rgba(244,240,232,0.45);left:50%;width:1px"></i><i style="background:' + (v >= 0 ? "var(--green)" : "var(--red)") + ";left:" + (v >= 0 ? 50 : 50 - w) + "%;width:" + w.toFixed(1) + '%"></i></span></div>'; };
+    out.push(card("Realised and unrealised", "", "Realised gains come from sales (FIFO) and are before tax. Unrealised gains are on shares you still own, and change with prices until they are sold.", '<div class="st-in-rvu">' + rv("Realised", a) + rv("Unrealised", b) + "</div>"));
+    // 6. Biggest contributors to unrealised gain or loss, by ₹
+    var byAbs = cand.slice().sort(function (x, y) { return Math.abs(y.gain) - Math.abs(x.gain); }).slice(0, 3), maxG = Math.abs(byAbs[0] ? byAbs[0].gain : 0) || 1;
+    if (byAbs.length) out.push(card("Biggest contributors", stSg(byAbs[0].gain), esc(byAbs[0].sym) + " moves the unrealised total most. Ranked by ₹ amount; the % is the return on cost." + skip,
+      list(byAbs.map(function (r) { return li(r.sym, stSg(r.gain), stPct(stRet(r)), 100 * Math.abs(r.gain) / maxG, stCls(r.gain)); }))));
+    el.innerHTML = out.join("");
+  }
+
+  // Holdings table: company names, search, sector filter and sorting. Presentation only: the rows are the original ones.
+  function stTable(c) {
+    var body = $("st-table").tBodies[0]; if (!body) return;
+    var by = {}; c.held.forEach(function (r) { by[r.sym] = r; });
+    var sel = $("st-sec-f"), secs = {}; c.held.forEach(function (r) { secs[sectorOf(r.sym)] = 1; });
+    if (stUi.sector && !secs[stUi.sector]) stUi.sector = "";
+    sel.innerHTML = '<option value="">All sectors</option>' + Object.keys(secs).sort().map(function (k) { return '<option value="' + esc(k) + '"' + (k === stUi.sector ? " selected" : "") + ">" + esc(k) + "</option>"; }).join("");
+    body.querySelectorAll("tr.fund[data-stsym]").forEach(function (tr) {
+      var r = by[tr.dataset.stsym], cell = tr.cells[0]; if (!r || !r.name || cell.querySelector("small.co")) return;
+      var s = document.createElement("small"); s.className = "co"; s.setAttribute("data-ux", ""); s.textContent = r.name;
+      cell.insertBefore(s, cell.querySelector("small"));
+    });
+    stTableApply();
+  }
+  function stTableApply() {
+    var c = stUi.c, tbl = $("st-table"), body = tbl && tbl.tBodies[0]; if (!c || !body) return;
+    var by = {}; c.held.forEach(function (r) { by[r.sym] = r; });
+    var groups = [];
+    Array.prototype.slice.call(body.children).forEach(function (tr) {
+      if (tr.classList.contains("st-none")) { body.removeChild(tr); return; }
+      if (tr.classList.contains("fund") && tr.dataset.stsym) groups.push({ f: tr, x: [], r: by[tr.dataset.stsym] });
+      else if (tr.classList.contains("tx") && groups.length) groups[groups.length - 1].x.push(tr);
+    });
+    if (!groups.length) { $("st-hold-sub").textContent = "No stocks held yet"; return; }
+    var q = stUi.q.trim().toLowerCase();
+    var metric = function (g) { var r = g.r; if (!r) return NaN; var s = stUi.sort; return s === "weight" ? stWt(c, r) : s === "gain" ? r.gain : s === "pct" ? (stRet(r) == null ? NaN : stRet(r)) : s === "xirr" ? r.xirr : r.value; };
+    groups.sort(function (a, b) {
+      var x = metric(a), y = metric(b), nx = !isFinite(x), ny = !isFinite(y);
+      if (nx || ny) return nx && ny ? 0 : nx ? 1 : -1;
+      return (stUi.dir === "desc" ? y - x : x - y) || ((b.r ? b.r.value : 0) - (a.r ? a.r.value : 0));
+    });
+    var shown = 0;
+    groups.forEach(function (g) {
+      var sym = g.f.dataset.stsym, ok = true;
+      if (q && sym.toLowerCase().indexOf(q) < 0 && !(g.r && (g.r.name || "").toLowerCase().indexOf(q) >= 0)) ok = false;
+      if (ok && stUi.sector && sectorOf(sym) !== stUi.sector) ok = false;
+      g.f.hidden = !ok; g.x.forEach(function (x) { x.hidden = !ok; });
+      g.f.classList.toggle("alt", ok && shown % 2 === 1); if (ok) shown++;
+      body.appendChild(g.f); g.x.forEach(function (x) { body.appendChild(x); });
+    });
+    if (!shown) body.insertAdjacentHTML("beforeend", '<tr class="st-none" data-ux><td colspan="10">No holdings match your search.</td></tr>');
+    $("st-hold-sub").textContent = (shown === groups.length ? groups.length + (groups.length === 1 ? " holding" : " holdings") : "Showing " + shown + " of " + groups.length + " holdings") + " · the totals row covers the whole portfolio";
+  }
+
+  // Portfolio value over time, from the history the tracker has already saved (month-end values, then daily saves)
+  var ST_PERIODS = [["1M", 1], ["3M", 3], ["6M", 6], ["1Y", 12], ["3Y", 36], ["All", 0]], stPerfSig = "", stPerfS = null, stPerfOpen = false;
+  function stPerfSeries() {
+    var rows = (hist.rows || []).filter(function (r) { return r.parts && r.parts.stocks != null && isFinite(Number(r.parts.stocks)); })
+      .map(function (r) { return { d: r.as_of, v: Number(r.parts.stocks), month: r.source === "backfill" }; })
+      .sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : 0; });
+    var i = 0; while (i < rows.length && rows[i].v <= 0) i++;
+    return rows.slice(i);
+  }
+  function stCut(m) { var d = new Date(todayISO() + "T00:00:00"); d.setMonth(d.getMonth() - m); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); }
+  function stPerf() {
+    var el = $("st-perf"); if (!el) return;
+    var series = stPerfSeries(), rangeEl = $("st-perf-range");
+    var avail = function (m) { if (series.length < 2) return false; if (!m) return true; var cut = stCut(m); return series[0].d <= cut && series.filter(function (p) { return p.d >= cut; }).length >= 2; };
+    var opts = ST_PERIODS.filter(function (p) { return avail(p[1]); });
+    if (!opts.some(function (p) { return p[1] === stUi.perf; })) stUi.perf = 0;
+    var months = stUi.perf, pts = months ? series.filter(function (p) { return p.d >= stCut(months); }) : series;
+    var sig = JSON.stringify([months, pts.length, pts.length ? pts[0].d : "", pts.length ? pts[pts.length - 1] : null, opts.length]);
+    if (sig === stPerfSig) return; stPerfSig = sig;
+    var det = el.parentNode.querySelector("#st-perf-extra details"); if (det) stPerfOpen = det.open;
+    rangeEl.hidden = opts.length < 2;
+    rangeEl.innerHTML = opts.map(function (p) { return '<button type="button" data-mode="' + p[1] + '" aria-pressed="' + (p[1] === months ? "true" : "false") + '">' + p[0] + "</button>"; }).join("");
+    stPerfS = null; $("st-perf-sum").innerHTML = ""; $("st-perf-extra").innerHTML = ""; $("st-perf-sub").textContent = "";
+    if (pts.length < 2) {
+      el.innerHTML = '<div class="empty">Portfolio history isn\'t available yet. The tracker saves the value of your shares each day you open it, so this chart fills in over time.</div>';
+      $("st-perf-note").textContent = ""; return;
+    }
+    var W = 720, H = 280, L = 58, R = 12, T = 14, B = 28, t0 = Date.parse(pts[0].d), t1 = Date.parse(pts[pts.length - 1].d);
+    var max = Math.max.apply(null, pts.map(function (p) { return p.v; })) || 1, nice = Math.pow(10, Math.floor(Math.log10(max))), top = Math.ceil(max / nice) * nice; if (top / nice > 6) nice *= 2; top = Math.ceil(max / nice) * nice;
+    var X = function (d) { return L + (W - L - R) * (t1 === t0 ? 0 : (Date.parse(d) - t0) / (t1 - t0)); }, Y = function (v) { return T + (H - T - B) * (1 - v / top); };
+    var short = function (v) { return v >= 1e7 ? (v / 1e7).toFixed(v % 1e7 ? 1 : 0) + " Cr" : v >= 1e5 ? (v / 1e5).toFixed(v % 1e5 ? 1 : 0) + " L" : v >= 1e3 ? Math.round(v / 1e3) + "k" : String(v); };
+    var g = ""; for (var v = 0; v <= top + 1; v += nice) g += '<line class="gl" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(v).toFixed(1) + '" y2="' + Y(v).toFixed(1) + '"/><text class="ax" x="' + (L - 6) + '" y="' + (Y(v) + 3.5).toFixed(1) + '" text-anchor="end">₹' + short(v) + "</text>";
+    var longSpan = (t1 - t0) / dayMs > 400, k;
+    for (k = 0; k < 5; k++) {
+      var td = new Date(t0 + (t1 - t0) * k / 4), lab = td.toLocaleDateString("en-IN", longSpan ? { month: "short", year: "numeric" } : { day: "numeric", month: "short" });
+      g += '<text class="ax" x="' + (L + (W - L - R) * k / 4).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="' + (k === 0 ? "start" : k === 4 ? "end" : "middle") + '">' + lab + "</text>";
+    }
+    var line = "M" + pts.map(function (p) { return X(p.d).toFixed(1) + " " + Y(p.v).toFixed(1); }).join(" L");
+    var area = line + " L" + X(pts[pts.length - 1].d).toFixed(1) + " " + Y(0).toFixed(1) + " L" + X(pts[0].d).toFixed(1) + " " + Y(0).toFixed(1) + " Z";
+    var dots = pts.length <= 45 ? pts.map(function (p) { return '<circle class="pt" cx="' + X(p.d).toFixed(1) + '" cy="' + Y(p.v).toFixed(1) + '" r="2.2"/>'; }).join("") : "";
+    el.innerHTML = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Portfolio value over time, ' + pts.length + ' points from ' + esc(fmtDate(pts[0].d)) + " to " + esc(fmtDate(pts[pts.length - 1].d)) + '. The same figures are in the table below the chart.">' + g +
+      '<path class="ar" d="' + area + '"/><path class="ln" d="' + line + '"/>' + dots + '<line class="hov" id="st-perf-hov" y1="' + T + '" y2="' + (H - B) + '" x1="-10" x2="-10"/><circle class="dot" id="st-perf-dot" cx="-10" cy="-10" r="4.5"/>' +
+      '<rect class="hit" id="st-perf-hit" x="' + L + '" y="' + T + '" width="' + (W - L - R) + '" height="' + (H - T - B) + '" fill="transparent"/></svg><div class="area-tip" id="st-perf-tip" hidden></div>';
+    var svg = el.querySelector("svg"), tip = $("st-perf-tip"), hov = $("st-perf-hov"), dot = $("st-perf-dot"), hit = $("st-perf-hit"), live = $("st-perf-live");
+    function show(i) {
+      var p = pts[i], x = X(p.d), y = Y(p.v); stPerfS.i = i;
+      hov.setAttribute("x1", x); hov.setAttribute("x2", x); dot.setAttribute("cx", x); dot.setAttribute("cy", y);
+      tip.innerHTML = "<b>" + esc(fmtDate(p.d)) + "</b><div><span>Portfolio value</span><span>" + inr.format(p.v) + "</span></div><div><em>" + (p.month ? "Month-end value" : "Value saved that day") + "</em></div>";
+      tip.hidden = false; var r = svg.getBoundingClientRect(), left = (x / W) * r.width + 12; tip.style.left = Math.min(Math.max(0, left), Math.max(0, r.width - tip.offsetWidth)) + "px";
+      if (live) live.textContent = (i + 1) + " of " + pts.length + ". " + fmtDate(p.d) + ", " + inr.format(p.v) + ", " + (p.month ? "month-end value" : "value saved that day") + ".";
+    }
+    function hide() { tip.hidden = true; hov.setAttribute("x1", -10); hov.setAttribute("x2", -10); dot.setAttribute("cx", -10); dot.setAttribute("cy", -10); if (stPerfS) stPerfS.i = -1; }
+    var near = function (cx) { var r = svg.getBoundingClientRect(), x = (cx - r.left) * W / r.width, b = 0; pts.forEach(function (p, i) { if (Math.abs(X(p.d) - x) < Math.abs(X(pts[b].d) - x)) b = i; }); return b; };
+    stPerfS = { pts: pts, show: show, hide: hide, i: -1 };
+    hit.addEventListener("pointermove", function (e) { show(near(e.clientX)); });
+    hit.addEventListener("pointerdown", function (e) { show(near(e.clientX)); });
+    hit.addEventListener("pointerleave", function (e) { if (e.pointerType === "mouse") hide(); });
+    // Summary line, figures table and notes
+    var first = pts[0], last = pts[pts.length - 1], ch = last.v - first.v;
+    $("st-perf-sub").textContent = fmtDate(first.d) + " to " + fmtDate(last.d) + " · " + pts.length + " points";
+    $("st-perf-sum").innerHTML = '<div><div class="l">From ' + esc(fmtDate(first.d)) + '</div><div class="a">' + inr.format(first.v) + '</div></div><div><div class="l">Latest, ' + esc(fmtDate(last.d)) + '</div><div class="a">' + inr.format(last.v) + '</div></div><div><div class="l">Change in value</div><div class="a ' + stCls(ch) + '">' + stSg(ch) + "</div></div>";
+    $("st-perf-extra").innerHTML = '<details class="st-data"' + (stPerfOpen ? " open" : "") + '><summary>Show these figures as a table</summary><div class="table-wrap"><table><caption class="ux-sr">Portfolio value at each point</caption><thead><tr><th scope="col">Date</th><th scope="col">Value</th><th scope="col">Basis</th></tr></thead><tbody>' +
+      pts.slice().reverse().map(function (p) { return "<tr><th scope=\"row\">" + esc(fmtDate(p.d)) + "</th><td>" + inr.format(p.v) + "</td><td>" + (p.month ? "Month-end" : "Saved that day") + "</td></tr>"; }).join("") + "</tbody></table></div></details>";
+    var anyM = pts.some(function (p) { return p.month; }), anyD = pts.some(function (p) { return !p.month; }), firstD = pts.filter(function (p) { return !p.month; })[0];
+    $("st-perf-note").textContent = (anyM && anyD ? "Points before " + fmtDate(firstD.d) + " are month-end values; later points are the values saved on the days the tracker was opened. " : anyM ? "Each point is a month-end value. " : "Each point is the value saved on a day the tracker was opened. ") +
+      "The line is the market value of the shares you held, so it also moves when you buy or sell. A rise is not necessarily investment return. For that, see the unrealised gain and XIRR above.";
+  }
+
+  // Controls for the new panels (each one only redraws; none of them reads or writes data)
+  segToggle("st-alloc-mode", function (m) { stUi.alloc = m; if (stUi.c) try { stAlloc(stUi.c); } catch (e) {} });
+  segToggle("st-pl-filter", function (m) { stUi.plFilter = m; if (stUi.c) try { stPl(stUi.c); } catch (e) {} });
+  $("st-perf-range").addEventListener("click", function (e) { var b = e.target.closest("[data-mode]"); if (!b) return; stUi.perf = +b.dataset.mode; stPerfSig = ""; stPerf(); });
+  (function () {
+    var box = $("st-perf"), live = document.createElement("p"); live.id = "st-perf-live"; live.className = "ux-sr"; live.setAttribute("aria-live", "polite"); live.setAttribute("data-ux", ""); box.parentNode.insertBefore(live, box.nextSibling);
+    box.tabIndex = 0; box.setAttribute("role", "group"); box.setAttribute("aria-label", "Portfolio value chart. Use the left and right arrow keys to read each point, Home and End to jump, Escape to close.");
+    box.addEventListener("keydown", function (e) {
+      var s = stPerfS, k = e.key; if (!s) return;
+      if (k === "Escape") { s.hide(); live.textContent = ""; return; }
+      if (["ArrowLeft", "ArrowRight", "Home", "End"].indexOf(k) < 0) return; e.preventDefault();
+      var n = s.pts.length, i = s.i < 0 ? (k === "ArrowLeft" || k === "End" ? n - 1 : 0) : k === "ArrowRight" ? s.i + 1 : k === "ArrowLeft" ? s.i - 1 : k === "Home" ? 0 : n - 1;
+      s.show(Math.max(0, Math.min(n - 1, i)));
+    });
+    box.addEventListener("focusout", function () { if (stPerfS) stPerfS.hide(); });
+    document.addEventListener("pointerdown", function (e) { if (e.pointerType !== "mouse" && stPerfS && !box.contains(e.target)) stPerfS.hide(); });
+    var tm = $("st-tm");
+    tm.addEventListener("mouseover", function (e) { var t = e.target.closest(".tm-tile"); if (t) stTmShow(t); });
+    tm.addEventListener("mouseleave", stTmHide);
+    tm.addEventListener("focusin", function (e) { var t = e.target.closest(".tm-tile"); if (t) stTmShow(t); });
+    tm.addEventListener("focusout", function (e) { if (!tm.contains(e.relatedTarget)) stTmHide(); });
+    tm.addEventListener("click", function (e) { var t = e.target.closest(".tm-tile"); if (t) stTmShow(t); });
+    tm.addEventListener("keydown", function (e) { if (e.key === "Escape") stTmHide(); });
+    document.addEventListener("pointerdown", function (e) { if (e.pointerType !== "mouse" && !tm.contains(e.target)) stTmHide(); });
+    if (window.ResizeObserver) new ResizeObserver(function () { var w = tm.clientWidth; if (w && Math.abs(w - stTmW) > 2 && stUi.c) { try { stTreemap(stUi.c); } catch (e) {} } }).observe(tm);
+    $("st-q").addEventListener("input", function () { stUi.q = this.value; stTableApply(); });
+    $("st-sec-f").addEventListener("change", function () { stUi.sector = this.value; stTableApply(); });
+    $("st-sort").addEventListener("change", function () { stUi.sort = this.value; stTableApply(); });
+    $("st-dir").addEventListener("click", function () {
+      stUi.dir = stUi.dir === "desc" ? "asc" : "desc";
+      this.textContent = stUi.dir === "desc" ? "High to low" : "Low to high"; this.setAttribute("aria-label", "Sort order: " + (stUi.dir === "desc" ? "highest" : "lowest") + " first. Activate to reverse.");
+      stTableApply();
+    });
+  })();
+
   async function setSector(sym, sector) {
     sector = (sector || "").trim(); if (!sector) return;
     var r = st.prices[sym] ? await sb.from("stock_prices").update({ sector: sector }).eq("symbol", sym) : { error: null };
@@ -2773,7 +3285,7 @@
     donut("nw-pie", parts.map(function (x) { return { l: x.c.l, v: x.a, c: x.c.c }; }), [inr.format(nw).replace("₹", "₹ "), "net worth"]);
     $("nw-pie-note").textContent = liab ? "Assets " + inr.format(assets) + " less loans owed and card dues " + inr.format(liab) + " = net worth " + inr.format(nw) + "." : "No loans owed, so net worth equals total assets.";
     if (mf.count !== undefined && st.count !== undefined) saveSnapshot(v, nw);
-    renderGrowth(); renderMonthly();
+    renderGrowth(); renderMonthly(); stPerf();
   }
   function countLine(kind, word) {
     var n = itemsOf(kind).length; if (!n) return "None added yet";
