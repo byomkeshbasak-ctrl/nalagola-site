@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Personal Networth Tracker</title>
-<meta name="theme-color" content="#140a0e">
+<meta name="theme-color" content="#171717">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script>
 <style>
   :root {
@@ -349,10 +349,155 @@
   .xp, .xp > .card { min-width: 0; }
   @media (max-width: 560px) { .head .v { font-size: 1.6rem; } .topbar .title { font-size: 1.15rem; } .who { display: none; } }
 </style>
+<style id="ux-theme">
+  /* ===== Presentation layer, matched to the shop site =====
+     Looks only. Nothing here changes figures, data or behaviour. */
+  :root {
+    --bg: #171717;
+    --panel: #1F1C1A;
+    --panel-2: #29231F;
+    --line: rgba(197, 164, 109, 0.18);
+    --line-strong: rgba(197, 164, 109, 0.42);
+    --gold: #C5A46D;
+    --gold-hi: #D4B887;
+    --text: #F4F0E8;
+    --muted: #ADA79E;
+    --green: #86D3A2;
+    --red: #F29C9C;
+    --amber: #E3C27F;
+    --focus: rgba(197, 164, 109, 0.45);
+  }
+  html { -webkit-text-size-adjust: 100%; }
+  body { font-family: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.45; }
+  .serif { font-family: "Cormorant Garamond", Georgia, "Times New Roman", serif; }
+  ::selection { background: rgba(197, 164, 109, 0.35); }
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible { outline: none; }
+  .table-wrap:focus-visible, main:focus-visible { outline-offset: -2px; }
+  main:focus:not(:focus-visible) { outline: none; }
+  .primary { color: var(--bg); min-height: 40px; }
+  .primary:hover { background: var(--gold-hi); }
+  .ghost { min-height: 38px; border-color: rgba(244, 240, 232, 0.22); display: inline-flex; align-items: center; justify-content: center; }
+  .ghost:hover { border-color: var(--gold); color: var(--gold); }
+  .icon-btn, .sec-link, .tog { min-height: 24px; }
+  input, select, .form textarea { border-color: rgba(244, 240, 232, 0.16); background: #141414; }
+  input:hover, select:hover { border-color: var(--line-strong); }
+  input::placeholder, .form textarea::placeholder { color: #8E887F; }
+
+  .ux-skip { position: absolute; left: 8px; top: -60px; z-index: 50; background: var(--gold); color: var(--bg); font-weight: 600; padding: 10px 14px; border-radius: 10px; text-decoration: none; }
+  .ux-skip:focus { top: 8px; }
+  .ux-boot { min-height: 100vh; display: grid; place-content: center; justify-items: center; gap: 14px; color: var(--muted); font-size: 0.9rem; }
+  .ux-boot img { border-radius: 50%; box-shadow: 0 0 0 1px var(--line-strong); }
+  body:has(#view-login:not([hidden])) .ux-boot, body:has(#view-denied:not([hidden])) .ux-boot, body:has(#view-app:not([hidden])) .ux-boot { display: none; }
+  .ux-sub { font-size: 0.76rem; color: var(--muted); line-height: 1.5; margin: -4px 0 8px; max-width: 62ch; }
+  h2.k { font-size: 0.8rem; font-weight: 500; }
+  .ux-sr { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: -1px; padding: 0; border: 0; }
+
+  /* Sign-in and no-access */
+  .center .card { border-color: var(--line-strong); padding: 32px 26px 28px; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45); }
+  .center img { box-shadow: 0 0 0 1px var(--line-strong); }
+  .center h1 { font-weight: 600; font-size: 1.9rem; }
+
+  /* Header */
+  .topbar { background: rgba(23, 23, 23, 0.92); border-bottom-color: rgba(244, 240, 232, 0.1); }
+  .topbar img { box-shadow: 0 0 0 1px var(--line-strong); }
+  .topbar .title { font-size: 1.4rem; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .ux-shop-short { display: none; }
+  .who { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tabs-inner { mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent); -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent); padding-right: 22px; scroll-snap-type: x proximity; }
+  .tab { scroll-snap-align: start; min-height: 44px; border-bottom-width: 3px; padding: 11px 13px 9px; font-weight: 500; }
+  .tab[aria-selected="true"] { color: var(--text); font-weight: 600; border-bottom-color: var(--gold); }
+  .tab:focus-visible { outline-offset: -3px; border-radius: 6px 6px 0 0; }
+  @media (max-width: 700px) {
+    .topbar-inner { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "logo title shop out"; padding: 8px 12px; gap: 8px; align-items: center; }
+    .topbar img { grid-area: logo; width: 30px; height: 30px; }
+    .topbar .title { grid-area: title; font-size: 1.1rem; }
+    .who, .topbar .spacer { display: none; }
+    .shop-link { grid-area: shop; padding: 8px 10px; font-size: 0.84rem; }
+    .ux-shop-long { display: none; }
+    .ux-shop-short { display: inline; }
+    #signout { grid-area: out; padding: 8px 10px; font-size: 0.84rem; }
+  }
+
+  /* Cards, tiles, headings */
+  .card, .xp, .dtile { border-radius: 12px; }
+  .head .k, .dtile .l, .ips-top .k, .ips-h { text-transform: none; letter-spacing: 0.01em; font-weight: 500; }
+  .head .k { font-size: 0.8rem; }
+  .dtile .l { font-size: 0.78rem; }
+  .nw-card { background: var(--panel-2); border-color: var(--gold); }
+  .nw-card .k { color: var(--gold); font-weight: 600; }
+  .nw-card .v { font-family: "Cormorant Garamond", Georgia, serif; font-weight: 600; font-size: clamp(2.4rem, 6vw, 3.1rem); line-height: 1.05; }
+  .nw-card .s { font-size: 0.8rem; }
+  .dtile:hover { background: var(--panel-2); }
+  .tile:hover { background: var(--panel-2); }
+  .list-h h2, .sec h2, .stmt-head h3 { letter-spacing: 0.005em; }
+  .sub-h { color: var(--gold); }
+
+  /* Tables */
+  th { text-transform: none; letter-spacing: 0.01em; font-size: 0.76rem; font-weight: 600; }
+  td { border-bottom-color: rgba(244, 240, 232, 0.06); }
+  tbody tr:hover > td { background: rgba(197, 164, 109, 0.04); }
+  .book tr.txns table tbody tr:hover > td, .tx-inner tbody tr:hover > td { background: none; }
+  .table-wrap { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+  .book tr.mrow.open td { color: var(--gold); }
+
+  /* Charts */
+  .chart-card { border-radius: 10px; }
+  .area-wrap .ax { font-family: "Manrope", system-ui, sans-serif; fill: #A39D94; }
+  .area-tip { border-color: var(--gold); background: #231F1C; z-index: 4; }
+  #gr-chart:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; border-radius: 6px; }
+  #gr-hit { touch-action: pan-y; }
+  .pie-wrap svg path { stroke: var(--panel); }
+  .pie-key div[tabindex]:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; border-radius: 4px; }
+  .seg { border-color: var(--line-strong); }
+  .seg button { min-height: 32px; }
+  .seg button:hover { color: var(--text); }
+  .seg button[aria-pressed="true"] { background: var(--gold); color: var(--bg); font-weight: 600; }
+  .seg button:focus-visible { outline-offset: -3px; }
+  .ux-data { margin-top: 8px; font-size: 0.8rem; }
+  .ux-data summary { cursor: pointer; color: var(--muted); min-height: 32px; display: flex; align-items: center; gap: 6px; width: max-content; max-width: 100%; list-style: none; }
+  .ux-data summary::-webkit-details-marker { display: none; }
+  .ux-data summary::before { content: "▸"; font-size: 0.75rem; }
+  .ux-data[open] summary::before { content: "▾"; }
+  .ux-data summary:hover, .ux-data[open] summary { color: var(--gold); }
+  .ux-data .table-wrap { margin-top: 6px; max-height: 300px; overflow: auto; }
+  .ux-data th { position: sticky; top: 0; background: var(--panel); }
+  .ux-data td, .ux-data th { padding: 6px 8px; }
+  .ux-data td:not(:first-child), .ux-data th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ux-help { margin-top: 6px; font-size: 0.72rem; color: var(--muted); }
+
+  /* Statement previews and forms */
+  .stmt { border-radius: 12px; }
+  .pv-table tr.need td { background: rgba(227, 194, 127, 0.08); }
+  .pv-table tr.need td:first-child { box-shadow: inset 3px 0 0 var(--amber); }
+  .form { border-radius: 12px; }
+  .pill.due { border-color: var(--amber); color: var(--amber); }
+  .pill.over { border-color: var(--red); color: var(--red); }
+  .toast { background: var(--panel-2); border-color: var(--gold); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45); }
+
+  /* IPS blocks keep their own accents; align the chrome only */
+  .ips-title { font-family: "Cormorant Garamond", Georgia, serif; font-size: 1.6rem; }
+  .ips-advisory { border-color: rgba(227, 194, 127, 0.45); background: rgba(227, 194, 127, 0.08); color: var(--amber); }
+  .ips-new { background: rgba(197, 164, 109, 0.16); }
+  .ips-act.hold { background: rgba(197, 164, 109, 0.14); }
+
+  @media (pointer: coarse) {
+    .ghost, .primary, .tab { min-height: 44px; }
+    .seg button { min-height: 40px; }
+    .icon-btn, .sec-link, .tog { min-height: 32px; display: inline-flex; align-items: center; }
+    .ux-data summary { min-height: 40px; }
+    .tile, .dtile { padding-top: 14px; padding-bottom: 14px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+  }
+</style>
 </head>
 <body>
+<a class="ux-skip" href="#main" data-ux>Skip to the tracker</a>
+<p class="ux-boot" id="ux-boot" role="status" data-ux><img src="logo.webp" alt="" width="56" height="56"><span>Opening your tracker…</span></p>
 
-<div class="center" id="view-login" hidden>
+<div class="center" id="view-login" role="main" aria-label="Sign in" hidden>
   <div class="card">
     <img src="logo.webp" alt="">
     <h1 class="serif">Please sign in</h1>
@@ -361,59 +506,62 @@
   </div>
 </div>
 
-<div class="center" id="view-denied" hidden>
+<div class="center" id="view-denied" role="main" aria-label="No access" hidden>
   <div class="card">
     <img src="logo.webp" alt="">
     <h1 class="serif">No access</h1>
     <p>This account isn't set up as the admin.</p>
+    <a class="ghost" href="index.html" style="display:inline-block;margin-top:16px" data-ux>Back to the shop website</a>
   </div>
 </div>
 
 <div id="view-app" hidden>
-  <header class="topbar">
+  <header class="topbar" aria-label="Personal net worth tracker">
     <div class="topbar-inner">
       <img src="logo.webp" alt="">
-      <div class="title serif">Personal Networth Tracker</div>
+      <h1 class="title serif">Personal Networth Tracker</h1>
       <div class="spacer"></div>
       <span class="who" id="who"></span>
-      <a class="ghost" href="admin.html">&larr; Shop accounts</a>
+      <a class="ghost shop-link" href="admin.html" aria-label="Back to the shop accounts"><span class="ux-shop-long">&larr; Shop accounts</span><span class="ux-shop-short" aria-hidden="true" data-ux>Shop</span></a>
       <button class="ghost" id="signout" type="button">Sign out</button>
     </div>
     <nav class="tabs" id="tabs" aria-label="Sections">
-      <div class="tabs-inner">
-        <button type="button" class="tab" data-tab="dash">Dashboard</button>
-        <button type="button" class="tab" data-tab="stocks">Stocks</button>
-        <button type="button" class="tab" data-tab="mf">Mutual funds</button>
-        <button type="button" class="tab" data-tab="business">Business</button>
-        <button type="button" class="tab" data-tab="bank">Banks</button>
-        <button type="button" class="tab" data-tab="income">Income</button>
-        <button type="button" class="tab" data-tab="expenses">Expenses</button>
-        <button type="button" class="tab" data-tab="cards">Credit cards</button>
-        <button type="button" class="tab" data-tab="homeloan">Home loan</button>
-        <button type="button" class="tab" data-tab="carloan">Car loan</button>
+      <div class="tabs-inner" role="tablist">
+        <button type="button" class="tab" role="tab" id="tab-dash" aria-controls="pane-dash" data-tab="dash">Dashboard</button>
+        <button type="button" class="tab" role="tab" id="tab-stocks" aria-controls="pane-stocks" data-tab="stocks">Stocks</button>
+        <button type="button" class="tab" role="tab" id="tab-mf" aria-controls="pane-mf" data-tab="mf">Mutual funds</button>
+        <button type="button" class="tab" role="tab" id="tab-business" aria-controls="pane-business" data-tab="business">Business</button>
+        <button type="button" class="tab" role="tab" id="tab-bank" aria-controls="pane-bank" data-tab="bank">Banks</button>
+        <button type="button" class="tab" role="tab" id="tab-income" aria-controls="pane-income" data-tab="income">Income</button>
+        <button type="button" class="tab" role="tab" id="tab-expenses" aria-controls="pane-expenses" data-tab="expenses">Expenses</button>
+        <button type="button" class="tab" role="tab" id="tab-cards" aria-controls="pane-cards" data-tab="cards">Credit cards</button>
+        <button type="button" class="tab" role="tab" id="tab-homeloan" aria-controls="pane-homeloan" data-tab="homeloan">Home loan</button>
+        <button type="button" class="tab" role="tab" id="tab-carloan" aria-controls="pane-carloan" data-tab="carloan">Car loan</button>
       </div>
     </nav>
   </header>
 
 
-  <main class="wrap">
+  <main class="wrap" id="main" tabindex="-1">
     <!-- ===== Dashboard ===== -->
-    <section class="pane" id="pane-dash">
+    <section class="pane" id="pane-dash" role="tabpanel" aria-labelledby="tab-dash">
       <section class="card nw-card" aria-label="Net worth">
         <div class="head">
           <div>
             <div class="k">Net worth</div>
             <div class="v" id="nw-total">–</div>
+            <div class="s" id="ux-nw-s" data-ux></div>
           </div>
         </div>
       </section>
       <div class="dash-grid" id="dash-grid"></div>
       <div class="dash-charts">
         <section class="card" aria-label="Net worth growth">
-          <div class="list-h"><h2>Net worth growth</h2>
+          <div class="list-h"><h2 id="gr-title">Net worth growth</h2>
             <div class="seg" id="gr-range"><button type="button" data-mode="all" aria-pressed="true">All</button><button type="button" data-mode="5" aria-pressed="false">5 years</button><button type="button" data-mode="1" aria-pressed="false">1 year</button></div>
           </div>
-          <div class="area-wrap" id="gr-chart"></div>
+          <p class="ux-sub" data-ux>Coloured bands stack each part on top of the last; the ivory line is total net worth. One point per month.</p>
+          <div class="area-wrap" id="gr-chart" aria-labelledby="gr-title"></div>
           <div class="area-key" id="gr-key"></div>
           <div class="mf-note" id="gr-note"></div>
         </section>
@@ -425,7 +573,7 @@
       </div>
       <section class="card sec" aria-label="Net worth month by month">
         <div class="list-h"><h2>Net worth month by month</h2></div>
-        <div class="table-wrap"><table id="mbm-table"></table></div>
+        <div class="table-wrap" role="region" aria-label="Month by month table"><table id="mbm-table"></table></div>
         <div style="margin-top:10px"><button class="sec-link" type="button" id="mbm-more" hidden></button></div>
         <div class="mf-note">Tracking starts from 1 Nov 2026. Each month shows its last recorded day. Change is against the previous month's close; for November 2026 it is against the 1 Nov opening value. Card dues are subtracted, and Loans &amp; advances is money lent minus money owed. The current month updates every time you open the tracker.</div>
       </section>
@@ -463,7 +611,7 @@
         </div>
         <form class="form" id="gold-form" data-itemform="gold" hidden></form>
         <div class="mf-kpis" id="gold-kpis"></div>
-        <div class="table-wrap" style="margin-top:14px"><table id="gold-table"></table></div>
+        <div class="table-wrap" style="margin-top:14px" role="region" aria-label="Gold holdings"><table id="gold-table"></table></div>
         <div class="mf-note" id="gold-note"></div>
         </section>
       </details>
@@ -482,7 +630,7 @@
         </div>
         <form class="form" id="loans-form" data-itemform="loans" hidden></form>
         <div class="mf-kpis" id="loans-kpis"></div>
-        <div class="table-wrap" style="margin-top:14px"><table id="loans-table"></table></div>
+        <div class="table-wrap" style="margin-top:14px" role="region" aria-label="Loans and advances"><table id="loans-table"></table></div>
         <div class="mf-note" id="loans-note"></div>
         </section>
       </details>
@@ -500,7 +648,7 @@
         </div>
         <form class="form" id="insurance-form" data-itemform="insurance" hidden></form>
         <div class="mf-kpis" id="insurance-kpis"></div>
-        <div class="table-wrap" style="margin-top:14px"><table id="insurance-table"></table></div>
+        <div class="table-wrap" style="margin-top:14px" role="region" aria-label="Insurance policies"><table id="insurance-table"></table></div>
         <div class="mf-note" id="insurance-note"></div>
         </section>
       </details>
@@ -518,7 +666,7 @@
         </div>
         <form class="form" id="trading-form" data-itemform="trading" hidden></form>
         <div class="mf-kpis" id="trading-kpis"></div>
-        <div class="table-wrap" style="margin-top:14px"><table id="trading-table"></table></div>
+        <div class="table-wrap" style="margin-top:14px" role="region" aria-label="Broker balances"><table id="trading-table"></table></div>
         <div class="mf-note" id="trading-note"></div>
         </section>
       </details>
@@ -526,7 +674,7 @@
     </section>
 
     <!-- ===== Stocks ===== -->
-    <section class="pane" id="pane-stocks" hidden>
+    <section class="pane" id="pane-stocks" role="tabpanel" aria-labelledby="tab-stocks" hidden>
     <section class="card" aria-label="Stocks">
       <div class="head">
         <div>
@@ -572,9 +720,9 @@
         </div>
       </div>
       <div class="sec-h"><h3>Current Holdings</h3></div>
-      <div class="table-wrap"><table id="st-table"></table></div>
+      <div class="table-wrap" role="region" aria-label="Stock holdings"><table id="st-table"></table></div>
       <button class="ghost exited-btn" id="st-exited-btn" type="button" hidden></button>
-      <div class="table-wrap" id="st-exited" hidden style="margin-top:10px"><table id="st-exited-table"></table></div>
+      <div class="table-wrap" id="st-exited" hidden style="margin-top:10px" role="region" aria-label="Sold stocks"><table id="st-exited-table"></table></div>
       <div class="mf-note" id="st-note"></div>
     </section>
 
@@ -595,15 +743,15 @@
       <div class="ips-h">Policy checks</div>
       <div class="ips-buckets ips-checks" id="sips-checks"></div>
       <div class="ips-sec"><span class="ips-dot buy"></span><h3>Buy</h3><span class="ips-sum" id="sips-buy-sum"></span></div>
-      <div class="table-wrap"><table class="ips-t" id="sips-buy"></table></div>
+      <div class="table-wrap" role="region" aria-label="Stocks to buy"><table class="ips-t" id="sips-buy"></table></div>
       <div class="ips-sec"><span class="ips-dot sell"></span><h3>Sell / trim</h3><span class="ips-sum" id="sips-sell-sum"></span></div>
-      <div class="table-wrap"><table class="ips-t" id="sips-sell"></table></div>
+      <div class="table-wrap" role="region" aria-label="Stocks to sell or trim"><table class="ips-t" id="sips-sell"></table></div>
       <div class="mf-note">Reviewed on the 1st and 15th of every month; sells and scheduled trims are acted on at the quarterly action reviews. Every stock in the Nifty LargeMidcap 250 is tested against the quality gate for its business model (non-financial, bank, NBFC, insurer, capital markets) and ranked on quality, growth, cash conversion, industry-relative valuation and stability. A test with missing, stale or unchecked data shows as MISSING, STALE or UNVERIFIED and never counts as a pass. Financial companies need a manual check on asset quality and capital before they can be bought. Cap breaches are fixed with new money first, and trims come only from shares held over a year, inside the household ₹1.25 L exemption shared with the mutual funds. Not automated yet: P/E history, governance, liquidity, the 200-day average, mutual fund look-through and stress scenarios S4 to S6. This applies your IPS rules mechanically; it is not investment advice.</div>
     </section>
     </section>
 
     <!-- ===== Mutual funds ===== -->
-    <section class="pane" id="pane-mf" hidden>
+    <section class="pane" id="pane-mf" role="tabpanel" aria-labelledby="tab-mf" hidden>
     <section class="card" aria-label="Mutual funds">
       <div class="head">
         <div>
@@ -650,9 +798,9 @@
         </div>
       </div>
       <div class="sec-h"><h3>Current Holdings</h3></div>
-      <div class="table-wrap"><table id="mf-table"></table></div>
+      <div class="table-wrap" role="region" aria-label="Mutual fund holdings"><table id="mf-table"></table></div>
       <button class="ghost exited-btn" id="mf-exited-btn" type="button" hidden></button>
-      <div class="table-wrap" id="mf-exited" hidden style="margin-top:10px"><table id="mf-exited-table"></table></div>
+      <div class="table-wrap" id="mf-exited" hidden style="margin-top:10px" role="region" aria-label="Redeemed funds"><table id="mf-exited-table"></table></div>
       <div class="mf-note" id="mf-note"></div>
     </section>
 
@@ -669,17 +817,17 @@
       </div>
       <div class="ips-flow" id="ips-flow"></div>
       <div class="ips-buckets" id="ips-buckets"></div>
-      <div class="table-wrap" style="margin-top:14px"><table class="ips-t ips-mon" id="ips-monitor"></table></div>
+      <div class="table-wrap" style="margin-top:14px" role="region" aria-label="Funds being monitored"><table class="ips-t ips-mon" id="ips-monitor"></table></div>
       <div class="ips-sec"><span class="ips-dot buy"></span><h3>Buy</h3><span class="ips-sum" id="ips-buy-sum"></span></div>
-      <div class="table-wrap"><table class="ips-t" id="ips-buy"></table></div>
+      <div class="table-wrap" role="region" aria-label="Funds to buy"><table class="ips-t" id="ips-buy"></table></div>
       <div class="ips-sec"><span class="ips-dot sell"></span><h3>Sell / consolidate</h3><span class="ips-sum" id="ips-sell-sum"></span></div>
-      <div class="table-wrap"><table class="ips-t" id="ips-sell"></table></div>
+      <div class="table-wrap" role="region" aria-label="Funds to sell or consolidate"><table class="ips-t" id="ips-sell"></table></div>
       <div class="mf-note">Reviewed on the 1st and 15th of every month, with a fresh screen of every Direct–Growth fund in each slot's category plus the matching index fund. Sells and switches are acted on at the quarterly action reviews (January, April, July, October). Money freed by sells goes straight back into the buckets furthest below target, so nothing is left idle. Click any fund to see the rationale. Expense ratio, AUM and manager tenure (§D.4), the Nifty 200-DMA regime and overseas subscription windows still need a manual check before acting. This applies your IPS rules mechanically; it is not investment advice.</div>
     </section>
     </section>
 
     <!-- ===== Business capital ===== -->
-    <section class="pane" id="pane-business" hidden>
+    <section class="pane" id="pane-business" role="tabpanel" aria-labelledby="tab-business" hidden>
       <section class="card">
         <div class="head">
           <div>
@@ -691,13 +839,13 @@
           <a class="ghost" href="admin.html">Open shop accounts</a>
         </div>
         <div class="tiles" id="biz-parts"></div>
-        <div class="table-wrap" hidden><table id="biz-table"></table></div>
+        <div class="table-wrap" hidden role="region" aria-label="Shop capital history"><table id="biz-table"></table></div>
         <div class="mf-note">This is read from the shop accounts. It refreshes each time the shop accounts page is opened.</div>
       </section>
     </section>
 
     <!-- ===== Bank ===== -->
-    <section class="pane" id="pane-bank" hidden>
+    <section class="pane" id="pane-bank" role="tabpanel" aria-labelledby="tab-bank" hidden>
     <section class="card" aria-label="Bank accounts">
       <div class="head">
         <div>
@@ -742,7 +890,7 @@
     <div id="books"></div>
     </section>
 
-    <section class="pane" id="pane-cards" hidden>
+    <section class="pane" id="pane-cards" role="tabpanel" aria-labelledby="tab-cards" hidden>
       <section class="card" aria-label="Credit cards">
         <div class="head">
           <div>
@@ -791,7 +939,7 @@
       <div id="cc-books"></div>
     </section>
 
-    <section class="pane" id="pane-income" hidden>
+    <section class="pane" id="pane-income" role="tabpanel" aria-labelledby="tab-income" hidden>
       <section class="card">
         <div class="head">
           <div>
@@ -818,7 +966,7 @@
         <div class="mf-kpis" id="in-kpis"></div>
         <div id="in-pie" style="margin-top:14px"></div>
         <div class="chart-h" id="in-auto-h" hidden style="margin-top:18px"><h3>Sources of income</h3></div>
-        <div class="table-wrap" style="margin-top:8px"><table id="in-auto"></table></div>
+        <div class="table-wrap" style="margin-top:8px" role="region" aria-label="Sources of income"><table id="in-auto"></table></div>
         <div hidden><table id="in-table"></table></div>
       </section>
     </section>
@@ -829,11 +977,11 @@
 
 
     <!-- ===== Home loan ===== -->
-    <section class="pane" id="pane-homeloan" hidden>
+    <section class="pane" id="pane-homeloan" role="tabpanel" aria-labelledby="tab-homeloan" hidden>
       <section class="card" aria-label="Home loan">
         <div class="head">
           <div>
-            <div class="k">Home loan outstanding</div>
+            <h2 class="k">Home loan outstanding</h2>
             <div class="v" id="hl-total">–</div>
             <div class="s" id="hl-total-s"></div>
           </div>
@@ -841,19 +989,19 @@
         <div class="mf-kpis" id="hl-kpis"></div>
         <details class="hl-more" style="margin-top:18px">
           <summary><h3>Loan details</h3></summary>
-          <div class="table-wrap" style="margin-top:8px"><table id="hl-facts" class="hl-facts"></table></div>
+          <div class="table-wrap" style="margin-top:8px" role="region" aria-label="Home loan details"><table id="hl-facts" class="hl-facts"></table></div>
         </details>
         <div class="chart-h" style="margin-top:18px"><h3>Repayment schedule</h3></div>
-        <div class="table-wrap" style="margin-top:8px"><table id="hl-sched"></table></div>
+        <div class="table-wrap" style="margin-top:8px" role="region" aria-label="Home loan repayment schedule"><table id="hl-sched"></table></div>
       </section>
     </section>
 
     <!-- ===== Car loan ===== -->
-    <section class="pane" id="pane-carloan" hidden>
+    <section class="pane" id="pane-carloan" role="tabpanel" aria-labelledby="tab-carloan" hidden>
       <section class="card" aria-label="Car loan">
         <div class="head">
           <div>
-            <div class="k">Car loan outstanding</div>
+            <h2 class="k">Car loan outstanding</h2>
             <div class="v" id="cl-total">–</div>
             <div class="s" id="cl-total-s"></div>
           </div>
@@ -861,15 +1009,15 @@
         <div class="mf-kpis" id="cl-kpis"></div>
         <details class="hl-more" style="margin-top:18px">
           <summary><h3>Loan details</h3></summary>
-          <div class="table-wrap" style="margin-top:8px"><table id="cl-facts" class="hl-facts"></table></div>
+          <div class="table-wrap" style="margin-top:8px" role="region" aria-label="Car loan details"><table id="cl-facts" class="hl-facts"></table></div>
         </details>
         <div class="chart-h" style="margin-top:18px"><h3>Repayment schedule</h3></div>
-        <div class="table-wrap" style="margin-top:8px"><table id="cl-sched"></table></div>
+        <div class="table-wrap" style="margin-top:8px" role="region" aria-label="Car loan repayment schedule"><table id="cl-sched"></table></div>
       </section>
     </section>
 
     <!-- ===== Expenses ===== -->
-    <section class="pane" id="pane-expenses" hidden>
+    <section class="pane" id="pane-expenses" role="tabpanel" aria-labelledby="tab-expenses" hidden>
       <section class="card">
         <div class="head">
           <div>
@@ -895,7 +1043,7 @@
         <datalist id="ex-cats"></datalist>
         <div class="mf-kpis" id="ex-kpis"></div>
         <div id="ex-pie" style="margin-top:14px"></div>
-        <div class="table-wrap" style="margin-top:14px"><table id="ex-table"></table></div>
+        <div class="table-wrap" style="margin-top:14px" role="region" aria-label="Expense entries"><table id="ex-table"></table></div>
       </section>
     </section>
   </main>
@@ -3853,6 +4001,137 @@
   $("signout").addEventListener("click", async function () { await sb.auth.signOut(); location.href = "admin.html"; });
 
   sb.auth.getSession().then(function (r) { route(r.data.session); });
+})();
+</script>
+<script id="ux-enhance">
+/* Presentation and accessibility helpers. Read-only: this script never talks to Supabase
+   or any other service, never stores anything, and never computes a financial figure.
+   The chart table reads the chart's own tooltip, so both always show the same numbers. */
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var on = function (el, ev, fn) { if (el) el.addEventListener(ev, fn); };
+
+  // Hide the "opening" screen once a view is shown (fallback where :has is unsupported)
+  function boot() {
+    var v = ["view-login", "view-denied", "view-app"].some(function (id) { var e = $(id); return e && !e.hidden; });
+    if (v && $("ux-boot")) $("ux-boot").hidden = true;
+  }
+  ["view-login", "view-denied", "view-app"].forEach(function (id) { var e = $(id); if (e) new MutationObserver(boot).observe(e, { attributes: true, attributeFilter: ["hidden"] }); });
+  boot();
+
+  // Date line under the net worth figure. A date label only; the figures come from the page as before.
+  var el = $("ux-nw-s");
+  if (el) el.textContent = "As of today, " + new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }) + " · loads fresh every time you open this page";
+
+  // Tabs: one tab stop, arrow keys move between tabs
+  var tabs = Array.prototype.slice.call(document.querySelectorAll("#tabs .tab"));
+  function syncTabs() { tabs.forEach(function (t) { t.tabIndex = t.getAttribute("aria-selected") === "true" ? 0 : -1; }); if (!tabs.some(function (t) { return t.tabIndex === 0; }) && tabs[0]) tabs[0].tabIndex = 0; }
+  tabs.forEach(function (t) { new MutationObserver(syncTabs).observe(t, { attributes: true, attributeFilter: ["aria-selected"] }); });
+  syncTabs();
+  on($("tabs"), "keydown", function (e) {
+    var i = tabs.indexOf(document.activeElement); if (i < 0) return;
+    var n = e.key === "ArrowRight" ? i + 1 : e.key === "ArrowLeft" ? i - 1 : e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 : null;
+    if (n === null) return;
+    e.preventDefault(); n = (n + tabs.length) % tabs.length;
+    tabs[n].tabIndex = 0; if (tabs[i].getAttribute("aria-selected") !== "true") tabs[i].tabIndex = -1;
+    tabs[n].focus(); tabs[n].scrollIntoView({ block: "nearest", inline: "nearest" });
+  });
+
+  // Scrollable table areas get a tab stop only while they actually scroll
+  var wraps = Array.prototype.slice.call(document.querySelectorAll('.table-wrap[role="region"]'));
+  function syncWrap(w) { if (w.scrollWidth > w.clientWidth + 1 || w.scrollHeight > w.clientHeight + 1) w.setAttribute("tabindex", "0"); else w.removeAttribute("tabindex"); }
+  var ro = window.ResizeObserver ? new ResizeObserver(function (es) { es.forEach(function (e) { syncWrap(e.target); }); }) : null;
+  wraps.forEach(function (w) {
+    syncWrap(w); if (ro) ro.observe(w);
+    new MutationObserver(function () { syncWrap(w); }).observe(w, { childList: true, subtree: true });
+  });
+
+  // ---------- Growth chart: keyboard, touch and a table of the same figures ----------
+  var box = $("gr-chart");
+  function parts() { return { svg: box.querySelector("svg"), hit: $("gr-hit"), tip: $("gr-tip"), hov: $("gr-hov") }; }
+  function moveTo(clientX) {
+    var p = parts(); if (!p.hit || !p.svg) return;
+    var r = p.svg.getBoundingClientRect();
+    p.hit.dispatchEvent(new MouseEvent("mousemove", { clientX: clientX, clientY: r.top + r.height / 2, bubbles: true }));
+  }
+  function hide() { var p = parts(); if (p.hit) p.hit.dispatchEvent(new MouseEvent("mouseleave")); }
+  function tipText(tip) {
+    var b = tip.querySelector("b"), t = b ? b.textContent + ". " : "";
+    tip.querySelectorAll("div").forEach(function (d) { var s = d.querySelectorAll("span"); if (s.length === 2) t += s[0].textContent + " " + s[1].textContent + ". "; });
+    return t.trim();
+  }
+  function sweep() {
+    var p = parts(); if (!p.svg || !p.hit || !p.tip || !p.hov) return null;
+    var W = p.svg.viewBox.baseVal.width, r = p.svg.getBoundingClientRect(); if (!r.width) return null;
+    var out = [], seen = {};
+    for (var k = 0; k <= W; k += 0.5) {
+      moveTo(r.left + k * r.width / W);
+      var x = p.hov.getAttribute("x1");
+      if (!seen[x] && !p.tip.hidden) { seen[x] = 1; out.push({ x: Number(x), html: p.tip.innerHTML, text: tipText(p.tip) }); }
+    }
+    hide();
+    out.sort(function (a, b) { return a.x - b.x; });
+    return out;
+  }
+  if (box) {
+    var st = { pts: null, i: -1, touchAt: 0 };
+    var help = document.createElement("p"); help.className = "ux-sr"; help.id = "ux-gr-help"; help.setAttribute("data-ux", "");
+    help.textContent = "Use the left and right arrow keys to read each month. Home and End jump to the first and last.";
+    var live = document.createElement("p"); live.className = "ux-sr"; live.setAttribute("aria-live", "polite"); live.setAttribute("data-ux", "");
+    var details = document.createElement("details"); details.className = "ux-data"; details.setAttribute("data-ux", "");
+    details.innerHTML = "<summary>Show these figures as a table</summary><div class=\"ux-data-body\"></div>";
+    box.parentNode.insertBefore(help, box); box.parentNode.insertBefore(live, box);
+    var key = $("gr-key"); key.parentNode.insertBefore(details, key.nextSibling);
+    box.tabIndex = 0; box.setAttribute("role", "group"); box.setAttribute("aria-describedby", "ux-gr-help");
+    function label() { var svg = box.querySelector("svg"); if (svg) svg.setAttribute("aria-label", "Net worth over time. The same figures are in the table below the chart."); }
+    function renderTable() {
+      if (!details.open) return;
+      var holder = details.querySelector(".ux-data-body"), pts = sweep(); st.pts = pts;
+      if (!pts) { holder.innerHTML = '<p class="empty" style="padding:8px 0">Open this section on screen to see the figures.</p>'; return; }
+      if (!pts.length) { holder.innerHTML = '<p class="empty" style="padding:8px 0">The table fills in as history builds up.</p>'; return; }
+      var esc = function (t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+      var cols = [], rows = pts.map(function (pt) {
+        var d = document.createElement("div"); d.innerHTML = pt.html;
+        var b = d.querySelector("b"), row = { label: b ? b.textContent : "", v: {} };
+        d.querySelectorAll("div").forEach(function (x) { var s = x.querySelectorAll("span"); if (s.length === 2) { var n = s[0].textContent; if (cols.indexOf(n) < 0) cols.push(n); row.v[n] = s[1].textContent; } });
+        return row;
+      });
+      holder.innerHTML = '<div class="table-wrap"><table><caption class="ux-sr">Net worth over time</caption><thead><tr><th scope="col">Month · net worth</th>' +
+        cols.map(function (c) { return '<th scope="col">' + esc(c) + "</th>"; }).join("") + "</tr></thead><tbody>" +
+        rows.map(function (r) { return '<tr><th scope="row">' + esc(r.label) + "</th>" + cols.map(function (c) { return "<td>" + esc(r.v[c] == null ? "" : r.v[c]) + "</td>"; }).join("") + "</tr>"; }).join("") + "</tbody></table></div>";
+    }
+    new MutationObserver(function () { st.pts = null; st.i = -1; label(); renderTable(); }).observe(box, { childList: true });
+    label();
+    on(details, "toggle", renderTable);
+    on(box, "keydown", function (e) {
+      var k = e.key;
+      if (k === "Escape") { hide(); live.textContent = ""; return; }
+      if (["ArrowRight", "ArrowLeft", "Home", "End"].indexOf(k) < 0) return;
+      e.preventDefault();
+      if (!st.pts) st.pts = sweep();
+      if (!st.pts || !st.pts.length) return;
+      var i = st.i < 0 ? (k === "ArrowLeft" || k === "End" ? st.pts.length - 1 : 0) : k === "ArrowRight" ? st.i + 1 : k === "ArrowLeft" ? st.i - 1 : k === "Home" ? 0 : st.pts.length - 1;
+      i = Math.max(0, Math.min(st.pts.length - 1, i)); st.i = i;
+      var p = parts(), r = p.svg.getBoundingClientRect(), W = p.svg.viewBox.baseVal.width;
+      moveTo(r.left + st.pts[i].x * r.width / W);
+      live.textContent = (i + 1) + " of " + st.pts.length + ". " + st.pts[i].text;
+    });
+    on(box, "focusout", function () { hide(); st.i = -1; });
+    var touch = function (e) { if (e.pointerType === "mouse" || e.target.id !== "gr-hit") return; st.touchAt = Date.now(); moveTo(e.clientX); };
+    on(box, "pointerdown", touch); on(box, "pointermove", touch);
+    box.addEventListener("mouseleave", function (e) { if (e.isTrusted && Date.now() - st.touchAt < 1500) e.stopPropagation(); }, true);
+    document.addEventListener("pointerdown", function (e) { if (e.pointerType !== "mouse" && !box.contains(e.target)) hide(); });
+  }
+
+  // ---------- Donut legends: rows take keyboard focus and highlight their slice ----------
+  ["nw-pie", "st-pie", "mf-pie", "ex-pie", "in-pie"].forEach(function (id) {
+    var p = $(id); if (!p) return;
+    var dress = function () { p.querySelectorAll(".pie-key > div[data-i]").forEach(function (r) { r.tabIndex = 0; }); };
+    new MutationObserver(dress).observe(p, { childList: true }); dress();
+    on(p, "focusin", function (e) { var r = e.target.closest && e.target.closest("[data-i]"); if (r && p.onmouseover) p.onmouseover({ target: r }); });
+    on(p, "focusout", function (e) { if (!p.contains(e.relatedTarget) && p.onmouseleave) p.onmouseleave(); });
+  });
 })();
 </script>
 </body>
