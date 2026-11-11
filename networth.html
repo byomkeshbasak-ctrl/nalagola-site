@@ -3331,7 +3331,7 @@
     var cats = IN_CATS.slice(); state.income.forEach(function (x) { if (cats.indexOf(x.category) < 0) cats.push(x.category); });
     $("in-cats").innerHTML = cats.map(function (c) { return '<option value="' + esc(c) + '">'; }).join("");
   }
-  // Earnings that aren't typed in: market gain on shares and funds, and the shop's change in capital
+  // Earnings that aren't typed in: market gain on shares and funds, and the shop's net profit
   function autoIncome(m) {
     var start = m + "-01", cur = m === todayISO().slice(0, 7), out = [];
     if (typeof hist === "undefined" || !hist || typeof biz === "undefined" || !biz) return out;
@@ -3356,9 +3356,14 @@
     }
     var bl = (biz.list || []).slice().sort(function (a, b) { return a.as_of < b.as_of ? -1 : 1; });
     var bo = bl.filter(function (r) { return r.as_of < start; }), bm = bl.filter(function (r) { return r.as_of.slice(0, 7) === m; });
-    if (bm.length && (bo.length || bm.length > 1)) {
-      var o2 = Number((bo.length ? bo[bo.length - 1] : bm[0]).total), c2 = Number(bm[bm.length - 1].total);
-      out.push({ l: "Wine shop", v: c2 - o2, d: "Change in business capital", open: o2, close: c2, net: 0 });
+    // The shop's earning is its net profit (shop + bar counter), which the shop accounts page saves with each capital snapshot.
+    // The change in capital also moves with money put in or taken out, so it is not used as the earning.
+    var pr = null;
+    bm.forEach(function (r) { (Array.isArray(r.parts) ? r.parts : []).forEach(function (p) { if (p && p.k === "net_profit" && p.a != null) pr = { a: Number(p.a), d: p.d }; }); });
+    if (pr) {
+      var hasBase = bm.length && (bo.length || bm.length > 1);
+      var o2 = hasBase ? Number((bo.length ? bo[bo.length - 1] : bm[0]).total) : null, c2 = hasBase ? Number(bm[bm.length - 1].total) : null;
+      out.push({ l: "Wine shop", v: pr.a, d: "Net profit from the shop accounts" + (pr.d ? ": " + pr.d : ""), open: o2, close: c2, net: 0 });
     }
     return out;
   }
