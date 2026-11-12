@@ -71,6 +71,16 @@
   th { text-align: left; font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
   td { padding: 9px 10px; border-bottom: 1px solid rgba(217, 178, 111, 0.08); vertical-align: top; }
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .fbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; margin: 0 0 12px; }
+  .fbar label { display: grid; gap: 4px; font-size: 0.74rem; color: var(--muted); flex: 1 1 140px; max-width: 210px; }
+  .fbar select, .fbar input { padding: 7px 10px; font-size: 0.85rem; border-radius: 8px; min-height: 36px; }
+  .fbar .ghost { min-height: 36px; padding: 6px 12px; }
+  .fbar .fbar-n { font-size: 0.78rem; color: var(--muted); align-self: center; }
+  th.sortable { cursor: pointer; user-select: none; }
+  th.sortable:hover { color: var(--gold); }
+  th.sortable .arr { opacity: 0.3; }
+  th.sortable.on { color: var(--gold); }
+  th.sortable.on .arr { opacity: 1; }
   td.actions-c { white-space: nowrap; text-align: right; }
   tr.bf td { color: var(--muted); font-style: italic; }
   tfoot td { font-weight: 600; border-top: 1px solid var(--line); border-bottom: 0; }
@@ -1452,7 +1462,8 @@
         <datalist id="ex-cats"></datalist>
         <div class="mf-kpis" id="ex-kpis"></div>
         <div id="ex-pie" style="margin-top:14px"></div>
-        <div class="table-wrap" style="margin-top:14px" role="region" aria-label="Expense entries"><table id="ex-table"></table></div>
+        <div style="margin-top:14px"><div class="fbar" id="hx-fbar" hidden><label>Category <select data-f="cat"></select></label><label>From <input type="date" data-f="from"></label><label>To <input type="date" data-f="to"></label><label>Sort <select data-f="sort"><option value="date-desc">Newest first</option><option value="date-asc">Oldest first</option><option value="amount-desc">Highest amount first</option><option value="amount-asc">Lowest amount first</option><option value="cat-asc">Category A–Z</option><option value="cat-desc">Category Z–A</option></select></label><button class="ghost" type="button" data-f="clear" hidden>Clear filters</button><span class="fbar-n"></span></div></div>
+        <div class="table-wrap" role="region" aria-label="Expense entries"><table id="ex-table"></table></div>
       </section>
     </section>
   </main>
@@ -4271,6 +4282,61 @@
     var cats = EX_CATS.slice(); ex.list.forEach(function (x) { if (cats.indexOf(x.category) < 0) cats.push(x.category); });
     $("ex-cats").innerHTML = cats.map(function (c) { return '<option value="' + esc(c) + '">'; }).join("");
   }
+
+  // ---- Sort & filter for the expense / income tables ----
+  var TF = {};
+  function tfState(k) { return TF[k] || (TF[k] = { cat: "", from: "", to: "", sort: "date-desc" }); }
+  function tfEnd(m) { return m + "-" + String(new Date(+m.slice(0, 4), +m.slice(5, 7), 0).getDate()).padStart(2, "0"); }
+  function tfActive(k) { var f = tfState(k); return !!(f.cat || f.from || f.to); }
+  // rows: everything in the period; o: { cat(r), date(r), lo, hi }
+  function tfApply(k, rows, o) {
+    var f = tfState(k), bar = document.getElementById(k + "-fbar");
+    var seen = {}; rows.forEach(function (r) { var c = o.cat(r); if (c) seen[c] = 1; });
+    var cats = Object.keys(seen).sort(function (a, b) { return a.localeCompare(b); });
+    if (f.cat && cats.indexOf(f.cat) < 0) f.cat = "";
+    if (f.from && ((o.lo && f.from < o.lo) || (o.hi && f.from > o.hi))) f.from = "";
+    if (f.to && ((o.lo && f.to < o.lo) || (o.hi && f.to > o.hi))) f.to = "";
+    if (bar) {
+      var sel = bar.querySelector('[data-f="cat"]');
+      sel.innerHTML = '<option value="">All categories</option>' + cats.map(function (c) { return '<option value="' + esc(c) + '">' + esc(c) + "</option>"; }).join("");
+      sel.value = f.cat;
+      ["from", "to"].forEach(function (n) { var i = bar.querySelector('[data-f="' + n + '"]'); i.min = o.lo || ""; i.max = o.hi || ""; i.value = f[n]; });
+      bar.querySelector('[data-f="sort"]').value = f.sort;
+    }
+    var out = rows.filter(function (r) { var d = o.date(r); return (!f.cat || o.cat(r) === f.cat) && (!f.from || d >= f.from) && (!f.to || d <= f.to); });
+    if (bar) {
+      bar.querySelector('[data-f="clear"]').hidden = !tfActive(k);
+      bar.querySelector(".fbar-n").textContent = tfActive(k) ? "Showing " + out.length + " of " + rows.length + (rows.length === 1 ? " entry" : " entries") : "";
+    }
+    return out;
+  }
+  // keys: { date: fn, amount: fn, cat: fn } — anything else ties back to date, newest first
+  function tfSort(k, rows, keys) {
+    var p = tfState(k).sort.split("-"), key = keys[p[0]] ? p[0] : "date", dir = p[1] === "asc" ? 1 : -1;
+    var cmp = function (a, b) { return a < b ? -1 : a > b ? 1 : 0; };
+    return rows.slice().sort(function (a, b) {
+      var c = cmp(keys[key](a), keys[key](b)) * dir;
+      return c || (key !== "date" ? -cmp(keys.date(a), keys.date(b)) : 0);
+    });
+  }
+  // A clickable column heading; the arrow shows the current sort
+  function tfTh(k, label, key, cls) {
+    var p = tfState(k).sort.split("-"), on = p[0] === key;
+    return '<th class="sortable' + (on ? " on" : "") + (cls ? " " + cls : "") + '" data-sortk="' + k + ":" + key + '" title="Sort by ' + label.toLowerCase() + '" aria-sort="' + (on ? (p[1] === "asc" ? "ascending" : "descending") : "none") + '">' + label + '<span class="arr">' + (on ? (p[1] === "asc" ? " ▴" : " ▾") : " ▾") + "</span></th>";
+  }
+  function tfBind(k, table, redraw) {
+    var bar = document.getElementById(k + "-fbar"), f = tfState(k);
+    bar.addEventListener("change", function (e) { var n = e.target.getAttribute("data-f"); if (!n) return; f[n] = e.target.value; redraw(); });
+    bar.addEventListener("click", function (e) { if (e.target.getAttribute("data-f") !== "clear") return; f.cat = f.from = f.to = ""; redraw(); });
+    table.addEventListener("click", function (e) {
+      var th = e.target.closest("th[data-sortk]"); if (!th) return;
+      var sk = th.getAttribute("data-sortk").split(":"); if (sk[0] !== k) return;
+      var key = sk[1], p = f.sort.split("-");
+      f.sort = key + "-" + (p[0] === key ? (p[1] === "asc" ? "desc" : "asc") : (key === "cat" ? "asc" : "desc"));
+      redraw();
+    });
+  }
+
   function renderExpenses() {
     var all = ex.view === "all", m = ex.month;
     var inView = function (d) { return all ? d >= START_DATE : d.slice(0, 7) === m; };
@@ -4292,10 +4358,14 @@
       k("Paid from bank", inr.format(fromBank), "") + k("On credit cards", inr.format(onCards), "Cash and UPI make up the rest");
     if (cats.length) donut("ex-pie", cats.filter(function (c) { return c[1] > 0; }).map(function (c) { return { l: c[0], v: c[1] }; }), [inr.format(tot).replace("₹", "₹ "), cats.length + (cats.length > 1 ? " categories" : " category")]);
     else $("ex-pie").innerHTML = '<div class="empty">No expenses ' + (all ? "recorded yet" : "for this month yet") + ".</div>";
-    $("ex-table").innerHTML = list.length ? '<thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Paid from</th><th class="num">Amount</th><th></th></tr></thead><tbody>' + list.map(function (x) {
+    $("hx-fbar").hidden = !list.length;
+    var shown = tfSort("hx", tfApply("hx", list, { cat: function (x) { return x.category; }, date: function (x) { return x.exp_date; }, lo: all ? START_DATE : m + "-01", hi: all ? "" : tfEnd(m) }),
+      { date: function (x) { return x.exp_date; }, amount: function (x) { return Number(x.amount); }, cat: function (x) { return (x.category || "").toLowerCase(); } });
+    var shownTot = shown.reduce(function (a, x) { return a + Number(x.amount); }, 0);
+    $("ex-table").innerHTML = !list.length ? "" : !shown.length ? '<tbody><tr><td class="empty">No expenses match these filters.</td></tr></tbody>' : '<thead><tr>' + tfTh("hx", "Date", "date") + tfTh("hx", "Category", "cat") + '<th>Description</th><th>Paid from</th>' + tfTh("hx", "Amount", "amount", "num") + '<th></th></tr></thead><tbody>' + shown.map(function (x) {
       return "<tr><td>" + fmtDate(x.exp_date) + "</td><td>" + esc(x.category) + "</td><td>" + esc(x.note || "") + "</td><td>" + esc(payName(x.paid_from)) + '</td><td class="num">' + inr2.format(x.amount) +
         '</td><td class="actions-c"><button class="icon-btn" type="button" ' + (x.cp ? 'data-cpedit="' + x.cp + '" title="Edit this payment in Credit cards"' : 'data-exedit="' + x.id + '"') + '>Edit</button><button class="icon-btn del" type="button" ' + (x.cp ? 'data-cpdel="' + x.cp + '"' : 'data-exdel="' + x.id + '"') + '>Delete</button></td></tr>';
-    }).join("") + '</tbody><tfoot><tr><td>Total</td><td></td><td></td><td></td><td class="num">' + inr2.format(tot) + "</td><td></td></tr></tfoot>" : "";
+    }).join("") + '</tbody><tfoot><tr><td>' + (tfActive("hx") ? "Filtered total" : "Total") + '</td><td></td><td></td><td></td><td class="num">' + inr2.format(shownTot) + "</td><td></td></tr></tfoot>";
     fillExFrom();
   }
   function openExForm(x) {
@@ -4307,6 +4377,7 @@
     $("ex-form").scrollIntoView({ behavior: "smooth", block: "center" }); $(x ? "ex-amt" : "ex-cat").focus();
   }
   bindView("ex", ex, renderExpenses);
+  tfBind("hx", $("ex-table"), renderExpenses);
   $("ex-add").addEventListener("click", function () { if (!$("ex-form").hidden && !ex.editing) { $("ex-form").hidden = true; return; } openExForm(null); });
   $("ex-cancel").addEventListener("click", function () { $("ex-form").hidden = true; ex.editing = null; });
   $("ex-table").addEventListener("click", async function (e) {
