@@ -3013,14 +3013,18 @@
         var row = '<tr class="' + (open ? "sel" : "") + '"><td><span class="clickable" data-cust="' + esc(c.key) + '">' + esc(c.name) + "</span>" + (c.phone ? '<small class="ph">' + esc(c.phone) + "</small>" : "") + '</td><td class="num ' + (c.balance > 0.5 ? "neg" : "pos") + '">' +
           inr2.format(c.balance) + "</td><td>" + (c.last ? fmtDate(c.last) : "–") + "</td><td>" + repCell + "</td></tr>";
         if (open) {
+          // Oldest first to work out the running balance, then show newest first
           var hist = state.dues.filter(function (d) { return custKey(d.customer_name) === c.key; })
-            .sort(function (a, b) { return a.entry_date < b.entry_date ? 1 : -1; });
-          row += '<tr class="sub-row"><td colspan="4"><table class="sub-table"><thead><tr><th>Date</th><th>Type</th><th class="num">Amount</th><th>Note</th><th></th></tr></thead><tbody>' +
+            .sort(function (a, b) { return a.entry_date < b.entry_date ? -1 : a.entry_date > b.entry_date ? 1 : String(a.created_at || "") < String(b.created_at || "") ? -1 : String(a.created_at || "") > String(b.created_at || "") ? 1 : 0; });
+          var run = c.opening || 0, runBal = {};
+          hist.forEach(function (d) { run += d.entry_type === "credit" ? Number(d.amount) : -Number(d.amount); runBal[d.id] = run; });
+          hist.reverse();
+          row += '<tr class="sub-row"><td colspan="4"><table class="sub-table"><thead><tr><th>Date</th><th>Type</th><th class="num">Amount</th><th class="num">Balance</th><th>Note</th><th></th></tr></thead><tbody>' +
             hist.map(function (d) {
               return "<tr><td>" + fmtLong(d.entry_date) + "</td><td>" + (d.entry_type === "credit" ? '<span class="tag warn">Credit given</span>' : '<span class="tag ok">Collected</span>') +
-                '</td><td class="num">' + inr2.format(d.amount) + "</td><td>" + esc(d.note) + '</td><td class="actions"><button class="icon-btn" data-dedit="' + d.id +
+                '</td><td class="num">' + inr2.format(d.amount) + '</td><td class="num"><b>' + inr2.format(runBal[d.id]) + "</b></td><td>" + esc(d.note) + '</td><td class="actions"><button class="icon-btn" data-dedit="' + d.id +
                 '">Edit</button><button class="icon-btn del" data-ddel="' + d.id + '">Delete</button></td></tr>';
-            }).join("") + '<tr class="bf"><td>' + fmtLong(START_DATE) + '</td><td><span class="tag">Opening balance</span></td><td class="num">' + openCell + "</td><td></td><td></td></tr>" + "</tbody></table></td></tr>";
+            }).join("") + '<tr class="bf"><td>' + fmtLong(START_DATE) + '</td><td><span class="tag">Opening balance</span></td><td class="num">' + openCell + '</td><td class="num"><b>' + inr2.format(c.opening || 0) + "</b></td><td></td><td></td></tr>" + "</tbody></table></td></tr>";
         }
         return row;
       }).join("") + "</tbody>";
