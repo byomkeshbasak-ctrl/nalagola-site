@@ -4221,7 +4221,7 @@
   }
 
   // ---------- Expenses ----------
-  var EX_CATS = ["Groceries", "Rent", "Electricity", "Mobile & internet", "Fuel", "Transport", "Eating out", "Medical", "Education", "Tuition fees", "Household help", "Shopping", "Travel", "EMI", "Insurance premium", "Gifts", "Subscriptions", "Bank charges", "Credit card payment", "Other"];
+  var EX_CATS = ["Groceries", "Rent", "Electricity", "Mobile & internet", "Fuel", "Transport", "Bike/Car Maintenance", "Eating out", "Medical", "Education", "Tuition fees", "Household help", "Shopping", "Travel", "EMI", "Insurance premium", "Gifts", "Subscriptions", "Bank charges", "Credit card payment", "Other"];
   $("ex-month").value = ex.month;
   $("ex-month").addEventListener("change", function () { if (this.value) { ex.month = this.value; renderExpenses(); } });
   // Card bill payments count as expenses only for the part that clears the card's opening due:
