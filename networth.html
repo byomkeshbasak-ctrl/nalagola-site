@@ -3324,8 +3324,7 @@
     $("st-perf-extra").innerHTML = '<details class="st-data"' + (stPerfOpen ? " open" : "") + '><summary>Show these figures as a table</summary><div class="table-wrap"><table><caption class="ux-sr">Portfolio value at each point</caption><thead><tr><th scope="col">Date</th><th scope="col">Value</th><th scope="col">Basis</th></tr></thead><tbody>' +
       pts.slice().reverse().map(function (p) { return "<tr><th scope=\"row\">" + esc(fmtDate(p.d)) + "</th><td>" + inr.format(p.v) + "</td><td>" + (p.month ? "Month-end" : "Saved that day") + "</td></tr>"; }).join("") + "</tbody></table></div></details>";
     var anyM = pts.some(function (p) { return p.month; }), anyD = pts.some(function (p) { return !p.month; }), firstD = pts.filter(function (p) { return !p.month; })[0];
-    $("st-perf-note").textContent = (anyM && anyD ? "Points before " + fmtDate(firstD.d) + " are month-end values; later points are the values saved on the days the tracker was opened. " : anyM ? "Each point is a month-end value. " : "Each point is the value saved on a day the tracker was opened. ") +
-      "The line is the market value of the shares you held, so it also moves when you buy or sell. A rise is not necessarily investment return. For that, see the unrealised gain and XIRR above.";
+    $("st-perf-note").textContent = "";
   }
 
   // Controls for the new panels (each one only redraws; none of them reads or writes data)
