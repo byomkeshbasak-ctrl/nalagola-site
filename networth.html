@@ -3548,7 +3548,7 @@
     $("mf-perf-sum").innerHTML = '<div><div class="l">From ' + esc(fmtDate(first.d)) + '</div><div class="a">' + inr.format(first.v) + '</div></div><div><div class="l">Latest, ' + esc(fmtDate(last.d)) + '</div><div class="a">' + inr.format(last.v) + '</div></div><div><div class="l">Change in value</div><div class="a ' + stCls(ch) + '">' + stSg(ch) + "</div></div>";
     $("mf-perf-extra").innerHTML = '<details class="st-data"' + (mfPerfOpen ? " open" : "") + '><summary>Show these figures as a table</summary><div class="table-wrap"><table><thead><tr><th scope="col">Date</th><th scope="col">Value</th><th scope="col">Basis</th></tr></thead><tbody>' +
       pts.slice().reverse().map(function (p) { return "<tr><th scope=\"row\">" + esc(fmtDate(p.d)) + "</th><td>" + inr.format(p.v) + "</td><td>" + (p.month ? "Month-end" : "Saved that day") + "</td></tr>"; }).join("") + "</tbody></table></div></details>";
-    $("mf-perf-note").textContent = "The line is the market value of the funds you held, so it also moves when you buy or redeem. For investment return, see the unrealised gain and XIRR above.";
+    $("mf-perf-note").textContent = "";
   }
   segToggle("mf-alloc-mode", function (m) { mfUi.alloc = m; if (mfUi.c) try { mfAlloc(mfUi.c); } catch (e) {} });
   segToggle("mf-pl-filter", function (m) { mfUi.plFilter = m; if (mfUi.c) try { mfPl(mfUi.c); } catch (e) {} });
