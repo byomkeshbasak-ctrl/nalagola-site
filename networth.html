@@ -924,26 +924,19 @@
 
       <div class="dash-grid dg-groups" id="dash-grid"></div>
 
-      <section class="dg-card dg-wide" aria-labelledby="dg-gr-t">
+      <section class="dg-card dg-wide" aria-labelledby="gr-title">
         <div class="dg-card-h">
-          <div><h2 id="dg-gr-t">Net worth growth</h2><p class="dg-sub" id="dg-gr-sub" data-ux></p></div>
-          <div class="seg" id="dg-gr-range" role="group" aria-label="Period" hidden></div>
+          <div><h2 id="gr-title">Net worth by part</h2><p class="dg-sub" data-ux>Coloured bands stack each part on top of the last; the ivory line is total net worth. One point per month.</p></div>
+          <div class="seg" id="gr-range" role="group" aria-label="Period"><button type="button" data-mode="all" aria-pressed="true">All</button><button type="button" data-mode="5" aria-pressed="false">5 years</button><button type="button" data-mode="1" aria-pressed="false">1 year</button></div>
         </div>
-        <div class="dg-sum" id="dg-gr-sum" data-ux></div>
-        <div class="area-wrap dg-chart" id="dg-gr" data-ux><div class="empty">Loading your history…</div></div>
-        <div class="dg-key" id="dg-gr-key" data-ux></div>
-        <div id="dg-gr-extra" data-ux></div>
-        <p class="dg-note" id="dg-gr-note" data-ux></p>
-        <details class="dg-comp">
-          <summary>Composition by category (the earlier stacked view)</summary>
-          <div class="list-h"><h3 id="gr-title">Net worth by part</h3>
-            <div class="seg" id="gr-range"><button type="button" data-mode="all" aria-pressed="true">All</button><button type="button" data-mode="5" aria-pressed="false">5 years</button><button type="button" data-mode="1" aria-pressed="false">1 year</button></div>
-          </div>
-          <p class="ux-sub" data-ux>Coloured bands stack each part on top of the last; the ivory line is total net worth. One point per month.</p>
-          <div class="area-wrap" id="gr-chart" aria-labelledby="gr-title"></div>
-          <div class="area-key" id="gr-key"></div>
-          <div class="mf-note" id="gr-note"></div>
-        </details>
+        <div class="area-wrap" id="gr-chart" aria-labelledby="gr-title"></div>
+        <div class="area-key" id="gr-key"></div>
+        <div class="mf-note" id="gr-note"></div>
+        <!-- The single-line growth view is no longer shown; its elements stay so the page script keeps working -->
+        <div hidden aria-hidden="true">
+          <h2 id="dg-gr-t"></h2><p id="dg-gr-sub"></p><div id="dg-gr-range"></div><div id="dg-gr-sum"></div>
+          <div class="area-wrap dg-chart" id="dg-gr"></div><div id="dg-gr-key"></div><div id="dg-gr-extra"></div><p id="dg-gr-note"></p>
+        </div>
       </section>
 
       <div class="dg-grid-2">
