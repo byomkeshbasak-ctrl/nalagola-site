@@ -362,6 +362,9 @@
   .ips-id { margin-bottom: 6px; }
   #mf-table th, #mf-table tr.fund td { white-space: nowrap; }
   #mf-table tr.fund td.fn { min-width: 0; }
+  #st-table th, #st-table tr.fund td { white-space: nowrap; }
+  #st-table tr.fund td.num small { display: inline; margin-left: 6px; font-size: 0.72rem; }
+  #st-table tr.fund td.fn { min-width: 0; }
   #mf-table td.fn b.nm { display: block; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #mf-table th, #mf-table tr.fund td, #mf-table tfoot td { padding-left: 7px; padding-right: 7px; }
   #mf-table tr.fund td { font-size: 0.86rem; }
@@ -3012,10 +3015,10 @@
     $("st-table").innerHTML = '<thead><tr><th>Stock</th><th>Sector</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Invested</th><th class="num">Price</th><th class="num">Current value</th><th class="num">Gain</th><th class="num">XIRR</th><th class="num">Weight</th></tr></thead><tbody>' +
       (held.length ? held.map(function (r) {
         var w = T.val ? r.value / T.val : 0, open = st.open[r.sym], dc = r.price - r.prev;
-        return '<tr class="fund" data-stsym="' + esc(r.sym) + '" title="Click to ' + (open ? "hide" : "see") + ' trades"><td class="fn"><b>' + esc(r.sym) + "</b><small>" + esc(r.brokers.join(", ")) + '</small></td><td><button type="button" class="sec-link" data-stsector="' + esc(r.sym) + '" title="Change sector">' + esc(sectorOf(r.sym)) + '</button></td><td class="num">' + num3.format(r.qty) +
+        return '<tr class="fund" data-stsym="' + esc(r.sym) + '" title="' + esc(r.name ? r.sym + " · " + r.name : r.sym) + " · click to " + (open ? "hide" : "see") + ' details and trades"><td class="fn"><b class="nm">' + esc(r.sym) + '</b></td><td><button type="button" class="sec-link" data-stsector="' + esc(r.sym) + '" title="Change sector">' + esc(sectorOf(r.sym)) + '</button></td><td class="num">' + num3.format(r.qty) +
           '</td><td class="num">' + inr2.format(r.invested / r.qty) + '</td><td class="num">' + inr.format(r.invested) + '</td><td class="num">' + inr2.format(r.price) +
-          '<small class="dc ' + (dc >= 0 ? "pos" : "neg") + '">' + (dc >= 0 ? "+" : "") + dc.toFixed(2) + " (" + pct(r.prev ? dc / r.prev : NaN) + ')</small></td><td class="num">' + inr.format(r.value) +
-          '</td><td class="num ' + (r.gain >= 0 ? "pos" : "neg") + '">' + inr.format(r.gain) + "<br><small>" + pct(r.invested ? r.gain / r.invested : NaN) + '</small></td><td class="num">' + (isFinite(r.xirr) ? (r.xirr * 100).toFixed(1) + "%" : "–") +
+          '<small class="dc ' + (dc >= 0 ? "pos" : "neg") + '">' + pct(r.prev ? dc / r.prev : NaN) + '</small></td><td class="num">' + inr.format(r.value) +
+          '</td><td class="num ' + (r.gain >= 0 ? "pos" : "neg") + '">' + inr.format(r.gain) + "<small>" + pct(r.invested ? r.gain / r.invested : NaN) + '</small></td><td class="num">' + (isFinite(r.xirr) ? (r.xirr * 100).toFixed(1) + "%" : "–") +
           '</td><td class="num">' + (w * 100).toFixed(1) + "%</td></tr>" + (open ? stTxRows(r, 10) : "");
       }).join("") : '<tr><td class="empty" colspan="10">No stocks held.</td></tr>') +
       '</tbody><tfoot><tr><td>Total</td><td></td><td></td><td></td><td class="num">' + inr.format(T.inv) + '</td><td></td><td class="num">' + inr.format(T.val) + '</td><td class="num ' + (gain >= 0 ? "pos" : "neg") + '">' + inr.format(gain) +
@@ -3046,7 +3049,10 @@
     renderNetWorth();
   }
   function stTxRows(r, span) {
-    return '<tr class="tx"><td colspan="' + span + '"><table class="tx-inner"><thead><tr><th>Date</th><th>Type</th><th>Broker</th><th class="num">Price</th><th class="num">Qty</th><th class="num">Amount</th><th></th></tr></thead><tbody>' +
+    var dc = r.price - r.prev;
+    var idn = '<div class="mf-id"><span class="full">' + esc(r.sym) + (r.name ? " · " + esc(r.name) : "") + "</span><small>" + [r.qty > 0 && r.since ? "Holding since " + fmtDate(r.since) : "", r.brokers && r.brokers.length ? "Broker: " + esc(r.brokers.join(", ")) : "", r.qty > 0 ? "Sector: " + esc(sectorOf(r.sym)) : "",
+      r.qty > 0 && r.pdate ? "Price of " + fmtDate(r.pdate) + (r.prev ? ", " + (dc >= 0 ? "+" : "") + dc.toFixed(2) + " on the day" + (r.day ? " (" + (r.day > 0 ? "+" : "") + inr.format(r.day) + " on your shares)" : "") : "") : ""].filter(Boolean).join(" · ") + "</small></div>";
+    return '<tr class="tx"><td colspan="' + span + '">' + idn + '<table class="tx-inner"><thead><tr><th>Date</th><th>Type</th><th>Broker</th><th class="num">Price</th><th class="num">Qty</th><th class="num">Amount</th><th></th></tr></thead><tbody>' +
       r.tx.slice().reverse().map(function (t) {
         var q = Number(t.qty), typ = q < 0 ? "Sell" : Number(t.price) === 0 ? "Bonus" : "Buy";
         return "<tr><td>" + fmtDate(t.txn_date) + '</td><td class="' + (q < 0 ? "neg" : "") + '">' + typ + "</td><td>" + esc(t.broker || "") + '</td><td class="num">' + inr2.format(t.price) + '</td><td class="num">' + num3.format(Math.abs(q)) +
@@ -3208,7 +3214,7 @@
     var sel = $("st-sec-f"), secs = {}; c.held.forEach(function (r) { secs[sectorOf(r.sym)] = 1; });
     if (stUi.sector && !secs[stUi.sector]) stUi.sector = "";
     sel.innerHTML = '<option value="">All sectors</option>' + Object.keys(secs).sort().map(function (k) { return '<option value="' + esc(k) + '"' + (k === stUi.sector ? " selected" : "") + ">" + esc(k) + "</option>"; }).join("");
-    body.querySelectorAll("tr.fund[data-stsym]").forEach(function (tr) {
+    if (false) body.querySelectorAll("tr.fund[data-stsym]").forEach(function (tr) {
       var r = by[tr.dataset.stsym], cell = tr.cells[0]; if (!r || !r.name || cell.querySelector("small.co")) return;
       var s = document.createElement("small"); s.className = "co"; s.setAttribute("data-ux", ""); s.textContent = r.name;
       cell.insertBefore(s, cell.querySelector("small"));
