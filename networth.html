@@ -324,6 +324,10 @@
   .ips-b .w { font-size: 1.02rem; font-weight: 600; font-variant-numeric: tabular-nums; }
   .ips-b .w i { font-style: normal; color: var(--muted); font-weight: 400; margin: 0 4px; }
   .ips-b small { color: var(--muted); }
+  .ips-chk { align-content: start; }
+  .ips-b .chk-tog { justify-self: start; background: none; border: 0; padding: 0; font: inherit; font-size: 0.72rem; color: var(--gold); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+  .ips-b .chk-tog::before { content: "▸ "; text-decoration: none; display: inline-block; }
+  .ips-b.open .chk-tog::before { content: "▾ "; }
   .ips-h { margin: 16px 0 6px; font-size: 0.76rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
   .ips-checks { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   @media (max-width: 900px) { .ips-checks { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -2256,6 +2260,10 @@
     $("ips-buy-sum").innerHTML = L && bIn ? "Total <b>" + inr.format(bIn) + "</b>" : "";
     $("ips-sell-sum").innerHTML = L && sOut ? "Total <b>" + inr.format(sOut) + "</b>" : "";
   }
+  $("sips-checks").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-chk]"); if (!b) return;
+    sips.chkOpen = sips.chkOpen || {}; sips.chkOpen[b.dataset.chk] = !sips.chkOpen[b.dataset.chk]; renderSIPS();
+  });
   ["ips-buy", "ips-sell"].forEach(function (id) {
     $(id).addEventListener("click", function (e) {
       var tr = e.target.closest("[data-ipsrow]"); if (!tr) return;
@@ -2673,7 +2681,15 @@
     };
     var tl = L && L.buckets ? L.buckets : [];
     $("sips-buckets").innerHTML = tl.filter(function (b) { return b.grp !== "check"; }).map(tile).join("");
-    $("sips-checks").innerHTML = tl.filter(function (b) { return b.grp === "check"; }).map(tile).join("");
+    // Policy checks show the headline only; the explanation opens on click
+    sips.chkOpen = sips.chkOpen || {};
+    $("sips-checks").innerHTML = tl.filter(function (b) { return b.grp === "check"; }).map(function (b) {
+      var h = tile(b), m = h.match(/<small>([\s\S]*)<\/small><\/div>$/), body = m ? m[1] : "";
+      if (!body) return h;
+      var open = !!sips.chkOpen[b.l];
+      return h.replace(/^<div class="ips-b /, '<div class="ips-b ips-chk' + (open ? " open" : "") + ' ').replace(/<small>[\s\S]*<\/small><\/div>$/,
+        '<button type="button" class="chk-tog" data-chk="' + esc(b.l) + '" aria-expanded="' + open + '">' + (open ? "Hide details" : "Details") + "</button>" + (open ? "<small>" + body + "</small>" : "") + "</div>");
+    }).join("");
     var cols = '<colgroup><col class="c-fund"><col class="c-cat"><col class="c-u"><col class="c-nav"><col class="c-act"><col class="c-amt"></colgroup>';
     var head = cols + '<thead><tr><th>Stock</th><th>Industry</th><th class="num">Qty</th><th class="num">Avg cost</th><th>Action</th><th class="num">Amount</th></tr></thead><tbody>';
     var line = function (x, key) {
