@@ -1205,7 +1205,7 @@
       <div class="table-wrap" role="region" aria-label="Stocks to buy"><table class="ips-t" id="sips-buy"></table></div>
       <div class="ips-sec"><span class="ips-dot sell"></span><h3>Sell / trim</h3><span class="ips-sum" id="sips-sell-sum"></span></div>
       <div class="table-wrap" role="region" aria-label="Stocks to sell or trim"><table class="ips-t" id="sips-sell"></table></div>
-      <div class="mf-note">Reviewed on the 1st and 15th of every month; sells and scheduled trims are acted on at the quarterly action reviews. Every stock in the Nifty LargeMidcap 250 is tested against the quality gate for its business model (non-financial, bank, NBFC, insurer, capital markets) and ranked on quality, growth, cash conversion, industry-relative valuation and stability. A test with missing, stale or unchecked data shows as MISSING, STALE or UNVERIFIED and never counts as a pass. Financial companies need a manual check on asset quality and capital before they can be bought. Cap breaches are fixed with new money first, and trims come only from shares held over a year, inside the household ₹1.25 L exemption shared with the mutual funds. Not automated yet: P/E history, governance, liquidity, the 200-day average, mutual fund look-through and stress scenarios S4 to S6. This applies your IPS rules mechanically; it is not investment advice.</div>
+      <div class="mf-note" id="sips-when"></div>
     </section>
     </section>
 
@@ -2662,6 +2662,7 @@
     renderRuleSet();
     $("sips-dates").innerHTML = L ? (sips.view ? priceNote(meta.px, "prices", t) : "") + "Last review <b>" + fmtDate(Ls.run_date) + "</b> (" + (Lm.action_review ? "action review" : "signal review, next action " + fmtDate(ipsNextAction(Ls.run_date))) + ") · Next review <b>" + fmtDate(ipsNext(t)) + "</b>" +
       (meta.screened ? " · " + meta.passed + " of " + meta.screened + " stocks pass the Core gate" + (meta.ranked != null ? ", " + meta.ranked + " have a complete score" : "") : "") : "No review yet";
+    $("sips-when").innerHTML = L ? "Last reviewed <b>" + fmtDate(Ls.run_date) + "</b> · Next review <b>" + fmtDate(ipsNext(t)) + "</b>" : "";
     var sumK = function (l, k) { return (l || []).reduce(function (a, x) { return a + (x.kind === k && x.amount ? x.amount : 0); }, 0); };
     var sOut = L ? sumK(L.sells, "sell") : 0, bIn = L ? sumK(L.buys, "buy") : 0, nm = L ? sumK(L.buys, "watch") : 0, later = L ? sumK(L.sells, "plan") : 0;
     $("sips-flow").innerHTML = L ? '<div><div class="l">Freed by sells now</div><div class="a">' + inr.format(sOut) + '</div><div class="s">exits and long-term trims</div></div>' +
