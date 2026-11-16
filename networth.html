@@ -2794,7 +2794,7 @@
           '</td><td class="num ' + (r.realised >= 0 ? "pos" : "neg") + '">' + inr.format(r.realised) + '</td><td class="num">' + (isFinite(r.xirr) ? (r.xirr * 100).toFixed(1) + "%" : "–") + "</td><td>" + fmtDate(last) +
           "</td></tr>" + (open ? txRows(r, 6) : "");
       }).join("") + "</tbody>";
-    $("mf-note").textContent = "NAVs update automatically every night from AMFI. Gains are before tax; redemptions use the oldest units first (FIFO).";
+    $("mf-note").textContent = "";
     mfDash({ rows: rows, held: held, exited: exited, T: T, X: X, gain: gain, cats: cats });
     mfNavFetch(rows.map(function (r) { return Number(r.f.scheme_code) || null; }).filter(Boolean));
     renderNetWorth();
