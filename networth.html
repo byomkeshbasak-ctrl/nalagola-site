@@ -337,6 +337,7 @@
   .ips-dot { width: 8px; height: 8px; border-radius: 50%; }
   .ips-dot.buy { background: #8fd19e; } .ips-dot.sell { background: #e07a7a; }
   .ips-t { table-layout: fixed; width: 100%; }
+  #ips-box .ips-t col.c-fund { width: 34%; }
   .ips-t col.c-fund { width: 44%; } .ips-t col.c-cat { width: 14%; } .ips-t col.c-u { width: 10%; } .ips-t col.c-nav { width: 10%; } .ips-t col.c-act { width: 11%; } .ips-t col.c-amt { width: 11%; }
   .ips-t td { vertical-align: top; }
   .ips-t td.fn, .ips-t td.fn:first-child { white-space: normal; }
@@ -524,6 +525,7 @@
   .st-value { margin-top: 20px; }
   .st-value-l { font-size: 0.8rem; color: var(--muted); }
   #st-total { margin-top: 2px; font-size: clamp(2.3rem, 6vw, 3.2rem); font-weight: 600; line-height: 1.08; font-variant-numeric: tabular-nums; letter-spacing: -0.015em; color: var(--text); }
+  #mf-total { margin-top: 2px; font-size: clamp(2.3rem, 6vw, 3.2rem); font-weight: 600; line-height: 1.08; font-variant-numeric: tabular-nums; letter-spacing: -0.015em; color: var(--text); }
   .st-dash .day-mv { margin-top: 6px; font-size: 1.1rem; }
   .st-dash .day-mv small { font-size: 0.8rem; }
 
@@ -589,6 +591,8 @@
   /* Profit / loss bars: one zero line, bars grow right for gains and left for losses */
   .st-pl { list-style: none; display: grid; gap: 7px; font-size: 0.8rem; }
   .st-pl-row, .st-pl-head { display: grid; grid-template-columns: minmax(70px, 108px) minmax(0, 1fr) 92px 62px; align-items: center; gap: 10px; }
+  .mf-dash .st-pl-row, .mf-dash .st-pl-head { grid-template-columns: minmax(110px, 190px) minmax(0, 1fr) 92px 62px; }
+  @media (max-width: 560px) { .mf-dash .st-pl-row, .mf-dash .st-pl-head { grid-template-columns: 92px minmax(0, 1fr) 80px 52px; gap: 7px; } }
   .st-pl-head { font-size: 0.7rem; color: var(--muted); padding-bottom: 2px; border-bottom: 1px solid var(--line); }
   .st-pl-head span:nth-child(3), .st-pl-head span:nth-child(4), .st-pl-row .amt, .st-pl-row .ret { text-align: right; }
   .st-pl-row .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -659,6 +663,13 @@
   .st-hold #st-table td.fn small.co { color: var(--text); opacity: 0.78; }
   .st-hold #st-table tfoot td { font-weight: 600; border-top: 1px solid var(--line-strong); background: rgba(244, 240, 232, 0.03); }
   .st-hold #st-table tr.st-none td { text-align: center; color: var(--muted); padding: 22px 10px; }
+  .st-hold #mf-table td { padding-top: 11px; padding-bottom: 11px; border-bottom-color: rgba(244, 240, 232, 0.07); }
+  .st-hold #mf-table tr.fund.alt > td { background: rgba(244, 240, 232, 0.028); }
+  .st-hold #mf-table tr.fund:hover > td { background: var(--panel-2); }
+  .st-hold #mf-table td.fn b { font-size: 0.95rem; }
+  .st-hold #mf-table td.fn small.co { color: var(--text); opacity: 0.78; }
+  .st-hold #mf-table tfoot td { font-weight: 600; border-top: 1px solid var(--line-strong); background: rgba(244, 240, 232, 0.03); }
+  .st-hold #mf-table tr.mf-none td { text-align: center; color: var(--muted); padding: 22px 10px; }
   .st-hold tr[hidden] { display: none; }
   @media (max-width: 899px) {
     .st-hold #st-table th:first-child, .st-hold #st-table td.fn { position: sticky; left: 0; z-index: 1; background: var(--panel); box-shadow: 1px 0 0 var(--line); }
@@ -666,8 +677,17 @@
     .st-hold #st-table tr.fund:hover > td.fn { background: var(--panel-2); }
     .st-hold #st-table td.fn { min-width: 132px; }
     .st-hold #st-table tfoot td:first-child { position: sticky; left: 0; background: #2D2621; }
+    .st-hold #mf-table th:first-child, .st-hold #mf-table td.fn { position: sticky; left: 0; z-index: 1; background: var(--panel); box-shadow: 1px 0 0 var(--line); }
+    .st-hold #mf-table tr.fund.alt > td.fn { background: #2D2621; }
+    .st-hold #mf-table tr.fund:hover > td.fn { background: var(--panel-2); }
+    .st-hold #mf-table td.fn { min-width: 150px; }
+    .st-hold #mf-table tfoot td:first-child { position: sticky; left: 0; background: #2D2621; }
   }
   .st-hold .exited-btn { margin-top: 14px; }
+  .mf-dash #mf-table td.fn small.full { color: var(--text); opacity: 0.72; }
+  .ips-t td.fn small.full { display: block; font-size: 0.74rem; color: var(--text); opacity: 0.78; margin-top: 3px; white-space: normal; }
+  .ips-t td.fn small.idn { display: block; font-size: 0.7rem; color: var(--muted); margin-top: 1px; white-space: normal; }
+  .ips-t td.num small { display: block; font-size: 0.7rem; color: var(--muted); }
 </style>
 <style id="ux-dashboard">
   /* ===== Dashboard. Looks only; every rule is scoped to .dg so no other tab is touched. ===== */
@@ -1171,18 +1191,25 @@
 
     <!-- ===== Mutual funds ===== -->
     <section class="pane" id="pane-mf" role="tabpanel" aria-labelledby="tab-mf" hidden>
-    <section class="card" aria-label="Mutual funds">
-      <div class="head">
-        <div>
-          <div class="k">Mutual funds</div>
+    <section class="st-dash mf-dash" aria-label="Mutual funds">
+      <div class="st-hero">
+        <div class="st-hero-top">
+          <div class="st-title">
+            <h2 class="st-h">Mutual funds</h2>
+            <p class="st-sub">Portfolio overview</p>
+            <div class="px-stamp" id="mf-stamp"></div>
+          </div>
+          <div class="st-actions">
+            <button class="ghost px-btn" type="button">Refresh NAVs</button>
+            <button class="primary" id="mf-add" type="button">Add transaction</button>
+          </div>
+        </div>
+        <div class="st-value">
+          <div class="st-value-l">Current portfolio value</div>
           <div class="v" id="mf-total">–</div>
           <div class="day-mv" id="mf-day"></div>
           <div class="s" id="mf-total-s"></div>
-          <div class="px-stamp" id="mf-stamp"></div>
         </div>
-        <div class="spacer"></div>
-        <button class="ghost px-btn" type="button">Refresh NAVs</button>
-        <button class="ghost" id="mf-add" type="button">Add transaction</button>
       </div>
 
       <form class="form" id="mf-form" hidden>
@@ -1203,25 +1230,68 @@
         <div class="actions"><button class="primary" type="submit" id="mf-save">Save</button><button class="ghost" type="button" id="mf-cancel">Cancel</button></div>
       </form>
 
-      <div class="mf-kpis" id="mf-kpis"></div>
+      <div class="st-kpis" id="mf-kpis"></div>
       <div class="alloc" id="mf-alloc" hidden></div>
-      <div class="charts">
-        <div class="chart-card">
-          <div class="chart-h"><h3>By fund category</h3></div>
-          <div id="mf-pie"></div>
+
+      <section class="st-card" aria-labelledby="mf-perf-t">
+        <div class="st-card-h">
+          <div><h3 id="mf-perf-t">Portfolio value over time</h3><p class="st-card-sub" id="mf-perf-sub"></p></div>
+          <div class="seg" id="mf-perf-range" role="group" aria-label="Period" hidden></div>
         </div>
-        <div class="chart-card">
-          <div class="chart-h"><h3>Profit / loss by fund</h3>
-            <div class="seg" id="mf-pl-mode"><button type="button" data-mode="open" aria-pressed="true">Holdings</button><button type="button" data-mode="all" aria-pressed="false">Incl. sold</button></div>
+        <div class="st-perf-sum" id="mf-perf-sum"></div>
+        <div class="area-wrap st-perf" id="mf-perf"><div class="empty">Loading your portfolio history…</div></div>
+        <div id="mf-perf-extra"></div>
+        <p class="st-note" id="mf-perf-note"></p>
+      </section>
+
+      <div class="st-grid-2">
+        <section class="st-card" aria-labelledby="mf-pie-t">
+          <div class="st-card-h">
+            <div><h3 id="mf-pie-t">Allocation</h3><p class="st-card-sub">Share of current portfolio value</p></div>
+            <div class="seg" id="mf-alloc-mode" role="group" aria-label="Group allocation by"><button type="button" data-mode="cat" aria-pressed="true">Category</button><button type="button" data-mode="fund" aria-pressed="false">Fund</button></div>
+          </div>
+          <div id="mf-pie"></div>
+        </section>
+        <section class="st-card" aria-labelledby="mf-pl-t">
+          <div class="st-card-h">
+            <div><h3 id="mf-pl-t">Profit / loss by fund</h3><p class="st-card-sub" id="mf-pl-sub"></p></div>
+            <div class="st-seg-stack">
+              <div class="seg" id="mf-pl-mode" role="group" aria-label="Which funds"><button type="button" data-mode="open" aria-pressed="true">Holdings</button><button type="button" data-mode="all" aria-pressed="false">Incl. sold</button></div>
+              <div class="seg" id="mf-pl-filter" role="group" aria-label="Show"><button type="button" data-mode="all" aria-pressed="true">All</button><button type="button" data-mode="gain" aria-pressed="false">Top 5 gainers</button><button type="button" data-mode="loss" aria-pressed="false">Top 5 losers</button></div>
+            </div>
           </div>
           <div id="mf-pl"></div>
-        </div>
+        </section>
       </div>
-      <div class="sec-h"><h3>Current Holdings</h3></div>
-      <div class="table-wrap" role="region" aria-label="Mutual fund holdings"><table id="mf-table"></table></div>
-      <button class="ghost exited-btn" id="mf-exited-btn" type="button" hidden></button>
-      <div class="table-wrap" id="mf-exited" hidden style="margin-top:10px" role="region" aria-label="Redeemed funds"><table id="mf-exited-table"></table></div>
-      <div class="mf-note" id="mf-note"></div>
+
+      <section class="st-card" aria-labelledby="mf-tm-t">
+        <div class="st-card-h">
+          <div><h3 id="mf-tm-t">Portfolio concentration</h3><p class="st-card-sub">Box size is the share of portfolio value. Colour is the unrealised gain or loss on cost.</p></div>
+        </div>
+        <div class="st-tm" id="mf-tm"></div>
+        <div class="st-tm-legend" id="mf-tm-legend"></div>
+      </section>
+
+      <section class="st-sec" aria-labelledby="mf-ins-t">
+        <div class="st-sec-h"><h3 id="mf-ins-t">Portfolio insights</h3><p>Read from the figures on this page. They describe the portfolio and are not advice to buy or sell.</p></div>
+        <div class="st-ins" id="mf-ins"></div>
+      </section>
+
+      <section class="st-card st-hold" aria-labelledby="mf-hold-t">
+        <div class="st-card-h">
+          <div><h3 id="mf-hold-t">Current holdings</h3><p class="st-card-sub" id="mf-hold-sub"></p></div>
+        </div>
+        <div class="st-tools" role="group" aria-label="Search, filter and sort holdings">
+          <label class="st-f st-f-q"><span class="ux-sr">Search holdings by fund name</span><input type="search" id="mf-q" placeholder="Search fund name" autocomplete="off"></label>
+          <label class="st-f"><span class="ux-sr">Category</span><select id="mf-cat-f"><option value="">All categories</option></select></label>
+          <label class="st-f"><span class="st-f-l">Sort by</span><select id="mf-sort"><option value="value">Current value</option><option value="weight">Portfolio weight</option><option value="gain">Gain / loss (₹)</option><option value="pct">Return on cost (%)</option><option value="xirr">XIRR</option></select></label>
+          <button type="button" class="ghost st-dir" id="mf-dir" aria-label="Sort order: highest first. Activate to reverse.">High to low</button>
+        </div>
+        <div class="table-wrap" role="region" aria-label="Mutual fund holdings"><table id="mf-table"></table></div>
+        <button class="ghost exited-btn" id="mf-exited-btn" type="button" hidden></button>
+        <div class="table-wrap" id="mf-exited" hidden style="margin-top:10px" role="region" aria-label="Redeemed funds"><table id="mf-exited-table"></table></div>
+        <div class="mf-note" id="mf-note"></div>
+      </section>
     </section>
 
     <section class="card ips-card" id="ips-box" aria-label="Recommended Portfolio Allocation">
@@ -1909,7 +1979,7 @@
     var shortNew = function (n) { return String(n).replace(/\s*(-\s*)?(direct|growth|regular)\b.*$/i, "").replace(/\s*\(erstwhile.*$/i, "").replace(/\s+fund$/i, "").trim(); };
     var scTxt = function (x) { return x ? "score " + Math.round(x.score) + ", rank " + x.rank + " of " + x.n : "not scored (under 5 years of history)"; };
     var row = function (r, kind, action, why, amt, extra) {
-      var o = { fund: r ? short(r.f.name) : null, full: r ? r.f.name : null, category: r ? r.f.category || "" : "", units: r ? r.units : null, avg_nav: r && r.units ? r.invested / r.units : null,
+      var o = { fund: r ? short(r.f.name) : null, full: r ? r.f.name : null, code: r ? r.f.scheme_code || null : null, category: r ? r.f.category || "" : "", units: r ? r.units : null, avg_nav: r && r.units ? r.invested / r.units : null,
         kind: kind, action: action, why: why, amount: amt ? Math.round(amt) : null };
       if (extra) for (var k in extra) o[k] = extra[k];
       return o;
@@ -2031,7 +2101,7 @@
       var fundTiming = newMoney ? "" : (action ? "" : " Funded by sells, so it moves on " + fmtDate(nextAct) + ".");
       if (chal[k]) {
         var c = chal[k].c;
-        buys.push({ fund: shortNew(c.name), full: c.name, category: (c.is_index ? "Index fund" : s.l) + " · new", units: null, avg_nav: null, kind: "buy", isNew: true,
+        buys.push({ fund: shortNew(c.name), full: c.name, code: c.scheme_code, category: (c.is_index ? "Index fund" : s.l) + " · new", units: null, avg_nav: null, kind: "buy", isNew: true,
           action: newMoney ? "Buy new fund (new money)" : "Buy new fund", why: head + " " + chal[k].detail + win + fundTiming, amount: Math.round(amt), status: "INDICATIVE" });
         return;
       }
@@ -2040,7 +2110,7 @@
     });
     buys.sort(function (a, c) { return (c.amount || 0) - (a.amount || 0); });
     watch.forEach(function (w) {
-      buys.push({ fund: shortNew(w.c.name), full: w.c.name, category: (w.c.is_index ? "Index fund" : w.s.l) + " · new", units: null, avg_nav: null, kind: "watch", isNew: true, action: "Candidate", why: w.detail, amount: null });
+      buys.push({ fund: shortNew(w.c.name), full: w.c.name, code: w.c.scheme_code, category: (w.c.is_index ? "Index fund" : w.s.l) + " · new", units: null, avg_nav: null, kind: "watch", isNew: true, action: "Candidate", why: w.detail, amount: null });
     });
     if (!midWin && !chal.mid && cur.mid < 20) buys.push(row(null, "hold", "Decide first", "Mid cap is under target, but one mid-cap fund must be chosen before adding (§J)."));
     sells.sort(function (a, c) { return (c.amount || 0) - (a.amount || 0); });
@@ -2092,6 +2162,20 @@
     } catch (e) { ips.view = null; } finally { ips.repricing = false; renderIPS(); }
     if (typeof sips !== "undefined" && sips.view && st.txns.length) sipsReprice();
   }
+  // Full scheme name, ISIN and the latest AMFI NAV for the funds in the plan, so the right variant gets bought
+  var mfNavInfo = {};
+  async function mfNavFetch(codes) {
+    var need = codes.filter(function (c, i) { return codes.indexOf(c) === i && !mfNavInfo[c]; });
+    if (!need.length || mfNavInfo._busy) return;
+    mfNavInfo._busy = true;
+    try {
+      var r = await sb.functions.invoke("mf-nav", { body: { codes: need } });
+      var d = (r.data && r.data.funds) || {};
+      need.forEach(function (c) { mfNavInfo[c] = d[c] || { missing: true }; });
+    } catch (e) { need.forEach(function (c) { mfNavInfo[c] = { missing: true }; }); }
+    mfNavInfo._busy = false;
+    renderIPS();
+  }
   function renderIPS() {
     var box = $("ips-box"); if (!box) return;
     var L = ips.view || ips.latest, t = todayISO(), meta = L ? (L.meta || L) : {};
@@ -2107,18 +2191,34 @@
       var a = b.after != null ? b.after : b.cur, st = a < b.lo ? "below" : a > b.hi ? "above" : "in";
       return '<div class="ips-b ' + st + '"><span class="n">' + esc(b.l) + '</span><span class="w">' + b.cur.toFixed(1) + "%<i>→</i><b>" + a.toFixed(1) + "%</b></span><small>target " + b.t + "% · band " + b.lo + "–" + b.hi + "%</small></div>";
     }).join("") : "";
-    var cols = '<colgroup><col class="c-fund"><col class="c-cat"><col class="c-u"><col class="c-nav"><col class="c-act"><col class="c-amt"></colgroup>';
-    var head = cols + '<thead><tr><th>Fund</th><th>Category</th><th class="num">Units</th><th class="num">Avg NAV</th><th>Action</th><th class="num">Amount</th></tr></thead><tbody>';
+    var cols = '<colgroup><col class="c-fund"><col class="c-cat"><col class="c-u"><col class="c-nav"><col class="c-nav"><col class="c-act"><col class="c-amt"></colgroup>';
+    var head = cols + '<thead><tr><th>Fund</th><th>Category</th><th class="num">Units</th><th class="num">Avg NAV</th><th class="num">Latest NAV</th><th>Action</th><th class="num">Amount</th></tr></thead><tbody>';
+    var codeOf = function (x) {
+      if (x.code) return Number(x.code);
+      var f = x.full && mf.funds.find(function (y) { return y.name === x.full; }); return f && f.scheme_code ? Number(f.scheme_code) : null;
+    };
+    if (L) mfNavFetch([].concat(L.buys || [], L.sells || []).map(codeOf).filter(Boolean));
+    var nameCell = function (x) {
+      var cd = codeOf(x), i = cd ? mfNavInfo[cd] : null, full = i && i.full ? i.full : x.full;
+      return (full && full !== x.fund ? '<small class="full">' + esc(full) + "</small>" : "") +
+        (cd ? '<small class="idn">' + (i && i.isin ? "ISIN " + esc(i.isin) + " · " : "") + "AMFI code " + cd + (i && i.amc ? " · " + esc(i.amc) : "") + "</small>" : "");
+    };
+    var navCell = function (x) {
+      var cd = codeOf(x), i = cd ? mfNavInfo[cd] : null, f = x.full ? mf.funds.find(function (y) { return y.name === x.full; }) : null;
+      if (i && i.nav) return inr2.format(i.nav) + "<small>" + fmtDate(i.nav_date) + "</small>";
+      if (f && f.nav) return inr2.format(f.nav) + (f.nav_date ? "<small>" + fmtDate(f.nav_date) + "</small>" : "");
+      return cd && mfNavInfo._busy ? "<small>loading…</small>" : "–";
+    };
     var line = function (x, key) {
       var open = !!ips.open[key];
-      return '<tr class="ips-row' + (open ? " open" : "") + '" data-ipsrow="' + key + '" title="Click to ' + (open ? "hide" : "see") + ' the rationale"><td class="fn"><span class="chev">' + (open ? "▾" : "▸") + "</span><b>" + (x.fund ? esc(x.fund) : "–") + "</b>" + (x.isNew ? '<span class="ips-new">New</span>' : "") + "</td><td>" + esc(x.category || "") + '</td><td class="num">' + (x.units ? num3.format(x.units) : "–") +
-        '</td><td class="num">' + (x.avg_nav ? inr2.format(x.avg_nav) : "–") + '</td><td><span class="ips-act ' + (x.kind || "") + '">' + esc(x.action) + '</span>' + (x.status ? ' <span class="ips-st" title="Not an instruction to act: the §D.4 gates and the tax view are still unverified (§M.5)">' + esc(x.status) + "</span>" : "") + '</td><td class="num">' + (x.amount ? inr.format(x.amount) : "–") + "</td></tr>" +
-        (open ? '<tr class="ips-detail"><td colspan="6">' + esc(x.why) + "</td></tr>" : "");
+      return '<tr class="ips-row' + (open ? " open" : "") + '" data-ipsrow="' + key + '" title="Click to ' + (open ? "hide" : "see") + ' the rationale"><td class="fn"><span class="chev">' + (open ? "▾" : "▸") + "</span><b>" + (x.fund ? esc(x.fund) : "–") + "</b>" + (x.isNew ? '<span class="ips-new">New</span>' : "") + nameCell(x) + "</td><td>" + esc(x.category || "") + '</td><td class="num">' + (x.units ? num3.format(x.units) : "–") +
+        '</td><td class="num">' + (x.avg_nav ? inr2.format(x.avg_nav) : "–") + '</td><td class="num">' + navCell(x) + '</td><td><span class="ips-act ' + (x.kind || "") + '">' + esc(x.action) + '</span>' + (x.status ? ' <span class="ips-st" title="Not an instruction to act: the §D.4 gates and the tax view are still unverified (§M.5)">' + esc(x.status) + "</span>" : "") + '</td><td class="num">' + (x.amount ? inr.format(x.amount) : "–") + "</td></tr>" +
+        (open ? '<tr class="ips-detail"><td colspan="7">' + esc(x.why) + "</td></tr>" : "");
     };
     var tbl = function (list, pre, empty) {
       if (!list || !list.length) return '<tbody><tr><td class="empty">' + empty + "</td></tr></tbody>";
       var tot = sumAmt(list);
-      return head + list.map(function (x, i) { return line(x, pre + i); }).join("") + "</tbody>" + (tot ? '<tfoot><tr><td>Total</td><td></td><td></td><td></td><td></td><td class="num">' + inr.format(tot) + "</td></tr></tfoot>" : "");
+      return head + list.map(function (x, i) { return line(x, pre + i); }).join("") + "</tbody>" + (tot ? '<tfoot><tr><td>Total</td><td></td><td></td><td></td><td></td><td></td><td class="num">' + inr.format(tot) + "</td></tr></tfoot>" : "");
     };
     var mon = meta.monitor || (L && L.monitor);
     $("ips-monitor").innerHTML = mon ? '<thead><tr><th>Bucket</th><th class="num">Target</th><th class="num">Now</th><th class="num">vs target</th><th>Band · limit</th><th>Status</th><th class="num">To reach target</th><th class="num">Placed by the plan</th><th>Destination</th><th>NAV date</th><th>Data</th></tr></thead><tbody>' + mon.map(function (m) {
@@ -2637,14 +2737,6 @@
     $("mf-alloc").innerHTML = T.val ? '<div class="alloc-bar">' + ck.map(function (c) { return '<span title="' + esc(c) + '" style="width:' + (100 * cats[c] / T.val).toFixed(2) + "%;background:" + (CAT_COL[c] || "#777") + '"></span>'; }).join("") +
       '</div><div class="alloc-key">' + ck.map(function (c) { return '<span><i style="background:' + (CAT_COL[c] || "#777") + '"></i>' + esc(c) + " <b>" + (100 * cats[c] / T.val).toFixed(1) + "%</b> · " + inr.format(cats[c]) + "</span>"; }).join("") + "</div>" : "";
 
-    // Category pie and profit/loss bars
-    donut("mf-pie", ck.map(function (c) { return { l: c, v: cats[c], c: CAT_COL[c] }; }), [inr.format(T.val).replace("₹", "₹ "), ck.length + " categories"]);
-    var mrows = (plMode.mf === "all" ? rows.filter(function (r) { return r.tx.length; }) : held).map(function (r) {
-      var v = (plMode.mf === "all" ? r.realised : 0) + r.gain; return { l: shortFund(r.f.name), v: v, sold: !r.units, t: r.units ? pct(r.invested ? r.gain / r.invested : NaN) + " on cost" : "exited" }; })
-      .filter(function (x) { return Math.abs(x.v) >= 1; });
-    var mTot = mrows.reduce(function (x, y) { return x + y.v; }, 0);
-    plBars("mf-pl", mrows, (plMode.mf === "all" ? "Realised + unrealised, all funds ever held" : "Unrealised gain on units held now") + " · net " + (mTot >= 0 ? "+" : "−") + inr.format(Math.abs(mTot)));
-
     // Holdings
     $("mf-table").innerHTML = '<thead><tr><th>Fund</th><th>Category</th><th class="num">Units</th><th class="num">Avg NAV</th><th class="num">Invested</th><th class="num">NAV</th><th class="num">Current value</th><th class="num">Gain</th><th class="num">XIRR</th><th class="num">Weight</th></tr></thead><tbody>' +
       (held.length ? held.map(function (r) { return fundRow(r, T.val); }).join("") : '<tr><td class="empty" colspan="10">No funds held.</td></tr>') +
@@ -2665,12 +2757,13 @@
           "</td></tr>" + (open ? txRows(r, 6) : "");
       }).join("") + "</tbody>";
     $("mf-note").textContent = "NAVs update automatically every night from AMFI. Gains are before tax; redemptions use the oldest units first (FIFO).";
+    mfDash({ rows: rows, held: held, exited: exited, T: T, X: X, gain: gain, cats: cats });
     renderNetWorth();
     fillFundSelect();
   }
   function fundRow(r, tot) {
     var g = r.gain, w = tot ? r.value / tot : 0, open = mf.open[r.f.name];
-    return '<tr class="fund" data-mffund="' + esc(r.f.name) + '" title="Click to ' + (open ? "hide" : "see") + ' transactions"><td class="fn">' + esc(r.f.name) + (r.since ? "<small>Holding since " + fmtDate(r.since) + "</small>" : "") +
+    return '<tr class="fund" data-mffund="' + esc(r.f.name) + '" title="Click to ' + (open ? "hide" : "see") + ' transactions"><td class="fn"><b>' + esc(shortFund(r.f.name)) + '</b><small class="full">' + esc(r.f.name) + "</small>" + (r.since ? "<small>Holding since " + fmtDate(r.since) + (r.f.scheme_code ? " · AMFI " + esc(r.f.scheme_code) : "") + "</small>" : "") +
       "</td><td>" + esc(r.f.category || "") + '</td><td class="num">' + num3.format(r.units) + '</td><td class="num">' + inr2.format(r.invested / r.units) + '</td><td class="num">' + inr.format(r.invested) +
       '</td><td class="num">' + inr2.format(r.nav) + (r.pnav && r.nav !== r.pnav ? '<small class="dc ' + (r.nav >= r.pnav ? "pos" : "neg") + '">' + (r.nav >= r.pnav ? "+" : "") + (r.nav - r.pnav).toFixed(2) + " (" + pct((r.nav - r.pnav) / r.pnav) + ")</small>" : "") +
       '</td><td class="num">' + inr.format(r.value) + (r.day ? '<small class="dc ' + (r.day >= 0 ? "pos" : "neg") + '">' + (r.day > 0 ? "+" : "") + inr.format(r.day) + " today</small>" : "") + '</td><td class="num ' + (g >= 0 ? "pos" : "neg") + '">' + inr.format(g) + "<br><small>" + pct(r.invested ? g / r.invested : NaN) +
@@ -3224,6 +3317,214 @@
       stUi.dir = stUi.dir === "desc" ? "asc" : "desc";
       this.textContent = stUi.dir === "desc" ? "High to low" : "Low to high"; this.setAttribute("aria-label", "Sort order: " + (stUi.dir === "desc" ? "highest" : "lowest") + " first. Activate to reverse.");
       stTableApply();
+    });
+  })();
+
+  // ---------- Mutual funds dashboard: same panels as the stocks page, read from what renderMF() has worked out ----------
+  var mfUi = { alloc: "cat", plFilter: "all", q: "", cat: "", sort: "value", dir: "desc", perf: 0, c: null, tm: [] };
+  var mfTmW = 0, mfPerfSig = "", mfPerfS = null, mfPerfOpen = false;
+  var mfNm = function (r) { return shortFund(r.f.name); };
+  function mfDash(c) {
+    mfUi.c = c;
+    [mfAlloc, mfPl, mfTreemap, mfInsights, mfTable, mfPerf].forEach(function (f) {
+      try { f(c); } catch (e) { if (window.console) console.warn("Funds view:", e && e.message); }
+    });
+  }
+  function mfAlloc(c) {
+    var parts, centre, hs = c.held.filter(function (r) { return r.value > 0; });
+    if (mfUi.alloc === "fund") {
+      var keep = hs.length > 12 ? 11 : hs.length;
+      parts = hs.slice(0, keep).map(function (r) { return { l: mfNm(r), v: r.value }; });
+      if (hs.length > keep) parts.push({ l: "Other (" + (hs.length - keep) + " funds)", v: hs.slice(keep).reduce(function (a, r) { return a + r.value; }, 0), other: true });
+      centre = [inr.format(c.T.val).replace("₹", "₹ "), hs.length + (hs.length === 1 ? " fund" : " funds")];
+      parts.sort(function (a, b) { return b.v - a.v; }).forEach(function (p, i) { p.c = p.other ? "#6B655E" : ST_PAL[i % ST_PAL.length]; });
+    } else {
+      parts = Object.keys(c.cats).filter(function (k) { return c.cats[k] > 0; }).map(function (k) { return { l: k, v: c.cats[k], c: CAT_COL[k] }; });
+      centre = [inr.format(c.T.val).replace("₹", "₹ "), parts.length + (parts.length === 1 ? " category" : " categories")];
+      parts.sort(function (a, b) { return b.v - a.v; }).forEach(function (p, i) { p.c = p.c || ST_PAL[i % ST_PAL.length]; });
+    }
+    donut("mf-pie", parts, centre);
+  }
+  function mfPl(c) {
+    var el = $("mf-pl"), all = plMode.mf === "all", f = mfUi.plFilter;
+    var items = (all ? c.rows.filter(function (r) { return r.tx.length; }) : c.held).map(function (r) {
+      return { nm: mfNm(r), full: r.f.name, v: (all ? r.realised : 0) + r.gain, sold: !r.units, ret: r.units > 0 ? stRet(r) : null };
+    }).filter(function (x) { return Math.abs(x.v) >= 1; }).sort(function (a, b) { return b.v - a.v; });
+    var shown = f === "gain" ? items.filter(function (x) { return x.v > 0; }).slice(0, 5) : f === "loss" ? items.filter(function (x) { return x.v < 0; }).slice(-5).reverse() : items;
+    $("mf-pl-sub").textContent = (all ? "Realised plus unrealised gain, every fund you have held. " : "Unrealised gain on the units you hold now. ") +
+      (f === "gain" ? "The five largest ₹ gains. " : f === "loss" ? "The five largest ₹ losses. " : "Sorted by ₹ profit or loss, highest first. ") + "The % column is the unrealised return on cost.";
+    if (!items.length) { el.innerHTML = '<div class="empty">Nothing to show yet.</div>'; return; }
+    if (!shown.length) { el.innerHTML = '<div class="empty">' + (f === "gain" ? "No fund is showing a gain right now." : "No fund is showing a loss right now.") + "</div>"; return; }
+    var vals = shown.map(function (x) { return x.v; }), mp = Math.max(0, Math.max.apply(null, vals)), mn = Math.max(0, -Math.min.apply(null, vals)), span = (mp + mn) || 1, z = mn / span;
+    var sum = function (l) { return l.reduce(function (a, x) { return a + x.v; }, 0); };
+    el.innerHTML = '<ul class="st-pl" role="list"><li class="st-pl-head" aria-hidden="true"><span>Fund</span><span></span><span>₹ gain / loss</span><span>% on cost</span></li>' +
+      shown.map(function (x) {
+        var w = (100 * Math.abs(x.v) / span).toFixed(2), left = (x.v >= 0 ? 100 * z : 100 * z - Math.abs(100 * x.v / span)).toFixed(2);
+        return '<li class="st-pl-row' + (x.sold ? " sold" : "") + '"><span class="nm" title="' + esc(x.full) + '">' + esc(x.nm) + '</span><span class="bar" aria-hidden="true"><i class="zero" style="left:' + (100 * z).toFixed(2) + '%"></i><i class="b ' + (x.v >= 0 ? "pos" : "neg") + '" style="left:' + left + "%;width:" + w + '%"></i></span><span class="amt ' + stCls(x.v) + '">' + stSg(x.v) + '</span><span class="ret">' + (x.ret == null ? (x.sold ? "sold" : "–") : stPct(x.ret)) + "</span></li>";
+      }).join("") + "</ul>" +
+      '<div class="st-pl-foot">' + (f === "all" ? "Net " + stSg(sum(items)) + " across " + items.length + (items.length === 1 ? " fund" : " funds") : "These " + shown.length + ": " + stSg(sum(shown)) + " · all " + items.length + " funds: " + stSg(sum(items))) + "</div>";
+  }
+  function mfTreemap(c) {
+    var el = $("mf-tm"), leg = $("mf-tm-legend"), hs = c.held.filter(function (r) { return r.value > 0; });
+    if (!hs.length) { el.style.height = ""; el.innerHTML = '<div class="empty">No funds held yet.</div>'; leg.innerHTML = ""; mfUi.tm = []; return; }
+    var W = el.clientWidth || 700, H = Math.round(W < 520 ? Math.max(280, W * 0.95) : Math.min(380, Math.max(260, W * 0.4)));
+    mfTmW = W; el.style.height = H + "px";
+    var rects = stSquarify(hs.map(function (r) { return { r: r, v: r.value }; }), W, H); mfUi.tm = rects;
+    el.innerHTML = rects.map(function (q, i) {
+      var r = q.it.r, ret = stRet(r), tone = stTone(ret), w = Math.max(1, q.w - 2), h = Math.max(1, q.h - 2), wt = 100 * stWt(c, r);
+      var inner = w >= 90 && h >= 50 ? "<b>" + esc(mfNm(r)) + "</b><span>" + wt.toFixed(1) + "%</span><em>" + (ret == null ? "–" : stPct(ret)) + "</em>" : w >= 50 && h >= 28 ? "<b>" + esc(mfNm(r)) + "</b>" : "";
+      return '<button type="button" class="tm-tile" data-i="' + i + '" style="left:' + (q.x + 1).toFixed(1) + "px;top:" + (q.y + 1).toFixed(1) + "px;width:" + w.toFixed(1) + "px;height:" + h.toFixed(1) + "px;background:" + tone.bg + ";border-top-color:" + tone.top + (inner ? "" : ";padding:0") + '" aria-label="' +
+        esc(r.f.name + ", " + wt.toFixed(1) + "% of the portfolio, value " + inr.format(r.value) + ", unrealised " + (r.gain < 0 ? "loss " : "gain ") + inr.format(Math.abs(r.gain)) + (ret == null ? "" : ", " + stPct(ret) + " on cost")) + '">' + inner + "</button>";
+    }).join("") + '<div class="tm-tip" id="mf-tm-tip" hidden></div>';
+    leg.innerHTML = '<span><i style="background:rgba(217,120,120,0.38);border-color:#D97878"></i>Loss</span><span><i style="background:rgba(84,184,137,0.38);border-color:#54B889"></i>Gain</span>' +
+      "<span>Colour reaches full strength at a 30% gain or loss. Each box prints its share of the portfolio and its return.</span>";
+  }
+  function mfTmShow(tile) {
+    var el = $("mf-tm"), tip = $("mf-tm-tip"), q = tile && mfUi.tm[+tile.dataset.i], c = mfUi.c; if (!q || !tip || !c) return;
+    var r = q.it.r, ret = stRet(r), row = function (a, b, cls) { return "<div><span>" + a + '</span><span class="' + (cls || "") + '">' + b + "</span></div>"; };
+    tip.innerHTML = "<b>" + esc(mfNm(r)) + "</b><em>" + esc(r.f.category || "") + "</em>" + row("Share of portfolio", (100 * stWt(c, r)).toFixed(1) + "%") + row("Current value", inr.format(r.value)) +
+      row("NAV", inr2.format(r.nav)) + row("Unrealised gain / loss", stSg(r.gain), stCls(r.gain)) + row("Return on cost", ret == null ? "–" : stPct(ret), ret == null ? "" : stCls(ret)) + row("XIRR", isFinite(r.xirr) ? (r.xirr * 100).toFixed(1) + "%" : "–");
+    tip.hidden = false;
+    var tw = tip.offsetWidth, th = tip.offsetHeight, x = q.x + q.w + 8;
+    if (x + tw > el.clientWidth) x = q.x - tw - 8;
+    if (x < 0) x = Math.max(0, Math.min(el.clientWidth - tw, q.x + 6));
+    tip.style.left = x + "px"; tip.style.top = Math.min(Math.max(0, q.y), Math.max(0, el.clientHeight - th)) + "px";
+  }
+  function mfTmHide() { var t = $("mf-tm-tip"); if (t) t.hidden = true; }
+  function mfInsights(c) {
+    var el = $("mf-ins"), hs = c.held.filter(function (r) { return r.value > 0; }), cand = hs.filter(function (r) { return r.invested > 0; });
+    if (!hs.length) { el.innerHTML = '<div class="empty" style="grid-column:1/-1">Insights appear once you hold a fund.</div>'; return; }
+    var card = function (h, big, txt, body) { return '<article class="st-in"><h4>' + h + "</h4>" + (big ? '<div class="st-in-big">' + big + "</div>" : "") + '<p class="st-in-txt">' + txt + "</p>" + body + "</article>"; };
+    var list = function (rows) { return '<ul class="st-in-list" role="list">' + rows.join("") + "</ul>"; };
+    var li = function (nm, a, b, w, cls) { return "<li><span class=\"nm\" title=\"" + esc(nm) + "\">" + esc(nm) + '</span><span class="vals">' + a + (b ? "<em>" + b + "</em>" : "") + '</span><span class="track" aria-hidden="true"><i class="' + (cls || "") + '" style="width:' + Math.max(2, Math.min(100, w)).toFixed(1) + '%"></i></span></li>'; };
+    var out = [];
+    var top = hs.slice(0, 5), topW = c.T.val ? 100 * top.reduce(function (a, r) { return a + r.value; }, 0) / c.T.val : 0;
+    out.push(card("Largest holdings", hs.length > 5 ? topW.toFixed(1) + "%" : hs.length + (hs.length === 1 ? " fund" : " funds"),
+      hs.length > 5 ? "Your five largest funds account for " + topW.toFixed(1) + "% of the portfolio." : "Your whole mutual fund portfolio is in " + (hs.length === 1 ? "one fund." : "these " + hs.length + " funds."),
+      list(top.map(function (r) { return li(mfNm(r), (100 * stWt(c, r)).toFixed(1) + "%", inr.format(r.value), 100 * r.value / top[0].value); }))));
+    var cats = Object.keys(c.cats).filter(function (k) { return c.cats[k] > 0; }).sort(function (a, b) { return c.cats[b] - c.cats[a]; });
+    if (cats.length) out.push(card("Largest category", (100 * c.cats[cats[0]] / c.T.val).toFixed(1) + "%", esc(cats[0]) + " is the largest category, worth " + inr.format(c.cats[cats[0]]) + ".",
+      list(cats.slice(0, 4).map(function (k) { return li(k, (100 * c.cats[k] / c.T.val).toFixed(1) + "%", inr.format(c.cats[k]), 100 * c.cats[k] / c.cats[cats[0]]); }))));
+    var n = Math.min(3, Math.floor(cand.length / 2)), byRet = cand.slice().sort(function (a, b) { return stRet(b) - stRet(a); }), maxR = Math.max.apply(null, cand.map(function (r) { return Math.abs(stRet(r)); })) || 1;
+    var rl = function (r) { return li(mfNm(r), stSg(r.gain), stPct(stRet(r)), 100 * Math.abs(stRet(r)) / maxR, stCls(r.gain)); };
+    if (n >= 1) {
+      var best = byRet.slice(0, n), worst = byRet.slice(-n).reverse();
+      out.push(card("Top performers", stPct(stRet(best[0])), esc(mfNm(best[0])) + " has the highest return on cost.", list(best.map(rl))));
+      out.push(card("Weakest performers", stPct(stRet(worst[0])), esc(mfNm(worst[0])) + " has the lowest return on cost.", list(worst.map(rl))));
+    }
+    var xs = hs.filter(function (r) { return isFinite(r.xirr); }).sort(function (a, b) { return b.xirr - a.xirr; }).slice(0, 4), mxX = Math.max.apply(null, xs.map(function (r) { return Math.abs(r.xirr); })) || 1;
+    if (xs.length) out.push(card("Best XIRR", (xs[0].xirr * 100).toFixed(1) + "%", esc(mfNm(xs[0])) + " has the highest annualised return, counting when each SIP or lump sum went in.",
+      list(xs.map(function (r) { return li(mfNm(r), (r.xirr * 100).toFixed(1) + "%", inr.format(r.value), 100 * Math.abs(r.xirr) / mxX, r.xirr >= 0 ? "pos" : "neg"); }))));
+    var a = c.T.real, b = c.gain, mx = Math.max(Math.abs(a), Math.abs(b)) || 1;
+    var rv = function (name, v) { var w = 50 * Math.abs(v) / mx; return "<div><span>" + name + '</span><span class="a ' + stCls(v) + '">' + stSg(v) + '</span><span class="track" aria-hidden="true"><i style="background:rgba(244,240,232,0.45);left:50%;width:1px"></i><i style="background:' + (v >= 0 ? "var(--green)" : "var(--red)") + ";left:" + (v >= 0 ? 50 : 50 - w) + "%;width:" + w.toFixed(1) + '%"></i></span></div>'; };
+    out.push(card("Realised and unrealised", "", "Realised gains come from redemptions (oldest units first) and are before tax. Unrealised gains are on units you still hold.", '<div class="st-in-rvu">' + rv("Realised", a) + rv("Unrealised", b) + "</div>"));
+    el.innerHTML = out.join("");
+  }
+  function mfTable(c) {
+    var sel = $("mf-cat-f"), cats = {}; c.held.forEach(function (r) { cats[r.f.category || "Other"] = 1; });
+    if (mfUi.cat && !cats[mfUi.cat]) mfUi.cat = "";
+    sel.innerHTML = '<option value="">All categories</option>' + Object.keys(cats).sort().map(function (k) { return '<option value="' + esc(k) + '"' + (k === mfUi.cat ? " selected" : "") + ">" + esc(k) + "</option>"; }).join("");
+    mfTableApply();
+  }
+  function mfTableApply() {
+    var c = mfUi.c, body = $("mf-table") && $("mf-table").tBodies[0]; if (!c || !body) return;
+    var by = {}; c.held.forEach(function (r) { by[r.f.name] = r; });
+    var groups = [];
+    Array.prototype.slice.call(body.children).forEach(function (tr) {
+      if (tr.classList.contains("mf-none")) { body.removeChild(tr); return; }
+      if (tr.classList.contains("fund") && tr.dataset.mffund) groups.push({ f: tr, x: [], r: by[tr.dataset.mffund] });
+      else if (tr.classList.contains("tx") && groups.length) groups[groups.length - 1].x.push(tr);
+    });
+    if (!groups.length) { $("mf-hold-sub").textContent = "No funds held yet"; return; }
+    var q = mfUi.q.trim().toLowerCase();
+    var metric = function (g) { var r = g.r; if (!r) return NaN; var s = mfUi.sort; return s === "weight" ? stWt(c, r) : s === "gain" ? r.gain : s === "pct" ? (stRet(r) == null ? NaN : stRet(r)) : s === "xirr" ? r.xirr : r.value; };
+    groups.sort(function (a, b) {
+      var x = metric(a), y = metric(b), nx = !isFinite(x), ny = !isFinite(y);
+      if (nx || ny) return nx && ny ? 0 : nx ? 1 : -1;
+      return (mfUi.dir === "desc" ? y - x : x - y) || ((b.r ? b.r.value : 0) - (a.r ? a.r.value : 0));
+    });
+    var shown = 0;
+    groups.forEach(function (g) {
+      var ok = !(q && g.f.dataset.mffund.toLowerCase().indexOf(q) < 0) && !(mfUi.cat && (!g.r || (g.r.f.category || "Other") !== mfUi.cat));
+      g.f.hidden = !ok; g.x.forEach(function (x) { x.hidden = !ok; });
+      g.f.classList.toggle("alt", ok && shown % 2 === 1); if (ok) shown++;
+      body.appendChild(g.f); g.x.forEach(function (x) { body.appendChild(x); });
+    });
+    if (!shown) body.insertAdjacentHTML("beforeend", '<tr class="mf-none"><td colspan="10">No funds match your search.</td></tr>');
+    $("mf-hold-sub").textContent = (shown === groups.length ? groups.length + (groups.length === 1 ? " fund" : " funds") : "Showing " + shown + " of " + groups.length + " funds") + " · click a fund to see its transactions · the totals row covers the whole portfolio";
+  }
+  function mfPerf() {
+    var el = $("mf-perf"); if (!el) return;
+    var series = (hist.rows || []).filter(function (r) { return r.parts && r.parts.mf != null && isFinite(Number(r.parts.mf)); })
+      .map(function (r) { return { d: r.as_of, v: Number(r.parts.mf), month: r.source === "backfill" }; }).sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : 0; });
+    var i0 = 0; while (i0 < series.length && series[i0].v <= 0) i0++; series = series.slice(i0);
+    var rangeEl = $("mf-perf-range");
+    var avail = function (m) { if (series.length < 2) return false; if (!m) return true; var cut = stCut(m); return series[0].d <= cut && series.filter(function (p) { return p.d >= cut; }).length >= 2; };
+    var opts = ST_PERIODS.filter(function (p) { return avail(p[1]); });
+    if (!opts.some(function (p) { return p[1] === mfUi.perf; })) mfUi.perf = 0;
+    var months = mfUi.perf, pts = months ? series.filter(function (p) { return p.d >= stCut(months); }) : series;
+    var sig = JSON.stringify([months, pts.length, pts.length ? pts[0].d : "", pts.length ? pts[pts.length - 1] : null, opts.length]);
+    if (sig === mfPerfSig) return; mfPerfSig = sig;
+    var det = $("mf-perf-extra").querySelector("details"); if (det) mfPerfOpen = det.open;
+    rangeEl.hidden = opts.length < 2;
+    rangeEl.innerHTML = opts.map(function (p) { return '<button type="button" data-mode="' + p[1] + '" aria-pressed="' + (p[1] === months ? "true" : "false") + '">' + p[0] + "</button>"; }).join("");
+    mfPerfS = null; $("mf-perf-sum").innerHTML = ""; $("mf-perf-extra").innerHTML = ""; $("mf-perf-sub").textContent = "";
+    if (pts.length < 2) { el.innerHTML = '<div class="empty">Portfolio history isn\'t available yet. The tracker saves the value of your funds each day you open it, so this chart fills in over time.</div>'; $("mf-perf-note").textContent = ""; return; }
+    var W = 720, H = 280, L = 58, R = 12, T = 14, B = 28, t0 = Date.parse(pts[0].d), t1 = Date.parse(pts[pts.length - 1].d);
+    var max = Math.max.apply(null, pts.map(function (p) { return p.v; })) || 1, nice = Math.pow(10, Math.floor(Math.log10(max))), top = Math.ceil(max / nice) * nice; if (top / nice > 6) nice *= 2; top = Math.ceil(max / nice) * nice;
+    var X = function (d) { return L + (W - L - R) * (t1 === t0 ? 0 : (Date.parse(d) - t0) / (t1 - t0)); }, Y = function (v) { return T + (H - T - B) * (1 - v / top); };
+    var short = function (v) { return v >= 1e7 ? (v / 1e7).toFixed(v % 1e7 ? 1 : 0) + " Cr" : v >= 1e5 ? (v / 1e5).toFixed(v % 1e5 ? 1 : 0) + " L" : v >= 1e3 ? Math.round(v / 1e3) + "k" : String(v); };
+    var g = ""; for (var v = 0; v <= top + 1; v += nice) g += '<line class="gl" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(v).toFixed(1) + '" y2="' + Y(v).toFixed(1) + '"/><text class="ax" x="' + (L - 6) + '" y="' + (Y(v) + 3.5).toFixed(1) + '" text-anchor="end">₹' + short(v) + "</text>";
+    var longSpan = (t1 - t0) / dayMs > 400;
+    for (var k = 0; k < 5; k++) {
+      var td = new Date(t0 + (t1 - t0) * k / 4), lab = td.toLocaleDateString("en-IN", longSpan ? { month: "short", year: "numeric" } : { day: "numeric", month: "short" });
+      g += '<text class="ax" x="' + (L + (W - L - R) * k / 4).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="' + (k === 0 ? "start" : k === 4 ? "end" : "middle") + '">' + lab + "</text>";
+    }
+    var line = "M" + pts.map(function (p) { return X(p.d).toFixed(1) + " " + Y(p.v).toFixed(1); }).join(" L");
+    var area = line + " L" + X(pts[pts.length - 1].d).toFixed(1) + " " + Y(0).toFixed(1) + " L" + X(pts[0].d).toFixed(1) + " " + Y(0).toFixed(1) + " Z";
+    var dots = pts.length <= 45 ? pts.map(function (p) { return '<circle class="pt" cx="' + X(p.d).toFixed(1) + '" cy="' + Y(p.v).toFixed(1) + '" r="2.2"/>'; }).join("") : "";
+    el.innerHTML = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Mutual fund value over time, ' + pts.length + " points from " + esc(fmtDate(pts[0].d)) + " to " + esc(fmtDate(pts[pts.length - 1].d)) + '.">' + g +
+      '<path class="ar" d="' + area + '"/><path class="ln" d="' + line + '"/>' + dots + '<line class="hov" id="mf-perf-hov" y1="' + T + '" y2="' + (H - B) + '" x1="-10" x2="-10"/><circle class="dot" id="mf-perf-dot" cx="-10" cy="-10" r="4.5"/>' +
+      '<rect class="hit" id="mf-perf-hit" x="' + L + '" y="' + T + '" width="' + (W - L - R) + '" height="' + (H - T - B) + '" fill="transparent"/></svg><div class="area-tip" id="mf-perf-tip" hidden></div>';
+    var svg = el.querySelector("svg"), tip = $("mf-perf-tip"), hov = $("mf-perf-hov"), dot = $("mf-perf-dot"), hit = $("mf-perf-hit");
+    function show(i) {
+      var p = pts[i], x = X(p.d), y = Y(p.v); mfPerfS.i = i;
+      hov.setAttribute("x1", x); hov.setAttribute("x2", x); dot.setAttribute("cx", x); dot.setAttribute("cy", y);
+      tip.innerHTML = "<b>" + esc(fmtDate(p.d)) + "</b><div><span>Portfolio value</span><span>" + inr.format(p.v) + "</span></div><div><em>" + (p.month ? "Month-end value" : "Value saved that day") + "</em></div>";
+      tip.hidden = false; var r = svg.getBoundingClientRect(), left = (x / W) * r.width + 12; tip.style.left = Math.min(Math.max(0, left), Math.max(0, r.width - tip.offsetWidth)) + "px";
+    }
+    function hide() { tip.hidden = true; hov.setAttribute("x1", -10); hov.setAttribute("x2", -10); dot.setAttribute("cx", -10); dot.setAttribute("cy", -10); if (mfPerfS) mfPerfS.i = -1; }
+    var near = function (cx) { var r = svg.getBoundingClientRect(), x = (cx - r.left) * W / r.width, b = 0; pts.forEach(function (p, i) { if (Math.abs(X(p.d) - x) < Math.abs(X(pts[b].d) - x)) b = i; }); return b; };
+    mfPerfS = { pts: pts, show: show, hide: hide, i: -1 };
+    hit.addEventListener("pointermove", function (e) { show(near(e.clientX)); });
+    hit.addEventListener("pointerdown", function (e) { show(near(e.clientX)); });
+    hit.addEventListener("pointerleave", function (e) { if (e.pointerType === "mouse") hide(); });
+    var first = pts[0], last = pts[pts.length - 1], ch = last.v - first.v;
+    $("mf-perf-sub").textContent = fmtDate(first.d) + " to " + fmtDate(last.d) + " · " + pts.length + " points";
+    $("mf-perf-sum").innerHTML = '<div><div class="l">From ' + esc(fmtDate(first.d)) + '</div><div class="a">' + inr.format(first.v) + '</div></div><div><div class="l">Latest, ' + esc(fmtDate(last.d)) + '</div><div class="a">' + inr.format(last.v) + '</div></div><div><div class="l">Change in value</div><div class="a ' + stCls(ch) + '">' + stSg(ch) + "</div></div>";
+    $("mf-perf-extra").innerHTML = '<details class="st-data"' + (mfPerfOpen ? " open" : "") + '><summary>Show these figures as a table</summary><div class="table-wrap"><table><thead><tr><th scope="col">Date</th><th scope="col">Value</th><th scope="col">Basis</th></tr></thead><tbody>' +
+      pts.slice().reverse().map(function (p) { return "<tr><th scope=\"row\">" + esc(fmtDate(p.d)) + "</th><td>" + inr.format(p.v) + "</td><td>" + (p.month ? "Month-end" : "Saved that day") + "</td></tr>"; }).join("") + "</tbody></table></div></details>";
+    $("mf-perf-note").textContent = "The line is the market value of the funds you held, so it also moves when you buy or redeem. For investment return, see the unrealised gain and XIRR above.";
+  }
+  segToggle("mf-alloc-mode", function (m) { mfUi.alloc = m; if (mfUi.c) try { mfAlloc(mfUi.c); } catch (e) {} });
+  segToggle("mf-pl-filter", function (m) { mfUi.plFilter = m; if (mfUi.c) try { mfPl(mfUi.c); } catch (e) {} });
+  $("mf-perf-range").addEventListener("click", function (e) { var b = e.target.closest("[data-mode]"); if (!b) return; mfUi.perf = +b.dataset.mode; mfPerfSig = ""; mfPerf(); });
+  (function () {
+    var tm = $("mf-tm");
+    tm.addEventListener("mouseover", function (e) { var t = e.target.closest(".tm-tile"); if (t) mfTmShow(t); });
+    tm.addEventListener("mouseleave", mfTmHide);
+    tm.addEventListener("focusin", function (e) { var t = e.target.closest(".tm-tile"); if (t) mfTmShow(t); });
+    tm.addEventListener("focusout", function (e) { if (!tm.contains(e.relatedTarget)) mfTmHide(); });
+    tm.addEventListener("click", function (e) { var t = e.target.closest(".tm-tile"); if (t) mfTmShow(t); });
+    document.addEventListener("pointerdown", function (e) { if (e.pointerType !== "mouse" && !tm.contains(e.target)) mfTmHide(); });
+    if (window.ResizeObserver) new ResizeObserver(function () { var w = tm.clientWidth; if (w && Math.abs(w - mfTmW) > 2 && mfUi.c) { try { mfTreemap(mfUi.c); } catch (e) {} } }).observe(tm);
+    $("mf-q").addEventListener("input", function () { mfUi.q = this.value; mfTableApply(); });
+    $("mf-cat-f").addEventListener("change", function () { mfUi.cat = this.value; mfTableApply(); });
+    $("mf-sort").addEventListener("change", function () { mfUi.sort = this.value; mfTableApply(); });
+    $("mf-dir").addEventListener("click", function () {
+      mfUi.dir = mfUi.dir === "desc" ? "asc" : "desc";
+      this.textContent = mfUi.dir === "desc" ? "High to low" : "Low to high"; this.setAttribute("aria-label", "Sort order: " + (mfUi.dir === "desc" ? "highest" : "lowest") + " first. Activate to reverse.");
+      mfTableApply();
     });
   })();
 
