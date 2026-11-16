@@ -1193,6 +1193,7 @@
         <label>NAV (₹) <input type="number" id="mf-nav" step="0.0001" min="0" inputmode="decimal" required></label>
         <label>Amount (₹) <input type="number" id="mf-amt" step="0.01" min="0" inputmode="decimal" required></label>
         <label>Units <input type="number" id="mf-units" step="0.001" min="0" inputmode="decimal" required></label>
+        <label id="mf-credit-wrap" hidden>Money goes to <select id="mf-credit"></select></label>
         <div id="mf-new" style="display:contents" hidden>
           <label style="grid-column: span 2">New fund name <input type="text" id="mf-new-name" autocomplete="off" placeholder="e.g. Nippon India Small Cap Fund Direct Growth"></label>
           <label>AMFI scheme code (for live NAV) <input type="number" id="mf-new-code" inputmode="numeric" placeholder="optional"></label>
@@ -1748,6 +1749,7 @@
     if (q[0].error || q[1].error) { $("mf-total-s").hidden = false; $("mf-total-s").textContent = "Couldn't load the funds."; return; }
     mf.funds = q[0].data || []; mf.txns = q[1].data || [];
     renderMF();
+    if (oth.items && oth.items.length) { try { renderItems("trading"); renderNetWorth(); } catch (e) {} }
     ipsCheck(false);
   }
 
@@ -2711,8 +2713,18 @@
     $("mf-date").value = t ? t.txn_date : todayISO();
     $("mf-nav").value = t ? t.nav : ((mf.funds.find(function (x) { return x.name === $("mf-fund").value; }) || {}).nav || "");
     $("mf-amt").value = t ? Math.abs(t.amount) : ""; $("mf-units").value = t ? Math.abs(t.units) : "";
+    fillCreditSelect(t ? (Number(t.units) < 0 ? (t.credit_to || "") : "Zerodha") : "Zerodha");
     syncNew(); f.scrollIntoView({ behavior: "smooth", block: "center" });
   }
+  // Redemptions credit a broker's trading balance (or nowhere, if the money went to a bank)
+  function fillCreditSelect(v) {
+    var names = itemsOf("trading").map(function (i) { return i.name; });
+    if (v && names.indexOf(v) < 0) names.push(v);
+    $("mf-credit").innerHTML = names.map(function (n) { return "<option>" + esc(n) + "</option>"; }).join("") + '<option value="">Not to a trading account</option>';
+    $("mf-credit").value = v;
+    $("mf-credit-wrap").hidden = $("mf-type").value !== "sell";
+  }
+  $("mf-type").addEventListener("change", function () { $("mf-credit-wrap").hidden = this.value !== "sell"; });
   $("mf-add").addEventListener("click", function () { if (!$("mf-form").hidden && !mf.editing) { $("mf-form").hidden = true; return; } openMfForm(null); });
   $("mf-cancel").addEventListener("click", function () { $("mf-form").hidden = true; mf.editing = null; });
   var lastTyped = "amt";
@@ -2743,11 +2755,11 @@
       if (old && old.fund_name === fund) have -= Number(old.units);
       if (units > have + 0.001) { btn.disabled = false; toast("You hold only " + num3.format(have) + " units of this fund."); return; }
     }
-    var row = { fund_name: fund, txn_date: $("mf-date").value, nav: nav, units: sell ? -units : units, amount: sell ? -amt : amt };
+    var row = { fund_name: fund, txn_date: $("mf-date").value, nav: nav, units: sell ? -units : units, amount: sell ? -amt : amt, credit_to: sell ? ($("mf-credit").value || null) : null };
     var r = mf.editing ? await sb.from("mf_txns").update(row).eq("id", mf.editing) : await sb.from("mf_txns").insert(row);
     btn.disabled = false;
     if (r.error) { toast("Couldn't save: " + r.error.message); return; }
-    $("mf-form").hidden = true; toast(mf.editing ? "Transaction updated" : (sell ? "Redemption" : "Purchase") + " of " + inr.format(amt) + " saved");
+    $("mf-form").hidden = true; toast(mf.editing ? "Transaction updated" : (sell ? "Redemption" : "Purchase") + " of " + inr.format(amt) + " saved" + (sell && row.credit_to ? ", added to your " + row.credit_to + " trading balance" : ""));
     mf.editing = null; mf.open[fund] = true; await loadMF();
   });
   async function delMf(id) {
@@ -4004,7 +4016,14 @@
       var d = i.details || {}, g = toNum(d.grams), k = toNum(d.karat) || 24;
       if (g > 0 && oth.gold) return g * Number(oth.gold.value) * k / 24;
     }
+    if (i.kind === "trading") return (Number(i.value) || 0) + mfCredits(i).sum;
     return Number(i.value) || 0;
+  }
+  // Fund redemptions credited to this broker on or after the date its balance was last entered.
+  // Entering a fresh balance (with a newer date) starts the count again, so nothing is added twice.
+  function mfCredits(i) {
+    var list = (mf.txns || []).filter(function (t) { return Number(t.units) < 0 && t.credit_to === i.name && (!i.as_of || t.txn_date >= i.as_of); });
+    return { list: list, sum: list.reduce(function (a, t) { return a + Math.abs(Number(t.amount)); }, 0) };
   }
 
   // One table and form per tab. Fields: [key, label, type, where ("value"/"invested"/"name"/"institution"/"as_of"/details key), options]
@@ -4030,7 +4049,7 @@
         ["Premium", function (i) { return i.details.premium ? inr.format(toNum(i.details.premium)) + "<small>" + esc(i.details.freq || "") + "</small>" : "–"; }, 1], ["Next due", function (i) { return dueTag(i.details.next_due); }],
         ["Ends", function (i) { return dt(i.details.maturity); }], ["Value", function (i) { return inr.format(itemValue(i)); }, 1]] },
     trading: { kinds: ["trading"], word: "broker", fields: [["name", "Broker", "select", ["Zerodha", "Angel One", "5 Paisa", "Upstox", "Groww", "Other"]], ["institution", "Account / client ID (optional)", "text"], ["value", "Cash balance (₹)", "money"], ["as_of", "Balance as of", "date"], ["margin", "Margin used (₹, optional)", "money", "d"]],
-      cols: [["Broker", function (i) { return esc(i.name) + "<small>" + esc(i.institution || "") + "</small>"; }], ["Margin used", function (i) { return money(i.details.margin); }, 1], ["Cash balance", function (i) { return inr.format(itemValue(i)); }, 1], ["As of", function (i) { return fmtDate(i.as_of); }]] }
+      cols: [["Broker", function (i) { return esc(i.name) + "<small>" + esc(i.institution || "") + "</small>"; }], ["Margin used", function (i) { return money(i.details.margin); }, 1], ["Cash balance", function (i) { var c = mfCredits(i); return inr.format(itemValue(i)) + (c.sum ? "<small>" + inr.format(Number(i.value) || 0) + " entered + " + inr.format(c.sum) + " from " + c.list.length + " fund redemption" + (c.list.length > 1 ? "s" : "") + "</small>" : ""); }, 1], ["As of", function (i) { return fmtDate(i.as_of); }]] }
   };
   var ITEM_TABS = Object.keys(ITEM_CFG);
   var dt = function (d) { return d ? fmtDate(d) : "–"; };
@@ -4076,7 +4095,7 @@
       }).join("") + "</tbody>" : '<tbody><tr><td class="empty">Nothing added yet. Use the button above to add one.</td></tr></tbody>';
     $(tab + "-note").textContent = tab === "gold" ? "Gold value moves with the 24k rate every day; 22k is counted at 22/24 and 18k at 18/24 of it." :
       tab === "epf" ? "Months in italics are estimated: each month's contribution is added on the 20th of the next month, with interest at the PF rate. When the statement arrives, enter that month's real figures in the last line and the estimate is replaced." :
-      tab === "trading" ? "Update these balances from your broker's funds page when they change." : "Update the balance whenever you get a new statement.";
+      tab === "trading" ? "Fund redemptions are added to the broker you pick when you record them. When you update a balance from your broker's funds page, give it today's date so those redemptions aren't counted again." : "Update the balance whenever you get a new statement.";
   }
   function renderEpf(list) {
     var f0 = function (n) { return n ? inr.format(n) : "–"; };
