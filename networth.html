@@ -355,6 +355,13 @@
   .ips-t.ips-mon { table-layout: auto; }
   .ips-mon td:nth-child(5) { min-width: 175px; }
   .ips-mon td:nth-child(9) { min-width: 140px; }
+  #ips-buy, #ips-sell { table-layout: auto; }
+  #ips-buy col, #ips-sell col { width: auto !important; }
+  #ips-buy th, #ips-sell th, #ips-buy tr.ips-row td, #ips-sell tr.ips-row td { white-space: nowrap; }
+  #ips-buy td.num small, #ips-sell td.num small { display: inline; margin-left: 6px; }
+  .ips-id { margin-bottom: 6px; }
+  .ips-id small { display: block; }
+  .ips-id small.full { color: var(--text); opacity: 0.85; font-size: 0.8rem; }
   .ips-act { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; white-space: nowrap; }
   .ips-act.buy { background: rgba(143,209,158,.15); color: #8fd19e; }
   .ips-act.sell { background: rgba(224,122,122,.15); color: #e07a7a; }
@@ -2215,9 +2222,9 @@
     };
     var line = function (x, key) {
       var open = !!ips.open[key];
-      return '<tr class="ips-row' + (open ? " open" : "") + '" data-ipsrow="' + key + '" title="Click to ' + (open ? "hide" : "see") + ' the rationale"><td class="fn"><span class="chev">' + (open ? "▾" : "▸") + "</span><b>" + (x.fund ? esc(x.fund) : "–") + "</b>" + (x.isNew ? '<span class="ips-new">New</span>' : "") + nameCell(x) + "</td><td>" + esc(x.category || "") + '</td><td class="num">' + (x.units ? num3.format(x.units) : "–") +
+      return '<tr class="ips-row' + (open ? " open" : "") + '" data-ipsrow="' + key + '" title="Click to ' + (open ? "hide" : "see") + ' the rationale"><td class="fn"><span class="chev">' + (open ? "▾" : "▸") + "</span><b>" + (x.fund ? esc(x.fund) : "–") + "</b>" + (x.isNew ? '<span class="ips-new">New</span>' : "") + "</td><td>" + esc(x.category || "") + '</td><td class="num">' + (x.units ? num3.format(x.units) : "–") +
         '</td><td class="num">' + (x.avg_nav ? inr2.format(x.avg_nav) : "–") + '</td><td class="num">' + navCell(x) + '</td><td><span class="ips-act ' + (x.kind || "") + '">' + esc(x.action) + '</span>' + (x.status ? ' <span class="ips-st" title="Not an instruction to act: the §D.4 gates and the tax view are still unverified (§M.5)">' + esc(x.status) + "</span>" : "") + '</td><td class="num">' + (x.amount ? inr.format(x.amount) : "–") + "</td></tr>" +
-        (open ? '<tr class="ips-detail"><td colspan="7">' + esc(x.why) + "</td></tr>" : "");
+        (open ? '<tr class="ips-detail"><td colspan="7">' + (nameCell(x) ? '<div class="ips-id">' + nameCell(x) + "</div>" : "") + esc(x.why) + "</td></tr>" : "");
     };
     var tbl = function (list, pre, empty) {
       if (!list || !list.length) return '<tbody><tr><td class="empty">' + empty + "</td></tr></tbody>";
