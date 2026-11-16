@@ -360,6 +360,15 @@
   #ips-buy th, #ips-sell th, #ips-buy tr.ips-row td, #ips-sell tr.ips-row td { white-space: nowrap; }
   #ips-buy td.num small, #ips-sell td.num small { display: inline; margin-left: 6px; }
   .ips-id { margin-bottom: 6px; }
+  #mf-table th, #mf-table tr.fund td { white-space: nowrap; }
+  #mf-table tr.fund td.fn { min-width: 0; }
+  #mf-table td.fn b.nm { display: block; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #mf-table th, #mf-table tr.fund td, #mf-table tfoot td { padding-left: 7px; padding-right: 7px; }
+  #mf-table tr.fund td { font-size: 0.86rem; }
+  #mf-table tr.fund td.num small { display: inline; margin-left: 6px; font-size: 0.72rem; }
+  .mf-id { padding: 10px 0 8px; }
+  .mf-id .full { display: block; font-size: 0.84rem; color: var(--text); }
+  .mf-id small { display: block; margin-top: 2px; font-size: 0.72rem; color: var(--muted); }
   .ips-id small { display: block; }
   .ips-id small.full { color: var(--text); opacity: 0.85; font-size: 0.8rem; }
   .ips-act { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; white-space: nowrap; }
@@ -2174,18 +2183,22 @@
     if (typeof sips !== "undefined" && sips.view && st.txns.length) sipsReprice();
   }
   // Full scheme name, ISIN and the latest AMFI NAV for the funds in the plan, so the right variant gets bought
-  var mfNavInfo = {};
+  var mfNavInfo = {}, mfNavQ = [];
   async function mfNavFetch(codes) {
-    var need = codes.filter(function (c, i) { return codes.indexOf(c) === i && !mfNavInfo[c]; });
-    if (!need.length || mfNavInfo._busy) return;
+    codes.forEach(function (c) { if (c && !mfNavInfo[c] && mfNavQ.indexOf(c) < 0) mfNavQ.push(c); });
+    if (mfNavInfo._busy || !mfNavQ.length) return;
     mfNavInfo._busy = true;
-    try {
-      var r = await sb.functions.invoke("mf-nav", { body: { codes: need } });
-      var d = (r.data && r.data.funds) || {};
-      need.forEach(function (c) { mfNavInfo[c] = d[c] || { missing: true }; });
-    } catch (e) { need.forEach(function (c) { mfNavInfo[c] = { missing: true }; }); }
+    while (mfNavQ.length) {
+      var need = mfNavQ.splice(0);
+      try {
+        var r = await sb.functions.invoke("mf-nav", { body: { codes: need } });
+        var d = (r.data && r.data.funds) || {};
+        need.forEach(function (c) { mfNavInfo[c] = d[c] || { missing: true }; });
+      } catch (e) { need.forEach(function (c) { mfNavInfo[c] = { missing: true }; }); }
+    }
     mfNavInfo._busy = false;
     renderIPS();
+    if (mf.funds && mf.funds.length) renderMF();
   }
   function renderIPS() {
     var box = $("ips-box"); if (!box) return;
@@ -2769,19 +2782,23 @@
       }).join("") + "</tbody>";
     $("mf-note").textContent = "NAVs update automatically every night from AMFI. Gains are before tax; redemptions use the oldest units first (FIFO).";
     mfDash({ rows: rows, held: held, exited: exited, T: T, X: X, gain: gain, cats: cats });
+    mfNavFetch(rows.map(function (r) { return Number(r.f.scheme_code) || null; }).filter(Boolean));
     renderNetWorth();
     fillFundSelect();
   }
   function fundRow(r, tot) {
-    var g = r.gain, w = tot ? r.value / tot : 0, open = mf.open[r.f.name];
-    return '<tr class="fund" data-mffund="' + esc(r.f.name) + '" title="Click to ' + (open ? "hide" : "see") + ' transactions"><td class="fn"><b>' + esc(shortFund(r.f.name)) + '</b><small class="full">' + esc(r.f.name) + "</small>" + (r.since ? "<small>Holding since " + fmtDate(r.since) + (r.f.scheme_code ? " · AMFI " + esc(r.f.scheme_code) : "") + "</small>" : "") +
+    var g = r.gain, w = tot ? r.value / tot : 0, open = mf.open[r.f.name], dn = r.pnav ? (r.nav - r.pnav) / r.pnav : 0;
+    return '<tr class="fund" data-mffund="' + esc(r.f.name) + '" title="' + esc(r.f.name) + " · click to " + (open ? "hide" : "see") + ' details and transactions"><td class="fn"><b class="nm">' + esc(shortFund(r.f.name)) + "</b>" +
       "</td><td>" + esc(r.f.category || "") + '</td><td class="num">' + num3.format(r.units) + '</td><td class="num">' + inr2.format(r.invested / r.units) + '</td><td class="num">' + inr.format(r.invested) +
-      '</td><td class="num">' + inr2.format(r.nav) + (r.pnav && r.nav !== r.pnav ? '<small class="dc ' + (r.nav >= r.pnav ? "pos" : "neg") + '">' + (r.nav >= r.pnav ? "+" : "") + (r.nav - r.pnav).toFixed(2) + " (" + pct((r.nav - r.pnav) / r.pnav) + ")</small>" : "") +
-      '</td><td class="num">' + inr.format(r.value) + (r.day ? '<small class="dc ' + (r.day >= 0 ? "pos" : "neg") + '">' + (r.day > 0 ? "+" : "") + inr.format(r.day) + " today</small>" : "") + '</td><td class="num ' + (g >= 0 ? "pos" : "neg") + '">' + inr.format(g) + "<br><small>" + pct(r.invested ? g / r.invested : NaN) +
+      '</td><td class="num">' + inr2.format(r.nav) + (r.pnav && r.nav !== r.pnav ? '<small class="dc ' + (dn >= 0 ? "pos" : "neg") + '">' + pct(dn) + "</small>" : "") +
+      '</td><td class="num">' + inr.format(r.value) +
+      '</td><td class="num ' + (g >= 0 ? "pos" : "neg") + '">' + inr.format(g) + "<small>" + pct(r.invested ? g / r.invested : NaN) +
       '</small></td><td class="num">' + (isFinite(r.xirr) ? (r.xirr * 100).toFixed(1) + "%" : "–") + '</td><td class="num">' + (w * 100).toFixed(1) + "%</td></tr>" + (open ? txRows(r, 10) : "");
   }
   function txRows(r, span) {
-    return '<tr class="tx"><td colspan="' + span + '"><table class="tx-inner"><thead><tr><th>Date</th><th>Type</th><th class="num">NAV</th><th class="num">Units</th><th class="num">Amount</th><th></th></tr></thead><tbody>' +
+    var i = r.f.scheme_code ? mfNavInfo[Number(r.f.scheme_code)] : null;
+    var idn = '<div class="mf-id"><span class="full">' + esc(i && i.full ? i.full : r.f.name) + "</span><small>" + [r.since && r.units ? "Holding since " + fmtDate(r.since) : "", i && i.isin ? "ISIN " + esc(i.isin) : "", r.f.scheme_code ? "AMFI code " + esc(r.f.scheme_code) : "", i && i.amc ? esc(i.amc) : "", r.f.nav_date ? "NAV of " + fmtDate(r.f.nav_date) + (r.pnav && r.nav !== r.pnav ? ", " + (r.nav >= r.pnav ? "+" : "") + (r.nav - r.pnav).toFixed(2) + " on the day" + (r.day ? " (" + (r.day > 0 ? "+" : "") + inr.format(r.day) + " on your units)" : "") : "") : ""].filter(Boolean).join(" · ") + "</small></div>";
+    return '<tr class="tx"><td colspan="' + span + '">' + idn + '<table class="tx-inner"><thead><tr><th>Date</th><th>Type</th><th class="num">NAV</th><th class="num">Units</th><th class="num">Amount</th><th></th></tr></thead><tbody>' +
       r.tx.slice().reverse().map(function (t) {
         var buy = Number(t.units) > 0;
         return "<tr><td>" + fmtDate(t.txn_date) + '</td><td class="' + (buy ? "" : "neg") + '">' + (buy ? "Buy" : "Redeem") + '</td><td class="num">' + inr2.format(t.nav) + '</td><td class="num">' + num3.format(Math.abs(t.units)) +
