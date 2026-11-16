@@ -843,6 +843,8 @@
   .dg #mbm-table tbody tr.dg-m:hover > td { background: var(--panel-2); }
   .dg #mbm-table th:first-child, .dg #mbm-table td:first-child { position: sticky; left: 0; z-index: 1; background: var(--panel); box-shadow: 1px 0 0 var(--line); min-width: 150px; white-space: normal; }
   .dg #mbm-table thead th:first-child { z-index: 3; background: #2D2621; }
+  .dg #mbm-table tbody tr.dg-m:nth-child(4n+1) > td:first-child { background: #2D2721; }
+  .dg #mbm-table tbody tr.dg-m:hover > td:first-child { background: var(--panel-2); }
   .dg #mbm-table td.dg-ta, .dg #mbm-table td.dg-tl { color: var(--muted); }
   .dg #mbm-table .dg-caret { display: inline-block; width: 14px; color: var(--muted); font-size: 0.75rem; }
   .dg #mbm-table tr.dg-det > td { padding: 0 0 12px 18px; background: var(--bg); white-space: normal; position: static; box-shadow: none; }
@@ -980,10 +982,8 @@
 
       <section class="card sec" aria-label="Net worth month by month">
         <div class="list-h"><h2>Net worth month by month</h2></div>
-        <p class="dg-tbl-cap" data-ux>Each row shows closing balances: the last record saved in that month (the latest day for this month). Select a row to see that month's opening and closing records.</p>
         <div class="table-wrap" role="region" aria-label="Month by month table"><table id="mbm-table"></table></div>
         <div style="margin-top:10px"><button class="sec-link" type="button" id="mbm-more" hidden></button></div>
-        <div class="mf-note">Tracking starts from 1 Nov 2026. Each month shows its last recorded day. Change is against the previous month's close; for November 2026 it is against the 1 Nov opening value. Card dues are subtracted, and Loans &amp; advances is money lent minus money owed. The current month updates every time you open the tracker.</div>
       </section>
       </div>
       <section class="xp-wrap" aria-label="Other holdings">
