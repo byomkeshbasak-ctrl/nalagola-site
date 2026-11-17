@@ -346,6 +346,20 @@
   .ind-controls { display: grid; grid-template-columns: 150px 190px 190px minmax(0, 1fr); gap: 10px; margin-bottom: 12px; align-items: end; }
   @media (max-width: 760px) { .ind-controls { grid-template-columns: 1fr 1fr; } }
   .ind-controls input, .ind-controls select { padding: 8px 10px; font-size: 0.88rem; }
+  .stm-controls { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: end; margin-bottom: 10px; }
+  .stm-controls label { display: grid; gap: 4px; font-size: 0.76rem; color: var(--muted); }
+  .stm-controls input { padding: 8px 10px; font-size: 0.88rem; }
+  .stm-h { margin: 18px 0 8px; font-size: 0.95rem; }
+  .stm-t th, .stm-t td { white-space: nowrap; }
+  .stm-t td.num, .stm-t th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .stm-t tr.grp { cursor: pointer; }
+  .stm-t tr.grp:hover td { background: var(--panel-2); }
+  .stm-t tr.grp td:first-child::before { content: "▸ "; color: var(--muted); }
+  .stm-t tr.grp.sel td:first-child::before { content: "▾ "; }
+  .stm-t td.tp { color: var(--muted); font-size: 0.8rem; }
+  .stm-t tfoot td { color: var(--gold); }
+  .stm-t .sub-table select { padding: 3px 6px; font-size: 0.78rem; }
+  .stm-t .sub-table td { white-space: nowrap; }
   .ind-cases { margin-bottom: 14px; padding: 14px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--bg); }
   .ind-cases h3 { font-size: 0.85rem; font-weight: 600; margin: 4px 0 8px; }
   .ind-cases .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-bottom: 10px; }
@@ -900,6 +914,7 @@
       <button class="tab" role="tab" id="tab-items" aria-controls="pane-items" data-tab="items" aria-selected="false">Items &amp; costs</button>
       <button class="tab" role="tab" id="tab-indent" aria-controls="pane-indent" data-tab="indent" aria-selected="false">Indent</button>
       <button class="tab" role="tab" id="tab-bar" aria-controls="pane-bar" data-tab="bar" aria-selected="false">Bar counter</button>
+      <button class="tab" role="tab" id="tab-stmt" aria-controls="pane-stmt" data-tab="stmt" aria-selected="false">Stock statement</button>
     </nav>
 
     <!-- ===== Monthly dashboard ===== -->
@@ -1052,6 +1067,27 @@
         </div>
         <form id="ind-cases" class="ind-cases" hidden></form>
         <div class="table-wrap" role="region" aria-label="Indent" tabindex="0"><table id="ind-table" aria-label="Indent"></table></div>
+      </div>
+    </section>
+
+    <!-- ===== Stock statement ===== -->
+    <section id="pane-stmt" role="tabpanel" hidden>
+      <div class="card" style="margin-top:18px">
+        <div class="list-head">
+          <h2>Stock statement</h2>
+          <div class="seg" id="stm-unit" role="group" aria-label="Show stock in"><button type="button" data-u="bl" aria-pressed="true">Litres (BL)</button><button type="button" data-u="pcs" aria-pressed="false">Bottles (PCS)</button></div>
+          <button class="ghost" type="button" id="stm-csv">Export CSV</button>
+        </div>
+        <div class="stm-controls">
+          <label>From date <input type="date" id="stm-from"></label>
+          <label>To date <input type="date" id="stm-to"></label>
+          <div class="seg stm-quick" id="stm-quick" role="group" aria-label="Quick dates"><button type="button" data-q="day" aria-pressed="false">Latest day</button><button type="button" data-q="month" aria-pressed="false">This month</button><button type="button" data-q="prev" aria-pressed="false">Last month</button></div>
+        </div>
+        <p class="hint" id="stm-basis">Loading…</p>
+        <h3 class="stm-h">By category</h3>
+        <div class="table-wrap" role="region" aria-label="Stock by category" tabindex="0"><table id="stm-type" class="stm-t"></table></div>
+        <h3 class="stm-h">By sub-category</h3>
+        <div class="table-wrap" role="region" aria-label="Stock by sub-category" tabindex="0"><table id="stm-grp" class="stm-t"></table></div>
       </div>
     </section>
 
@@ -1413,7 +1449,9 @@
     $("pane-book").hidden = tab !== "book";
     $("pane-indent").hidden = tab !== "indent";
     $("pane-bar").hidden = tab !== "bar";
+    $("pane-stmt").hidden = tab !== "stmt";
     if (tab === "bar") renderBar();
+    if (tab === "stmt") loadStatement();
     if (tab === "indent") loadIndent();
     if (tab === "items") loadOrders();
     if (LEDGERS[tab]) { renderForm(); renderLedger(); }
@@ -3824,6 +3862,146 @@
     try { if (toNum(this.value) > 0) localStorage.setItem("ind-days", String(Math.round(toNum(this.value)))); } catch (x) {}
     renderIndent();
   });
+  // ---------- Stock statement: cumulative opening, purchase, sale and closing over a date range ----------
+  // Litres = bottles x size (750 ml = 0.75 L). Groups follow the shop software's statement.
+  var STM_GROUPS = [
+    ["Whisky (IMFL)", "FL"], ["Rum (IMFL)", "FL"], ["Vodka (IMFL)", "FL"], ["Brandy (IMFL)", "FL"], ["Gin (IMFL)", "FL"],
+    ["Whisky (OSBI)", "FL"], ["Wine", "FL"], ["Beer (India)", "BEER"], ["50 UP IML", "IML"], ["60 UP IML", "IML"], ["70 UP IML", "IML"],
+    ["IML (strength not set)", "IML"], ["Uncategorized", "FL"]
+  ];
+  var STM_TYPE = {}; STM_GROUPS.forEach(function (g) { STM_TYPE[g[0]] = g[1]; });
+  var STM_CAT = { "Whisky": "Whisky (IMFL)", "Rum": "Rum (IMFL)", "Vodka": "Vodka (IMFL)", "Brandy": "Brandy (IMFL)", "Gin": "Gin (IMFL)",
+    "Overseas Spirits": "Whisky (OSBI)", "Wines": "Wine", "Wine": "Wine", "Beer": "Beer (India)", "Country Spirits": "IML (strength not set)" };
+  var stm = { rows: [], map: {}, unit: "bl", open: null, latest: null, from: null, to: null, days: 0, busy: false };
+  function stmGroup(r) {
+    var g = stm.map[r.brand] || stm.map[r.item_name];
+    return g && STM_TYPE[g] ? g : (STM_CAT[r.category] || "Uncategorized");
+  }
+  function stmQty(r, k) { var q = Number(r[k]) || 0; return stm.unit === "pcs" ? q : q * (Number(r.size_ml) || 0) / 1000; }
+  var stmFmt = function (v) { return stm.unit === "pcs" ? Math.round(v).toLocaleString("en-IN") : v.toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 }); };
+  function stmMonthStart(d) { return d.slice(0, 8) + "01"; }
+  function stmPrevMonth(d) {
+    var y = +d.slice(0, 4), m = +d.slice(5, 7) - 1; if (m === 0) { m = 12; y--; }
+    var mm = String(m).padStart(2, "0"), last = new Date(y, m, 0).getDate();
+    return [y + "-" + mm + "-01", y + "-" + mm + "-" + String(last).padStart(2, "0")];
+  }
+  async function loadStatement() {
+    if (!stm.latest) {
+      var q = await Promise.all([
+        sb.from("stock_reports").select("report_date").order("report_date", { ascending: false }).limit(1),
+        sb.from("stock_group_map").select("brand, grp")
+      ]);
+      stm.latest = q[0].data && q[0].data[0] ? q[0].data[0].report_date : todayISO();
+      (q[1].data || []).forEach(function (x) { stm.map[x.brand] = x.grp; });
+      stm.from = stmMonthStart(stm.latest); stm.to = stm.latest;
+      $("stm-from").value = stm.from; $("stm-to").value = stm.to;
+    }
+    await stmFetch();
+  }
+  async function stmFetch() {
+    var f = $("stm-from").value, t = $("stm-to").value;
+    if (!f || !t) return;
+    if (f > t) { var x = f; f = t; t = x; $("stm-from").value = f; $("stm-to").value = t; }
+    stm.from = f; stm.to = t; stm.busy = true; stmQuick();
+    $("stm-basis").textContent = "Loading…";
+    var r = await sb.rpc("stock_statement", { d1: f, d2: t });
+    stm.busy = false;
+    if (r.error) { $("stm-basis").textContent = "Could not load the stock reports: " + r.error.message; stm.rows = []; stmRender(); return; }
+    stm.rows = r.data || []; stm.days = stm.rows.length ? stm.rows[0].days : 0;
+    stmRender();
+  }
+  function stmQuick() {
+    var m = stmMonthStart(stm.latest || todayISO()), p = stmPrevMonth(stm.latest || todayISO());
+    var on = stm.from === stm.latest && stm.to === stm.latest ? "day" : stm.from === m && stm.to === stm.latest ? "month" : stm.from === p[0] && stm.to === p[1] ? "prev" : "";
+    $("stm-quick").querySelectorAll("button").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.q === on ? "true" : "false"); });
+  }
+  function stmCalc() {
+    var by = {}, ty = {};
+    stm.rows.forEach(function (r) {
+      var g = stmGroup(r), t = STM_TYPE[g];
+      [[by, g], [ty, t]].forEach(function (p) {
+        var o = p[0][p[1]] || (p[0][p[1]] = { op: 0, si: 0, so: 0, cl: 0, items: [] });
+        o.op += stmQty(r, "opening"); o.si += stmQty(r, "stock_in"); o.so += stmQty(r, "stock_out"); o.cl += stmQty(r, "closing");
+        if (p[0] === by) o.items.push(r);
+      });
+    });
+    return { by: by, ty: ty };
+  }
+  function stmRender() {
+    var c = stmCalc(), unit = stm.unit === "pcs" ? "bottles" : "litres";
+    var span = stm.from === stm.to ? fmtLong(stm.from) : fmtLong(stm.from) + " to " + fmtLong(stm.to);
+    var calDays = Math.round((Date.parse(stm.to) - Date.parse(stm.from)) / 86400000) + 1;
+    $("stm-basis").textContent = !stm.rows.length ? "No stock report uploaded for " + span + "." :
+      span + " · " + stm.days + " of " + calDays + " day" + (calDays === 1 ? "" : "s") + " have a stock report · figures in " + unit +
+      (stm.days < calDays ? ". Opening is from the first report in the range and closing from the last." : "");
+    var head = function (first) { return "<thead><tr><th>" + first + '</th><th class="num">Opening</th><th class="num">Purchase</th><th class="num">Sale</th><th class="num">Closing</th></tr></thead>'; };
+    var cells = function (o) { return '<td class="num">' + stmFmt(o.op) + '</td><td class="num">' + stmFmt(o.si) + '</td><td class="num">' + stmFmt(o.so) + '</td><td class="num">' + stmFmt(o.cl) + "</td>"; };
+    var tot = { op: 0, si: 0, so: 0, cl: 0 };
+    ["FL", "BEER", "IML"].forEach(function (k) { var o = c.ty[k]; if (o) ["op", "si", "so", "cl"].forEach(function (f) { tot[f] += o[f]; }); });
+    var foot = '<tfoot><tr><td>Total</td>' + cells(tot) + "</tr></tfoot>";
+    if (!stm.rows.length) { $("stm-type").innerHTML = '<tr><td class="empty">Nothing to show for these dates.</td></tr>'; $("stm-grp").innerHTML = ""; return; }
+    $("stm-type").innerHTML = head("Category") + "<tbody>" + ["FL", "BEER", "IML"].map(function (k) {
+      var o = c.ty[k] || { op: 0, si: 0, so: 0, cl: 0 };
+      return "<tr><td>" + (k === "BEER" ? "Beer" : k) + "</td>" + cells(o) + "</tr>";
+    }).join("") + "</tbody>" + foot;
+    var gsel = function (r) {
+      var g = stmGroup(r);
+      return '<select data-brand="' + esc(r.brand || r.item_name) + '" aria-label="Sub-category for ' + esc(r.brand || r.item_name) + '">' +
+        STM_GROUPS.filter(function (x) { return x[0] !== "Uncategorized" && x[0] !== "IML (strength not set)" || x[0] === g; })
+          .map(function (x) { return "<option" + (x[0] === g ? " selected" : "") + ">" + esc(x[0]) + "</option>"; }).join("") + "</select>";
+    };
+    $("stm-grp").innerHTML = '<thead><tr><th>Sub-category</th><th>Category</th><th class="num">Opening</th><th class="num">Purchase</th><th class="num">Sale</th><th class="num">Closing</th></tr></thead><tbody>' +
+      STM_GROUPS.filter(function (g) { var o = c.by[g[0]]; return o && (o.op || o.si || o.so || o.cl || /^(Whisky|Rum|Vodka|Beer)/.test(g[0])); }).map(function (g) {
+        var o = c.by[g[0]], open = stm.open === g[0];
+        var row = '<tr class="grp' + (open ? " sel" : "") + '" data-grp="' + esc(g[0]) + '"><td>' + esc(g[0]) + '</td><td class="tp">' + (g[1] === "BEER" ? "Beer" : g[1]) + "</td>" + cells(o) + "</tr>";
+        if (open) {
+          var items = o.items.slice().sort(function (a, b) { return (a.brand || "").localeCompare(b.brand || "") || (b.size_ml - a.size_ml) || a.item_name.localeCompare(b.item_name); });
+          row += '<tr class="sub-row"><td colspan="6"><table class="sub-table"><thead><tr><th>Item</th><th class="num">Size</th><th class="num">Opening</th><th class="num">Purchase</th><th class="num">Sale</th><th class="num">Closing</th><th>Sub-category</th></tr></thead><tbody>' +
+            items.map(function (r) {
+              return "<tr><td>" + esc(r.item_name) + '</td><td class="num">' + (r.size_ml || "–") + ' ml</td><td class="num">' + stmFmt(stmQty(r, "opening")) + '</td><td class="num">' + stmFmt(stmQty(r, "stock_in")) +
+                '</td><td class="num">' + stmFmt(stmQty(r, "stock_out")) + '</td><td class="num">' + stmFmt(stmQty(r, "closing")) + "</td><td>" + gsel(r) + "</td></tr>";
+            }).join("") + "</tbody></table></td></tr>";
+        }
+        return row;
+      }).join("") + "</tbody>" + foot.replace("<td>Total</td>", "<td>Total</td><td></td>");
+  }
+  $("stm-from").addEventListener("change", stmFetch);
+  $("stm-to").addEventListener("change", stmFetch);
+  $("stm-quick").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-q]"); if (!b) return;
+    var L = stm.latest || todayISO(), p = stmPrevMonth(L);
+    var r = b.dataset.q === "day" ? [L, L] : b.dataset.q === "month" ? [stmMonthStart(L), L] : p;
+    $("stm-from").value = r[0]; $("stm-to").value = r[1]; stmFetch();
+  });
+  $("stm-unit").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-u]"); if (!b) return;
+    stm.unit = b.dataset.u;
+    this.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+    stmRender();
+  });
+  $("stm-grp").addEventListener("click", function (e) {
+    if (e.target.closest("select")) return;
+    var tr = e.target.closest("tr.grp"); if (!tr) return;
+    stm.open = stm.open === tr.dataset.grp ? null : tr.dataset.grp; stmRender();
+  });
+  $("stm-grp").addEventListener("change", async function (e) {
+    var s = e.target.closest("select[data-brand]"); if (!s) return;
+    var brand = s.dataset.brand, grp = s.value, was = stm.map[brand];
+    stm.map[brand] = grp; stmRender();
+    var r = await sb.from("stock_group_map").upsert({ brand: brand, grp: grp, updated_at: new Date().toISOString() });
+    if (r.error) { if (was) stm.map[brand] = was; else delete stm.map[brand]; stmRender(); toast("Could not save: " + r.error.message); return; }
+    toast(brand + " now counts under " + grp + ".");
+  });
+  $("stm-csv").addEventListener("click", function () {
+    if (!stm.rows.length) { toast("Nothing to export."); return; }
+    var c = stmCalc(), u = stm.unit === "pcs" ? "bottles" : "litres", f = function (v) { return stm.unit === "pcs" ? Math.round(v) : v.toFixed(3); };
+    var rows = [];
+    ["FL", "BEER", "IML"].forEach(function (k) { var o = c.ty[k]; if (o) rows.push(["Category", k === "BEER" ? "Beer" : k, "", f(o.op), f(o.si), f(o.so), f(o.cl)]); });
+    STM_GROUPS.forEach(function (g) { var o = c.by[g[0]]; if (o) rows.push(["Sub-category", g[0], g[1] === "BEER" ? "Beer" : g[1], f(o.op), f(o.si), f(o.so), f(o.cl)]); });
+    stm.rows.forEach(function (r) { var g = stmGroup(r); rows.push(["Item", r.item_name, g, f(stmQty(r, "opening")), f(stmQty(r, "stock_in")), f(stmQty(r, "stock_out")), f(stmQty(r, "closing"))]); });
+    downloadCSV("nalagola-stock-statement-" + stm.from + "-to-" + stm.to + "-" + u + ".csv", ["Level", "Name", "Category / sub-category", "Opening (" + u + ")", "Purchase (" + u + ")", "Sale (" + u + ")", "Closing (" + u + ")"], rows);
+  });
+
   $("ind-csv").addEventListener("click", function () {
     var all = indentCalc().filter(function (r) { return r.units > 0; });
     if (!all.length) { toast("Nothing to order."); return; }
