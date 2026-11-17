@@ -382,6 +382,17 @@
   #ind-table tr:hover .ind-stop, .ind-stop:focus-visible, #ind-table tr.stopped .ind-stop { opacity: 1; }
   @media (hover: none) { .ind-stop { opacity: 1; } }
   .ind-stop:hover { color: var(--gold); }
+  .ind-add { min-height: 30px; padding: 4px 12px; font-size: 0.78rem; border-radius: 8px; white-space: nowrap; }
+  .ind-add.in { background: none; border: 1px solid var(--line); color: var(--green); }
+  .ind-add.upd { border-color: var(--gold); color: var(--gold); background: none; }
+  #inv-table td.item { min-width: 210px; }
+  #inv-table tr.cat-row td { background: var(--panel-2); font-weight: 600; font-size: 0.8rem; color: var(--gold); letter-spacing: 0.04em; }
+  #inv-table th, #inv-table td { white-space: nowrap; }
+  #inv-table td.order { font-weight: 600; color: var(--gold); }
+  .inv-rm { background: none; border: 0; color: var(--muted); font-size: 0.78rem; text-decoration: underline; cursor: pointer; }
+  .inv-rm:hover { color: var(--red); }
+  .inv-n { flex: 1; font-size: 0.8rem; color: var(--muted); }
+  #inv-card .list-head h2 { flex: 0 0 auto; }
   #ind-table tr.stopped td { color: var(--muted); }
   #ind-table tr.stopped td.item { text-decoration: none; }
   tr.missing td { color: var(--muted); font-style: italic; }
@@ -1067,6 +1078,15 @@
         </div>
         <form id="ind-cases" class="ind-cases" hidden></form>
         <div class="table-wrap" role="region" aria-label="Indent" tabindex="0"><table id="ind-table" aria-label="Indent"></table></div>
+      </div>
+      <div class="card" id="inv-card" style="margin-top:18px">
+        <div class="list-head">
+          <h2>Final invoice</h2>
+          <span class="inv-n" id="inv-n"></span>
+          <button class="ghost" type="button" id="inv-csv">Export CSV</button>
+          <button class="ghost" type="button" id="inv-clear">Clear invoice</button>
+        </div>
+        <div class="table-wrap" role="region" aria-label="Final invoice" tabindex="0"><table id="inv-table" aria-label="Final invoice"></table></div>
       </div>
     </section>
 
@@ -3658,7 +3678,7 @@
   var IND_DEFAULT_CASES = { "spirits:750": 12, "spirits:600": 20, "spirits:500": 18, "spirits:375": 24, "spirits:330": 24, "spirits:300": 30, "spirits:180": 48,
     "beer:650": 12, "beer:500": 24, "beer:330": 24, "country:375": 32 };
   var IND_CAT_ORDER = ["Whisky", "Rum", "Vodka", "Gin", "Brandy", "Overseas Spirits", "Country Spirits", "Beer", "Wines", "Other"];
-  state.ind = { rows: [], cases: {}, sort: "cat", dir: 1, latest: null, days: 0, from: null, ovr: {}, stopped: {}, stopLocal: false };
+  state.ind = { rows: [], cases: {}, sort: "cat", dir: 1, latest: null, days: 0, from: null, ovr: {}, stopped: {}, stopLocal: false, inv: {} };
   // Items the shop no longer orders. Saved in Supabase (indent_stopped); if that table isn't there yet, kept in this browser.
   var stopKey = function (name) { return cleanName(name); };
   function loadStoppedLocal() { try { return JSON.parse(localStorage.getItem("ind-stopped") || "{}") || {}; } catch (x) { return {}; } }
@@ -3689,9 +3709,11 @@
     var q = await Promise.all([
       fetchAll(function () { return sb.from("stock_report_lines").select("report_date,item_name,mrp,stock_out,closing_stock,cost_price,size_ml,category").gte("report_date", from).lte("report_date", latest).order("report_date").order("item_name"); }),
       sb.from("case_sizes").select("*"),
-      sb.from("indent_stopped").select("item_name")
+      sb.from("indent_stopped").select("item_name"),
+      sb.from("indent_invoice").select("*")
     ]);
     if (q[0].error) { toast("Couldn't load the stock for the indent: " + q[0].error.message); return; }
+    state.ind.inv = {}; (q[3].data || []).forEach(function (x) { state.ind.inv[x.item_name] = x; });
     var cases = Object.assign({}, IND_DEFAULT_CASES);
     (q[1].data || []).forEach(function (c) { cases[c.kind + ":" + c.size_ml] = Number(c.bottles); });
     state.ind.cases = cases; state.ind.latest = latest; state.ind.from = from; loadIndOvr();
@@ -3751,7 +3773,46 @@
     });
   }
 
+  // Add button: puts the finalised cases / bottles on the final invoice (or updates them there)
+  function addBtn(r) {
+    if (r.stopped) return "";
+    var inv = (state.ind.inv || {})[r.name], u = r.units || 0;
+    if (inv && inv.units === u) return '<button class="ind-add in" type="button" data-iadd="' + esc(r.name) + '" disabled>Added ✓</button>';
+    if (inv) return '<button class="ind-add upd" type="button" data-iadd="' + esc(r.name) + '" title="Invoice has ' + inv.units + '; replace it with ' + u + '">' + (u ? "Update" : "Remove") + "</button>";
+    return u ? '<button class="ind-add primary" type="button" data-iadd="' + esc(r.name) + '">Add</button>' : "";
+  }
+  async function invSave(name, row) {
+    var r = row && row.units > 0 ? await sb.from("indent_invoice").upsert(Object.assign({}, row, { item_name: name, updated_at: new Date().toISOString() }), { onConflict: "item_name" })
+                                  : await sb.from("indent_invoice").delete().eq("item_name", name);
+    if (r.error) { toast("Couldn't save the invoice: " + r.error.message); return false; }
+    if (row && row.units > 0) state.ind.inv[name] = Object.assign({}, state.ind.inv[name] || {}, row, { item_name: name }); else delete state.ind.inv[name];
+    return true;
+  }
+  function invRows() {
+    var inv = state.ind.inv || {};
+    return Object.keys(inv).map(function (k) {
+      var x = inv[k], per = !!x.per_bottle, n = Number(x.case_n) || 1, u = Number(x.units) || 0, bottles = per ? u : u * n, cost = x.cost == null ? null : Number(x.cost);
+      return { name: k, cat: x.category || "Other", mrp: x.mrp == null ? null : Number(x.mrp), cost: cost, units: u, per: per, n: n, bottles: bottles, value: cost == null ? null : bottles * cost };
+    }).filter(function (r) { return r.units > 0; })
+      .sort(function (a, b) { return catRank(a.cat) - catRank(b.cat) || a.cat.localeCompare(b.cat) || a.name.localeCompare(b.name); });
+  }
+  function renderInvoice() {
+    var rows = invRows(), tbl = $("inv-table");
+    if (!rows.length) { $("inv-n").textContent = ""; tbl.innerHTML = '<tbody><tr><td class="empty">Nothing on the invoice yet. Set the cases or bottles in the indent above and press Add.</td></tr></tbody>'; return; }
+    var t = rows.reduce(function (a, r) { a.b += r.bottles; a.v += r.value || 0; if (r.per) a.ob += r.units; else a.c += r.units; return a; }, { b: 0, v: 0, c: 0, ob: 0 });
+    $("inv-n").textContent = rows.length + " item" + (rows.length === 1 ? "" : "s") + " · " + num.format(t.c) + " cases" + (t.ob ? " + " + t.ob + " bottles" : "") + " · " + inr.format(t.v);
+    var last = null;
+    tbl.innerHTML = '<thead><tr><th>Item</th><th class="num">MRP</th><th class="num">Cost price</th><th class="num">Order</th><th class="num">Bottles</th><th class="num">Order value</th><th></th></tr></thead><tbody>' +
+      rows.map(function (r) {
+        var pre = r.cat !== last ? '<tr class="cat-row"><td colspan="7">' + esc(r.cat) + "</td></tr>" : ""; last = r.cat;
+        var unit = r.per ? "bottle" : "case";
+        return pre + '<tr><td class="item">' + esc(r.name) + '</td><td class="num">' + (r.mrp == null ? "–" : inr2.format(r.mrp)) + '</td><td class="num">' + (r.cost == null ? '<span class="warn-t">not set</span>' : inr2.format(r.cost)) +
+          '</td><td class="num order"><input class="ind-in" type="number" min="0" step="1" inputmode="numeric" data-invname="' + esc(r.name) + '" value="' + r.units + '" aria-label="' + unit + 's on the invoice for ' + esc(r.name) + '"><span class="ind-unit">' + unit + (r.units === 1 ? "" : "s") + "</span>" +
+          '</td><td class="num">' + num.format(r.bottles) + '</td><td class="num">' + (r.value == null ? "–" : inr.format(r.value)) + '</td><td><button class="inv-rm" type="button" data-invrm="' + esc(r.name) + '">Remove</button></td></tr>';
+      }).join("") + '</tbody><tfoot><tr><td>Total</td><td></td><td></td><td class="num">' + num.format(t.c) + " cases" + (t.ob ? " + " + t.ob + " btl" : "") + '</td><td class="num">' + num.format(t.b) + '</td><td class="num">' + inr.format(t.v) + "</td><td></td></tr></tfoot>";
+  }
   function renderIndent() {
+    renderInvoice();
     var all = indentCalc(), show = $("ind-show").value, cat = $("ind-cat").value, q = $("ind-q").value.trim().toLowerCase();
     var minDays = all.length ? all[0].minDays : 15, n = state.ind.days;
     $("ind-title").textContent = "Indent for the next order";
@@ -3781,19 +3842,20 @@
       return dir * ((va == null ? -1 : va) - (vb == null ? -1 : vb)) || a.name.localeCompare(b.name);
     });
     var cols = [["name", "Item"], ["mrp", "MRP"], ["cost", "Cost price"], ["avg", "Avg / day"], ["stock", "Current stock"], ["daysLeft", "Days it lasts"],
-      ["short", "Short of " + minDays + " days"], ["units", "Order"], ["bottles", "Bottles"], ["value", "Order value"]];
+      ["short", "Short of " + minDays + " days"], ["units", "Order"], ["bottles", "Bottles"], ["value", "Order value"], ["", "Invoice"]];
     var tbl = $("ind-table");
     if (!rows.length) {
       tbl.innerHTML = '<tbody><tr><td class="empty">' + (show === "order" ? "Nothing to order: every item has at least " + minDays + " days of stock." : "No items match.") + "</td></tr></tbody>";
       return;
     }
     var head = "<thead><tr>" + cols.map(function (c, i) {
+      if (!c[0]) return "<th>" + c[1] + "</th>";
       return '<th data-isort="' + c[0] + '" class="' + (i ? "num" : "") + (key === c[0] ? " sorted" : "") + '">' + c[1] + (key === c[0] ? (dir > 0 ? " ↑" : " ↓") : "") + "</th>";
     }).join("") + "</tr></thead>";
     var lastCat = null, ft = { b: 0, v: 0, c: 0 };
     var body = rows.map(function (r) {
       var pre = "";
-      if (key === "cat" && r.cat !== lastCat) { lastCat = r.cat; pre = '<tr class="cat-row"><td colspan="10">' + esc(r.cat) + "</td></tr>"; }
+      if (key === "cat" && r.cat !== lastCat) { lastCat = r.cat; pre = '<tr class="cat-row"><td colspan="11">' + esc(r.cat) + "</td></tr>"; }
       ft.b += r.bottles; ft.v += r.value || 0; if (!r.cz.perBottle) ft.c += r.units;
       var unit = r.cz.perBottle ? "bottle" : "case";
       var orderCell = '<input class="ind-in' + (r.edited ? " edited" : "") + '" type="number" min="0" step="1" inputmode="numeric" data-iname="' + esc(r.name) + '" value="' + (r.units || "") + '" placeholder="0" aria-label="' + unit + 's to order">' +
@@ -3811,10 +3873,10 @@
         '</td><td class="num">' + r.avg.toFixed(1) + '</td><td class="num">' + num.format(r.stock) +
         '</td><td class="num ' + (r.low ? "neg" : "") + '">' + (r.daysLeft === Infinity ? "–" : r.daysLeft.toFixed(1)) +
         '</td><td class="num">' + (r.short >= 0.5 && !r.stopped ? Math.round(r.short) : "–") + '</td><td class="num order">' + orderCell +
-        '</td><td class="num">' + (r.bottles ? num.format(r.bottles) : "–") + '</td><td class="num">' + (r.bottles ? (r.value == null ? "–" : inr.format(r.value)) : "–") + "</td></tr>";
+        '</td><td class="num">' + (r.bottles ? num.format(r.bottles) : "–") + '</td><td class="num">' + (r.bottles ? (r.value == null ? "–" : inr.format(r.value)) : "–") + "</td><td>" + addBtn(r) + "</td></tr>";
     }).join("");
     tbl.innerHTML = head + "<tbody>" + body + '</tbody><tfoot><tr><td>Total</td><td></td><td></td><td></td><td></td><td></td><td></td><td class="num">' + num.format(ft.c) + " cases</td>" +
-      '<td class="num">' + num.format(ft.b) + '</td><td class="num">' + inr.format(ft.v) + "</td></tr></tfoot>";
+      '<td class="num">' + num.format(ft.b) + '</td><td class="num">' + inr.format(ft.v) + "</td><td></td></tr></tfoot>";
   }
   $("ind-table").addEventListener("click", function (e) {
     var th = e.target.closest("[data-isort]"); if (!th) return;
@@ -3856,6 +3918,39 @@
     if (state.ind.stopLocal) saveStoppedLocal();
     toast(stop ? name + " won't be ordered" : name + " is back on the indent");
     renderIndent();
+  });
+  $("ind-table").addEventListener("click", async function (e) {
+    var b = e.target.closest("[data-iadd]"); if (!b || b.disabled) return;
+    var r = indentCalc().find(function (x) { return x.name === b.dataset.iadd; }); if (!r) return;
+    b.disabled = true;
+    var ok = await invSave(r.name, { category: r.cat, mrp: r.mrp, cost: r.cost, units: r.units || 0, per_bottle: !!r.cz.perBottle, case_n: r.cz.perBottle ? 1 : r.cz.n });
+    if (ok) toast(r.units ? r.name + ": " + r.units + " " + (r.cz.perBottle ? "bottle" : "case") + (r.units === 1 ? "" : "s") + " on the invoice" : r.name + " taken off the invoice");
+    renderIndent();
+  });
+  $("inv-table").addEventListener("change", async function (e) {
+    var i = e.target.closest("[data-invname]"); if (!i) return;
+    var name = i.dataset.invname, cur = state.ind.inv[name], v = Math.max(0, Math.round(toNum(i.value)));
+    if (!cur || v === cur.units) return;
+    if (await invSave(name, v ? Object.assign({}, cur, { units: v }) : null)) toast(v ? name + " changed to " + v : name + " taken off the invoice");
+    renderIndent();
+  });
+  $("inv-table").addEventListener("keydown", function (e) { if (e.key === "Enter" && e.target.matches("[data-invname]")) e.target.blur(); });
+  $("inv-table").addEventListener("click", async function (e) {
+    var b = e.target.closest("[data-invrm]"); if (!b) return;
+    if (await invSave(b.dataset.invrm, null)) toast(b.dataset.invrm + " taken off the invoice");
+    renderIndent();
+  });
+  $("inv-clear").addEventListener("click", async function () {
+    var names = Object.keys(state.ind.inv || {}); if (!names.length) { toast("The invoice is already empty."); return; }
+    if (!confirm("Clear all " + names.length + " items from the final invoice?")) return;
+    var r = await sb.from("indent_invoice").delete().in("item_name", names);
+    if (r.error) { toast("Couldn't clear: " + r.error.message); return; }
+    state.ind.inv = {}; renderIndent(); toast("Invoice cleared");
+  });
+  $("inv-csv").addEventListener("click", function () {
+    var rows = invRows(); if (!rows.length) { toast("Nothing on the invoice."); return; }
+    downloadCSV("nalagola-invoice-" + todayISO() + ".csv", ["Item", "Category", "MRP", "Cost price", "Order", "Unit", "Bottles per case", "Bottles", "Order value"],
+      rows.map(function (r) { return [r.name, r.cat, r.mrp, r.cost, r.units, r.per ? "bottles" : "cases", r.per ? 1 : r.n, r.bottles, r.value]; }));
   });
   $("ind-q").addEventListener("input", renderIndent);
   $("ind-days").addEventListener("input", function () {
