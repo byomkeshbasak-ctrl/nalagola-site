@@ -4189,7 +4189,7 @@
         item_name: nm,
         brand: c.brand != null ? String(row[c.brand] || "").trim() : "",
         size_ml: c.size != null && toNum(row[c.size]) ? Math.round(toNum(row[c.size])) : "",
-        category: categoryOf(nm),
+        category: savedCategory(nm, toNum(row[c.mrp])) || categoryOf(nm), // a category set in Items & costs wins over the name code
         mrp: toNum(row[c.mrp]),
         opening_stock: c.open != null ? toNum(row[c.open]) : 0,
         stock_in: c.inn != null ? toNum(row[c.inn]) : 0,
@@ -4223,7 +4223,7 @@
       if (!nm) continue;
       var mrp = toNum(row[cm]), cost = row[cc] == null || row[cc] === "" ? null : toNum(row[cc]);
       if (cost == null) continue;
-      seen[nm + "|" + mrp] = { item_name: nm, mrp: mrp, cost_price: cost, category: categoryOf(nm) };
+      seen[nm + "|" + mrp] = { item_name: nm, mrp: mrp, cost_price: cost, category: savedCategory(nm, mrp) || categoryOf(nm) };
     }
     Object.keys(seen).forEach(function (k) { out.push(seen[k]); });
     if (!out.length) throw new Error("No items with a cost price found.");
@@ -4594,6 +4594,8 @@
     if (cat !== it.category) {
       var r2 = await sb.from("items").update({ category: cat, updated_at: new Date().toISOString() }).eq("item_name", it.item_name).eq("mrp", x.changed ? x.mrp : Number(it.mrp));
       if (r2.error) { btn.disabled = false; toast("Couldn't save the category: " + r2.error.message); return; }
+      // past stock reports follow the new category too, so sales, indent and the stock statement agree
+      await sb.from("stock_report_lines").update({ category: cat }).eq("item_name", it.item_name);
     }
     btn.disabled = false;
     state.itemEdit = null;
