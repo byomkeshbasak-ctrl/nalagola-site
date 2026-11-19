@@ -3807,7 +3807,7 @@
         var pre = r.cat !== last ? '<tr class="cat-row"><td colspan="7">' + esc(r.cat) + "</td></tr>" : ""; last = r.cat;
         var unit = r.per ? "bottle" : "case";
         return pre + '<tr><td class="item">' + esc(r.name) + '</td><td class="num">' + (r.mrp == null ? "–" : inr2.format(r.mrp)) + '</td><td class="num">' + (r.cost == null ? '<span class="warn-t">not set</span>' : inr2.format(r.cost)) +
-          '</td><td class="num order"><input class="ind-in" type="number" min="0" step="1" inputmode="numeric" data-invname="' + esc(r.name) + '" value="' + r.units + '" aria-label="' + unit + 's on the invoice for ' + esc(r.name) + '"><span class="ind-unit">' + unit + (r.units === 1 ? "" : "s") + "</span>" +
+          '</td><td class="num order">' + num.format(r.units) + '<span class="ind-unit">' + unit + (r.units === 1 ? "" : "s") + "</span>" +
           '</td><td class="num">' + num.format(r.bottles) + '</td><td class="num">' + (r.value == null ? "–" : inr.format(r.value)) + '</td><td><button class="inv-rm" type="button" data-invrm="' + esc(r.name) + '">Remove</button></td></tr>';
       }).join("") + '</tbody><tfoot><tr><td>Total</td><td></td><td></td><td class="num">' + num.format(t.c) + " cases" + (t.ob ? " + " + t.ob + " btl" : "") + '</td><td class="num">' + num.format(t.b) + '</td><td class="num">' + inr.format(t.v) + "</td><td></td></tr></tfoot>";
   }
