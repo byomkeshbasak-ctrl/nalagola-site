@@ -1,9 +1,9 @@
 # Investment Policy Statement v5.2: Direct Equity Book
 
-**Status:** DRAFT FOR INVESTOR APPROVAL. Not approved.
-**Last approved version:** v4.9 (adopted 4 Nov 2026). v5.1 was a draft and was never signed. v5.2 replaces it as the controlling draft.
+**Status:** APPROVED by the investor on 20 Nov 2026. Operative.
+**Last approved version:** v5.2 (this document). It replaces v4.9 (adopted 4 Nov 2026). v5.1 was a draft and was never signed.
 **Baseline date:** 20 Nov 2026 (closing prices of 20 Nov, Personal Networth Tracker)
-**Effective date:** [to be entered when the investor signs Part 13]
+**Effective date:** 20 Nov 2026
 **Companion documents:** Mutual Fund IPS v1.2 (approved, operative); IPS v5.1 Review Pack (history only)
 
 > This is one investor's rulebook for his own decisions. It is not personalised advice. Returns are targets, not promises, and capital can be lost. Tax figures are estimates until a chartered accountant or the broker's tax P&L confirms them.
@@ -397,22 +397,22 @@ Any change to this policy is written as an amendment with the date, the part cha
 
 ## Part 13: Approval register
 
-Sign each line, or strike it and write the alternative.
+All ten decisions approved by the investor on 20 Nov 2026, as written.
 
 | ID | Decision | Investor |
 |---|---|---|
-| A-01 | Goal ₹10 Cr by 31 Dec 2040 without the flat; planning rate 12%; 20% recorded as expectation only (Part 1) | |
-| A-02 | Monthly surplus rule and its definition (Part 3.1) | |
-| A-03 | Stock and fund split in proportion to current values; 40% cap on direct stocks (Parts 3.2, 8.2) | |
-| A-04 | Limits rebased to the stock book: 7.5% target, 10% cap, 25% industry (Part 4) | |
-| A-05 | Long-term lots may be sold at any 1st or 15th review; short-term lots only for Tier 1 or 2 exits (Part 6.1) | |
-| A-06 | IOC exit at 1 Dec 2026 and the HDFC loss-lot sale, subject to broker confirmation (Part 6.2, 6.3) | |
-| A-07 | Concentration plan and the 20% extreme rule (Part 6.3) | |
-| A-08 | Tax policy (Part 7) | |
-| A-09 | Index fallback: yearly check, three-year trigger (Part 8.1) | |
-| A-10 | Parked and dropped rules (Part 11) | |
+| A-01 | Goal ₹10 Cr by 31 Dec 2040 without the flat; planning rate 12%; 20% recorded as expectation only (Part 1) | Approved 20 Nov 2026 |
+| A-02 | Monthly surplus rule and its definition (Part 3.1) | Approved 20 Nov 2026 |
+| A-03 | Stock and fund split in proportion to current values; 40% cap on direct stocks (Parts 3.2, 8.2) | Approved 20 Nov 2026 |
+| A-04 | Limits rebased to the stock book: 7.5% target, 10% cap, 25% industry (Part 4) | Approved 20 Nov 2026 |
+| A-05 | Long-term lots may be sold at any 1st or 15th review; short-term lots only for Tier 1 or 2 exits (Part 6.1) | Approved 20 Nov 2026 |
+| A-06 | IOC exit at 1 Dec 2026 and the HDFC loss-lot sale, subject to broker confirmation (Part 6.2, 6.3) | Approved 20 Nov 2026 |
+| A-07 | Concentration plan and the 20% extreme rule (Part 6.3) | Approved 20 Nov 2026 |
+| A-08 | Tax policy (Part 7) | Approved 20 Nov 2026 |
+| A-09 | Index fallback: yearly check, three-year trigger (Part 8.1) | Approved 20 Nov 2026 |
+| A-10 | Parked and dropped rules (Part 11) | Approved 20 Nov 2026 |
 
-Signed: ____________________ Date: ____________
+Signed: Byomkesh · Date: 20 Nov 2026
 
 ---
 
