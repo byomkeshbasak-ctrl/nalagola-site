@@ -742,6 +742,12 @@
   .dg-hero { background: var(--panel); border: 1px solid var(--line-strong); border-radius: 16px; padding: 26px 28px 22px; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 20px 30px; align-items: center; box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28); }
   .dg-k { font-size: 0.82rem; font-weight: 600; color: var(--gold); letter-spacing: 0.02em; }
   .dg-nw { margin-top: 4px; font-family: "Cormorant Garamond", Georgia, "Times New Roman", serif; font-weight: 600; font-size: clamp(2.8rem, 7vw, 4.2rem); line-height: 1.02; letter-spacing: -0.01em; color: var(--text); font-variant-numeric: lining-nums tabular-nums; }
+  .dg-k-row { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; }
+  .tbl-wrap { overflow-x: auto; }
+  .sur-t { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .sur-t th, .sur-t td { padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; text-align: left; }
+  .sur-t th { font-size: 0.74rem; color: var(--muted); font-weight: 600; }
+  .sur-t .num { text-align: right; }
   .dg-asof { margin-top: 8px; font-size: 0.8rem; color: var(--muted); }
   .dg-chg { margin-top: 6px; font-size: 0.92rem; font-variant-numeric: tabular-nums; }
   .dg-chg small { display: block; margin-top: 2px; font-size: 0.74rem; color: var(--muted); }
@@ -924,8 +930,10 @@
       <div class="dg">
       <section class="dg-hero" aria-label="Net worth">
         <div class="dg-hero-main">
-          <h2 class="dg-k">Net worth</h2>
+          <div class="dg-k-row"><h2 class="dg-k">Net worth</h2>
+            <div class="seg" id="nw-flat-seg" role="group" aria-label="ONE 10 flat"><button type="button" data-f="0" aria-pressed="true">Without flat</button><button type="button" data-f="1" aria-pressed="false">With flat</button></div></div>
           <div class="dg-nw" id="nw-total">–</div>
+          <div class="dg-asof" id="nw-flat" hidden></div>
           <div class="dg-asof" id="ux-nw-s" data-ux></div>
           <div class="dg-chg" id="dg-chg" data-ux></div>
         </div>
@@ -954,6 +962,13 @@
           <h2 id="dg-gr-t"></h2><p id="dg-gr-sub"></p><div id="dg-gr-range"></div><div id="dg-gr-sum"></div>
           <div class="area-wrap dg-chart" id="dg-gr"></div><div id="dg-gr-key"></div><div id="dg-gr-extra"></div><p id="dg-gr-note"></p>
         </div>
+      </section>
+
+      <section class="dg-card dg-wide" aria-labelledby="sur-t">
+        <div class="dg-card-h">
+          <div><h2 id="sur-t">Monthly surplus to invest</h2><p class="dg-sub" id="sur-sub">Income, including the wine shop's net profit, less what left the bank: expenses, EMIs and card bills. Invested at the 1st review of the next month, split between shares and funds by their current values. A negative month is skipped.</p></div>
+        </div>
+        <div class="tbl-wrap"><table class="sur-t" id="sur-table"></table></div>
       </section>
 
       <div class="dg-grid-2">
@@ -4063,7 +4078,10 @@
     // The home loan is kept separate: not taken off net worth
     var liab = v.taken + ccDue + COMP.reduce(function (x, c) { return x + (c.k !== "loans" && v[c.k] < 0 ? -v[c.k] : 0); }, 0);
     var nw = assets - liab;
-    $("nw-total").textContent = inr.format(nw);
+    $("nw-total").textContent = inr.format(nw + (nwFlat.on ? HL.homeValue - hl : 0));
+    $("nw-flat").hidden = !nwFlat.on;
+    if (nwFlat.on) $("nw-flat").textContent = "Includes the ONE 10 flat: " + inr.format(HL.homeValue) + " purchase price − " + inr.format(hl) + " home loan = " + inr.format(HL.homeValue - hl) + ". Without it: " + inr.format(nw) + ".";
+    document.querySelectorAll("#nw-flat-seg button").forEach(function (b) { b.setAttribute("aria-pressed", String((b.dataset.f === "1") === nwFlat.on)); });
     var sd = st.day || 0;
     var parts = COMP.map(function (c) { return { c: c, a: c.k === "loans" ? v.given : Math.max(0, v[c.k]) }; }).filter(function (x) { return x.a > 0; }).sort(function (x, y) { return y.a - x.a; });
     // Tiles
@@ -4092,6 +4110,39 @@
     if (mf.count !== undefined && st.count !== undefined) saveSnapshot(v, nw);
     renderGrowth(); renderMonthly(); stPerf();
     dgDash({ nw: nw, assets: assets, liab: liab, v: v, parts: parts, hl: hl, ccDue: ccDue });
+    renderSurplus();
+  }
+  // ONE 10 flat: left out of net worth by default (Stocks IPS v5.2 Part 1.4); the toggle adds purchase price less the home loan
+  var nwFlat = { on: false };
+  try { nwFlat.on = localStorage.getItem("nw_flat") === "1"; } catch (e) {}
+  $("nw-flat-seg").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-f]"); if (!b) return;
+    nwFlat.on = b.dataset.f === "1";
+    try { localStorage.setItem("nw_flat", nwFlat.on ? "1" : "0"); } catch (e2) {}
+    renderNetWorth();
+  });
+  // Monthly surplus (Stocks IPS v5.2 Part 3.1): income + shop net profit − expenses paid from bank or cash − card bill payments.
+  // Spends put on a card are counted once, when the bill is paid.
+  function surplusOf(m) {
+    var cards = {}; state.cards.forEach(function (c) { cards[c.code] = 1; });
+    var inc = state.income.filter(function (x) { return x.inc_date.slice(0, 7) === m; }).reduce(function (a, x) { return a + Number(x.amount); }, 0);
+    var shop = autoIncome(m).filter(function (x) { return x.l === "Wine shop"; }).reduce(function (a, x) { return a + x.v; }, 0);
+    var exp = ((typeof ex !== "undefined" && ex.list) || []).filter(function (x) { return x.exp_date.slice(0, 7) === m && !cards[x.paid_from]; }).reduce(function (a, x) { return a + Number(x.amount); }, 0);
+    var cp = state.cardPays.filter(function (p) { return p.pay_date.slice(0, 7) === m; }).reduce(function (a, p) { return a + Number(p.amount); }, 0);
+    return { m: m, inc: inc, shop: shop, exp: exp, cp: cp, s: inc + shop - exp - cp };
+  }
+  function renderSurplus() {
+    if (!$("sur-table")) return;
+    var tm = todayISO().slice(0, 7), months = [], k = START_DATE.slice(0, 7);
+    while (k <= tm) { months.push(k); k = nextMonth(k); }
+    var stv = st.total || 0, mfv = mf.total || 0, shS = stv + mfv > 0 ? stv / (stv + mfv) : 0;
+    var rows = months.slice(-6).reverse().map(function (m) {
+      var r = surplusOf(m), cur = m === tm, pos = r.s > 0.5;
+      var when = "1 " + new Date(+nextMonth(m).slice(0, 4), +nextMonth(m).slice(5, 7) - 1, 1).toLocaleDateString("en-IN", { month: "short", year: "numeric" });
+      var amt = function (v) { return (v < -0.5 ? "−" : "") + inr.format(Math.abs(v)); };
+      return "<tr><td>" + mName(m) + (cur ? ' <span class="tag">so far</span>' : "") + '</td><td class="num">' + inr.format(r.inc + r.shop) + '</td><td class="num">' + inr.format(r.exp) + '</td><td class="num">' + inr.format(r.cp) + '</td><td class="num ' + (pos ? "pos" : "neg") + '"><b>' + amt(r.s) + '</b></td><td class="num">' + (pos ? inr.format(Math.round(r.s * shS)) : "–") + '</td><td class="num">' + (pos ? inr.format(Math.round(r.s - Math.round(r.s * shS))) : "–") + "</td><td>" + (pos ? (cur ? "Due " : "") + when : cur ? "Nothing to invest so far" : "Skipped, nothing to invest") + "</td></tr>";
+    });
+    $("sur-table").innerHTML = '<thead><tr><th>Month</th><th class="num">Income incl. shop</th><th class="num">Spent from bank</th><th class="num">Card bills</th><th class="num">Surplus</th><th class="num">To shares ' + (shS ? Math.round(shS * 1000) / 10 + "%" : "") + '</th><th class="num">To funds ' + (shS ? Math.round((1 - shS) * 1000) / 10 + "%" : "") + "</th><th>Invest on</th></tr></thead><tbody>" + rows.join("") + "</tbody>";
   }
   function countLine(kind, word) {
     var n = itemsOf(kind).length; if (!n) return "None added yet";
