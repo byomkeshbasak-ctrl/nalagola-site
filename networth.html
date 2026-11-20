@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
 <style>
   :root {
     --bg: #140a0e; --panel: #1e1015; --panel-2: #26141b;
@@ -365,6 +366,16 @@
   #sips-buy th, #sips-sell th, #sips-buy tr.ips-row td, #sips-sell tr.ips-row td { white-space: nowrap; }
   #ips-buy td.num small, #ips-sell td.num small { display: inline; margin-left: 6px; }
   .ips-id { margin-bottom: 6px; }
+  .mf-imp { border-color: var(--gold); }
+  .mf-imp .actions { display: flex; gap: 10px; margin-top: 12px; }
+  .mf-imp .actions button { flex: 0 0 auto; width: auto; }
+  #mf-imp-table th, #mf-imp-table td { white-space: nowrap; font-size: 0.84rem; }
+  #mf-imp-table tr.skip td { color: var(--muted); }
+  #mf-imp-table td small { display: block; color: var(--muted); font-size: 0.72rem; }
+  #mf-imp-table select { padding: 3px 6px; font-size: 0.78rem; }
+  .imp-tag { display: inline-block; font-size: 0.7rem; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .imp-tag.new { color: var(--green); border-color: rgba(84,184,137,0.5); }
+  .imp-tag.nf { color: var(--gold); border-color: var(--gold); }
   #mf-table th, #mf-table tr.fund td { white-space: nowrap; }
   #mf-table tr.fund td.fn { min-width: 0; }
   #st-table th, #st-table tr.fund td { white-space: nowrap; }
@@ -1222,6 +1233,8 @@
           </div>
           <div class="st-actions">
             <button class="ghost px-btn" type="button">Refresh NAVs</button>
+            <button class="ghost" id="mf-imp-btn" type="button">Upload tradebook</button>
+            <input type="file" id="mf-imp-file" accept=".csv,.xlsx,.xls" hidden>
             <button class="primary" id="mf-add" type="button">Add transaction</button>
           </div>
         </div>
@@ -1250,6 +1263,16 @@
         <div class="hint">Enter the amount and NAV and the units fill in, or type the units straight from the statement.</div>
         <div class="actions"><button class="primary" type="submit" id="mf-save">Save</button><button class="ghost" type="button" id="mf-cancel">Cancel</button></div>
       </form>
+
+      <section class="st-card mf-imp" id="mf-imp" hidden aria-labelledby="mf-imp-t">
+        <div class="st-card-h">
+          <div><h3 id="mf-imp-t">Import from the Zerodha tradebook</h3><p class="st-card-sub" id="mf-imp-sub"></p></div>
+          <label class="st-f"><span class="st-f-l">Money to / from</span><select id="mf-imp-broker"></select></label>
+        </div>
+        <div class="table-wrap" role="region" aria-label="Trades to import"><table id="mf-imp-table"></table></div>
+        <p class="st-note" id="mf-imp-warn"></p>
+        <div class="actions"><button class="primary" type="button" id="mf-imp-go">Import</button><button class="ghost" type="button" id="mf-imp-cancel">Cancel</button></div>
+      </section>
 
       <div class="st-kpis" id="mf-kpis"></div>
       <div class="alloc" id="mf-alloc" hidden></div>
@@ -2915,6 +2938,130 @@
   }
 
 
+
+  // ---------- Import from the Zerodha Console tradebook (segment MF), CSV or Excel ----------
+  // Funds are matched by ISIN. Rows already recorded (same trade id, or same fund, date and units) are skipped.
+  var mfImp = { rows: [], newFunds: {} };
+  var MF_CATS = ["Large cap", "Large & mid cap", "Mid cap", "Small cap", "Flexi / multi cap", "Value / contra", "International", "Arbitrage", "Debt", "Other"];
+  function amfiCat(c, n) {
+    var t = (c || "") + " " + (n || "");
+    return /large\s*&\s*mid/i.test(t) ? "Large & mid cap" : /large\s*cap|bluechip/i.test(t) ? "Large cap" : /mid\s*cap/i.test(t) ? "Mid cap" : /small\s*cap/i.test(t) ? "Small cap" :
+      /flexi|multi\s*cap|focused/i.test(t) ? "Flexi / multi cap" : /value|contra/i.test(t) ? "Value / contra" : /overseas|international|global|us |nasdaq|china/i.test(t) ? "International" :
+      /arbitrage/i.test(t) ? "Arbitrage" : /debt|liquid|gilt|bond|money market|overnight|duration|credit|banking and psu/i.test(t) ? "Debt" : "Other";
+  }
+  function impDate(v) {
+    if (typeof v === "number" && v > 20000 && v < 80000) { var d = new Date(Math.round((v - 25569) * 86400000)); return d.toISOString().slice(0, 10); }
+    var s = String(v || "").trim(), m;
+    if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return m[1] + "-" + m[2].padStart(2, "0") + "-" + m[3].padStart(2, "0");
+    if ((m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/))) return m[3] + "-" + m[2].padStart(2, "0") + "-" + m[1].padStart(2, "0");
+    if ((m = s.match(/^(\d{1,2})[- ]([A-Za-z]{3})[a-z]*[- ,]+(\d{4})/))) { var mo = "janfebmaraprmayjunjulaugsepoctnovdec".indexOf(m[2].toLowerCase()) / 3 + 1; if (mo > 0) return m[3] + "-" + String(mo).padStart(2, "0") + "-" + m[1].padStart(2, "0"); }
+    return null;
+  }
+  function impParse(buf) {
+    if (!window.XLSX) throw new Error("The spreadsheet reader is still loading. Try again in a moment.");
+    var wb = XLSX.read(buf, { type: "array", raw: true }), out = [];
+    wb.SheetNames.forEach(function (sn) {
+      var rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, raw: true, defval: "" }), hi = -1, col = {};
+      for (var i = 0; i < Math.min(rows.length, 40) && hi < 0; i++) {
+        var h = rows[i].map(function (x) { return String(x).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""); });
+        if (h.indexOf("isin") >= 0 && h.some(function (x) { return /^(trade_)?date$/.test(x); }) && h.some(function (x) { return /^(quantity|qty|units)$/.test(x); })) {
+          hi = i; h.forEach(function (x, j) { if (col[x] == null) col[x] = j; });
+        }
+      }
+      if (hi < 0) return;
+      var c = function (names) { for (var k = 0; k < names.length; k++) if (col[names[k]] != null) return col[names[k]]; return null; };
+      var cI = c(["isin"]), cD = c(["trade_date", "date"]), cT = c(["trade_type", "type", "transaction_type"]), cQ = c(["quantity", "qty", "units"]), cP = c(["price", "nav", "average_price"]),
+        cS = c(["symbol", "fund", "scheme", "scheme_name"]), cId = c(["trade_id", "order_id"]), cAmt = c(["amount", "value"]);
+      rows.slice(hi + 1).forEach(function (r) {
+        var isin = String(r[cI] || "").trim().toUpperCase(); if (!/^INF[0-9A-Z]{9}$/.test(isin)) return;
+        var d = impDate(r[cD]), q = Math.abs(toNum(r[cQ])), p = toNum(r[cP]), t = String(cT == null ? "" : r[cT]).toLowerCase();
+        if (!d || !(q > 0)) return;
+        var sell = /sell|redeem|redemption|switch.?out/.test(t);
+        var amt = cAmt != null && toNum(r[cAmt]) ? Math.abs(toNum(r[cAmt])) : Math.round(q * p * 100) / 100;
+        if (!(p > 0) && amt) p = amt / q;
+        var id = cId != null && String(r[cId]).trim() ? "zerodha:" + String(r[cId]).trim() : "zerodha:" + isin + ":" + d + ":" + (sell ? "S" : "B") + ":" + q;
+        out.push({ isin: isin, date: d, sell: sell, units: q, nav: p, amt: amt, sym: cS == null ? "" : String(r[cS]).trim(), ref: id });
+      });
+    });
+    var seen = {}; return out.filter(function (x) { if (seen[x.ref]) return false; seen[x.ref] = 1; return true; });
+  }
+  $("mf-imp-btn").addEventListener("click", function () { $("mf-imp-file").value = ""; $("mf-imp-file").click(); });
+  $("mf-imp-file").addEventListener("change", async function () {
+    var f = this.files && this.files[0]; if (!f) return;
+    var rows;
+    try { rows = impParse(await f.arrayBuffer()); } catch (e) { toast(e.message || "Couldn't read that file."); return; }
+    if (!rows.length) { toast("No mutual fund trades found. Download the tradebook from Zerodha Console → Reports → Tradebook with segment MF."); return; }
+    toast("Matching " + rows.length + " trades to your funds…");
+    var isins = rows.map(function (r) { return r.isin; }).filter(function (x, i, a) { return a.indexOf(x) === i; });
+    var info = {};
+    try { var res = await sb.functions.invoke("mf-nav", { body: { isins: isins } }); info = (res.data && res.data.by_isin) || {}; } catch (e) { info = {}; }
+    mfImp.newFunds = {};
+    rows.forEach(function (r) {
+      var i = info[r.isin], fund = i ? mf.funds.find(function (x) { return Number(x.scheme_code) === Number(i.code); }) : null;
+      if (!fund && r.sym) fund = mf.funds.find(function (x) { return x.name.toLowerCase() === r.sym.toLowerCase(); });
+      r.code = i ? i.code : null;
+      if (fund) r.fund = fund.name;
+      else {
+        var nm = i ? i.full : (r.sym || r.isin);
+        r.fund = nm; r.isNewFund = true;
+        if (!mfImp.newFunds[nm]) mfImp.newFunds[nm] = { name: nm, scheme_code: r.code, category: amfiCat(i && i.category, nm), nav: i && i.nav ? i.nav : r.nav, nav_date: i && i.nav_date ? i.nav_date : r.date };
+      }
+      if (!i && !fund) r.unknown = true;
+      var dup = mf.txns.find(function (t) {
+        return t.ext_ref === r.ref || (t.fund_name === r.fund && t.txn_date === r.date && (Number(t.units) < 0) === r.sell && Math.abs(Math.abs(Number(t.units)) - r.units) < 0.011);
+      });
+      r.dup = !!dup; r.on = !dup && !r.unknown;
+    });
+    rows.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : a.sell - b.sell; });
+    mfImp.rows = rows;
+    var b = $("mf-imp-broker"), names = itemsOf("trading").map(function (x) { return x.name; });
+    b.innerHTML = names.map(function (n) { return "<option>" + esc(n) + "</option>"; }).join("") + '<option value="">Not a trading account (bank / mandate)</option>';
+    b.value = names.find(function (n) { return /zerodha/i.test(n); }) || "";
+    $("mf-form").hidden = true; $("mf-imp").hidden = false; renderImp();
+    $("mf-imp").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  function renderImp() {
+    var rows = mfImp.rows, on = rows.filter(function (r) { return r.on; }), nDup = rows.filter(function (r) { return r.dup; }).length, nUnk = rows.filter(function (r) { return r.unknown; }).length;
+    var nf = Object.keys(mfImp.newFunds).filter(function (k) { return on.some(function (r) { return r.fund === k; }); });
+    $("mf-imp-sub").textContent = rows.length + " trades in the file · " + on.length + " to import" + (nDup ? " · " + nDup + " already recorded" : "") + (nf.length ? " · " + nf.length + " new fund" + (nf.length > 1 ? "s" : "") : "") + (nUnk ? " · " + nUnk + " not recognised" : "");
+    $("mf-imp-go").textContent = on.length ? "Import " + on.length + " trade" + (on.length > 1 ? "s" : "") : "Nothing to import";
+    $("mf-imp-go").disabled = !on.length;
+    // units check: would any fund go below zero once these are in?
+    var u = {}; mf.txns.forEach(function (t) { u[t.fund_name] = (u[t.fund_name] || 0) + Number(t.units); });
+    on.forEach(function (r) { u[r.fund] = (u[r.fund] || 0) + (r.sell ? -r.units : r.units); });
+    var neg = Object.keys(u).filter(function (k) { return u[k] < -0.01; });
+    $("mf-imp-warn").textContent = neg.length ? "After this import, " + neg.join(", ") + (neg.length > 1 ? " would have" : " would have") + " fewer than zero units. The file may be missing earlier purchases; download the tradebook from the first purchase date." : "";
+    $("mf-imp-table").innerHTML = '<thead><tr><th></th><th>Date</th><th>Fund</th><th>Type</th><th class="num">Units</th><th class="num">NAV</th><th class="num">Amount</th><th>Status</th></tr></thead><tbody>' +
+      rows.map(function (r, i) {
+        var nfx = r.isNewFund && mfImp.newFunds[r.fund];
+        var status = r.unknown ? '<span class="imp-tag">ISIN not found</span>' : r.dup ? '<span class="imp-tag">Already recorded</span>' :
+          nfx ? '<span class="imp-tag nf">New fund</span> <select data-impcat="' + esc(r.fund) + '" aria-label="Category for ' + esc(r.fund) + '">' + MF_CATS.map(function (c) { return "<option" + (c === nfx.category ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("") + "</select>" : '<span class="imp-tag new">New</span>';
+        return '<tr class="' + (r.on ? "" : "skip") + '"><td><input type="checkbox" data-imp="' + i + '"' + (r.on ? " checked" : "") + (r.unknown ? " disabled" : "") + ' aria-label="Import this trade"></td><td>' + fmtDate(r.date) + "</td><td>" + esc(shortFund(r.fund)) + "<small>" + esc(r.isin) + (r.code ? " · AMFI " + r.code : "") + "</small></td><td>" + (r.sell ? '<span class="neg">Redeem</span>' : '<span class="pos">Buy</span>') +
+          '</td><td class="num">' + num3.format(r.units) + '</td><td class="num">' + inr2.format(r.nav) + '</td><td class="num">' + inr2.format(r.amt) + "</td><td>" + status + "</td></tr>";
+      }).join("") + "</tbody>";
+  }
+  $("mf-imp-table").addEventListener("change", function (e) {
+    var c = e.target.closest("[data-imp]"); if (c) { mfImp.rows[+c.dataset.imp].on = c.checked; renderImp(); return; }
+    var s = e.target.closest("[data-impcat]"); if (s && mfImp.newFunds[s.dataset.impcat]) mfImp.newFunds[s.dataset.impcat].category = s.value;
+  });
+  $("mf-imp-cancel").addEventListener("click", function () { $("mf-imp").hidden = true; mfImp.rows = []; });
+  $("mf-imp-go").addEventListener("click", async function () {
+    var on = mfImp.rows.filter(function (r) { return r.on; }); if (!on.length) return;
+    var btn = this; btn.disabled = true; btn.textContent = "Importing…";
+    var nf = Object.keys(mfImp.newFunds).filter(function (k) { return on.some(function (r) { return r.fund === k; }) && !mf.funds.some(function (f) { return f.name === k; }); }).map(function (k) { return mfImp.newFunds[k]; });
+    if (nf.length) {
+      var r1 = await sb.from("mf_funds").insert(nf);
+      if (r1.error) { btn.disabled = false; renderImp(); toast("Couldn't add the new funds: " + r1.error.message); return; }
+    }
+    var broker = $("mf-imp-broker").value || null;
+    var rows = on.map(function (r) { return { fund_name: r.fund, txn_date: r.date, nav: r.nav, units: r.sell ? -r.units : r.units, amount: r.sell ? -r.amt : r.amt, credit_to: broker, ext_ref: r.ref }; });
+    var r2 = await sb.from("mf_txns").upsert(rows, { onConflict: "ext_ref", ignoreDuplicates: true });
+    btn.disabled = false;
+    if (r2.error) { renderImp(); toast("Couldn't import: " + r2.error.message); return; }
+    $("mf-imp").hidden = true; mfImp.rows = [];
+    toast(rows.length + " trade" + (rows.length > 1 ? "s" : "") + " imported" + (nf.length ? ", " + nf.length + " new fund" + (nf.length > 1 ? "s" : "") + " added" : ""));
+    await loadMF();
+  });
 
   // ---------- Charts: donut by category and profit/loss bars ----------
   var PALETTE = ["#d9b26f", "#7fcf9a", "#8fa8e0", "#e08fb4", "#5fb3b3", "#b48ee0", "#e8c27a", "#c99a5b", "#9fd36b", "#ef8f8f", "#6fc1e0", "#cfa0e8", "#a0a0a0"];
