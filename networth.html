@@ -1083,8 +1083,19 @@
             <div class="s" id="trading-total-s">Cash lying with your brokers</div>
           </div>
           <div class="spacer"></div>
+          <button class="ghost" type="button" id="brk-tr-btn">Transfer to bank</button>
           <button class="ghost" type="button" data-itemadd="trading">Add broker balance</button>
         </div>
+        <form class="form" id="brk-tr-form" hidden>
+          <h3>Transfer to bank</h3>
+          <label>From <select id="brk-tr-from"></select></label>
+          <label>To <select id="brk-tr-to"></select></label>
+          <label>Date <input type="date" id="brk-tr-date" required></label>
+          <label>Amount (₹) <input type="number" id="brk-tr-amt" step="0.01" min="0" inputmode="decimal" required></label>
+          <label style="grid-column: span 2">Note <input type="text" id="brk-tr-note" autocomplete="off" placeholder="optional, e.g. withdrawal from Kite"></label>
+          <div class="hint" id="brk-tr-hint"></div>
+          <div class="actions"><button class="primary" type="submit" id="brk-tr-save">Transfer</button><button class="ghost" type="button" id="brk-tr-cancel">Cancel</button></div>
+        </form>
         <form class="form" id="trading-form" data-itemform="trading" hidden></form>
         <div class="mf-kpis" id="trading-kpis"></div>
         <div class="table-wrap" style="margin-top:14px" role="region" aria-label="Broker balances"><table id="trading-table"></table></div>
@@ -2938,6 +2949,40 @@
   }
 
 
+
+  // ---------- Trading balance → bank: saved as an ordinary transfer, so the bank statement and the broker's movements both show it ----------
+  function brkTrHint() {
+    var b = itemsOf("trading").find(function (i) { return brkCode(i) === $("brk-tr-from").value; });
+    $("brk-tr-hint").textContent = b ? b.name + " cash balance now: " + inr.format(itemValue(b)) + ". The money comes off it and goes into the bank's statement for that day." : "";
+  }
+  $("brk-tr-btn").addEventListener("click", function () {
+    var brks = itemsOf("trading");
+    if (!brks.length) { toast("Add a broker balance first."); return; }
+    $("brk-tr-from").innerHTML = brks.map(function (i) { return '<option value="' + brkCode(i) + '">' + esc(i.name) + "</option>"; }).join("");
+    $("brk-tr-to").innerHTML = state.accounts.map(function (a) { return '<option value="' + esc(a.code) + '">' + esc(a.name) + "</option>"; }).join("");
+    var top = brks.slice().sort(function (a, b) { return itemValue(b) - itemValue(a); })[0];
+    $("brk-tr-from").value = brkCode(top);
+    $("brk-tr-date").value = todayISO(); $("brk-tr-amt").value = ""; $("brk-tr-note").value = "";
+    brkTrHint();
+    $("trading-form").hidden = true; $("brk-tr-form").hidden = false; $("brk-tr-amt").focus();
+  });
+  $("brk-tr-from").addEventListener("change", brkTrHint);
+  $("brk-tr-cancel").addEventListener("click", function () { $("brk-tr-form").hidden = true; });
+  $("brk-tr-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var p = { transfer_date: $("brk-tr-date").value, from_account: $("brk-tr-from").value, to_account: $("brk-tr-to").value, amount: toNum($("brk-tr-amt").value), note: $("brk-tr-note").value.trim() };
+    if (!(p.amount > 0)) { toast("Enter an amount above zero."); return; }
+    if (p.transfer_date < START_DATE) { toast("Transfers start from " + fmtDate(START_DATE) + "."); return; }
+    var b = itemsOf("trading").find(function (i) { return brkCode(i) === p.from_account; });
+    if (b && p.amount > itemValue(b) + 0.5 && !confirm("That is more than the " + inr.format(itemValue(b)) + " the tracker shows with " + b.name + ". Transfer anyway?")) return;
+    var btn = $("brk-tr-save"); btn.disabled = true;
+    var r = await sb.from("account_transfers").insert(p);
+    btn.disabled = false;
+    if (r.error) { toast("Couldn't save: " + r.error.message); return; }
+    $("brk-tr-form").hidden = true;
+    toast(inr.format(p.amount) + " moved from " + acctName(p.from_account) + " to " + acctName(p.to_account));
+    await load();
+  });
 
   // ---------- Import from the Zerodha Console tradebook (segment MF), CSV or Excel ----------
   // Funds are matched by ISIN. Rows already recorded (same trade id, or same fund, date and units) are skipped.
