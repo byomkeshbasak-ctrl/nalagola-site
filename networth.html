@@ -2970,11 +2970,16 @@
       }
       if (hi < 0) return;
       var c = function (names) { for (var k = 0; k < names.length; k++) if (col[names[k]] != null) return col[names[k]]; return null; };
-      var cI = c(["isin"]), cD = c(["trade_date", "date"]), cT = c(["trade_type", "type", "transaction_type"]), cQ = c(["quantity", "qty", "units"]), cP = c(["price", "nav", "average_price"]),
+      var cI = c(["isin"]), cD = c(["trade_date", "date"]), cT = c(["transaction_type", "trade_type", "txn_type", "order_side", "side", "type"]), cQ = c(["quantity", "qty", "units"]), cP = c(["price", "nav", "average_price"]),
         cS = c(["symbol", "fund", "scheme", "scheme_name"]), cId = c(["trade_id", "order_id"]), cAmt = c(["amount", "value"]);
       rows.slice(hi + 1).forEach(function (r) {
         var isin = String(r[cI] || "").trim().toUpperCase(); if (!/^INF[0-9A-Z]{9}$/.test(isin)) return;
         var d = impDate(r[cD]), q = Math.abs(toNum(r[cQ])), p = toNum(r[cP]), t = String(cT == null ? "" : r[cT]).toLowerCase();
+        // if that column doesn't say buy or sell, look for a cell in the row that does (Coin and Console files differ)
+        if (!/buy|sell|purchase|redeem|redemption|sip|switch/.test(t)) {
+          var hit = r.find(function (x) { return /^\s*(buy|sell|purchase|redeem|redemption|sip)\s*$/i.test(String(x)); });
+          t = hit ? String(hit).toLowerCase() : t;
+        }
         if (!d || !(q > 0)) return;
         var sell = /sell|redeem|redemption|switch.?out/.test(t);
         var amt = cAmt != null && toNum(r[cAmt]) ? Math.abs(toNum(r[cAmt])) : Math.round(q * p * 100) / 100;
