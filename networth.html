@@ -1870,6 +1870,7 @@
   var CAT_COL = { "Large cap": "#d9b26f", "Large & mid cap": "#c99a5b", "Mid cap": "#7fcf9a", "Small cap": "#5fb3b3", "Flexi / multi cap": "#8fa8e0",
     "Value / contra": "#b48ee0", "International": "#e08fb4", "Arbitrage": "#9a9a9a", "Debt": "#cfc59a", "Other": "#777" };
   var num3 = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 3 });
+  var num = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
   var pct = function (x) { return isFinite(x) ? (x >= 0 ? "+" : "") + (x * 100).toFixed(1) + "%" : "–"; };
   var dayMs = 86400000;
 
@@ -2596,7 +2597,8 @@
       if (r) return row(r, kind, act, lead + " " + det + chk, amt);
       return { fund: s, full: e ? e.name : s, category: indOf(s), units: null, avg_nav: null, kind: kind, isNew: true, action: act, why: lead + " " + det + chk, amount: amt ? Math.round(amt) : null };
     };
-    var outBuys = buys.map(function (b) { var isNew = !held.some(function (h) { return h.sym === b.sym; }); return mkBuy(b.sym, "buy", isNew ? "Buy new stock" : "Buy", b.amount, (isNew ? "First tranche (half of the " + mwOf(b.sym).t + "% target, §8.3). " : "") + "Funded by the sales above; brings it toward its " + mwOf(b.sym).t + "% target." + (action ? "" : " Moves on " + fmtDate(nextAct) + ".")); });
+    var buyDue = action ? "now" : nextAct;
+    var outBuys = buys.map(function (b) { var isNew = !held.some(function (h) { return h.sym === b.sym; }); var o = mkBuy(b.sym, "buy", isNew ? "Buy new stock" : "Buy", b.amount, (isNew ? "First tranche (half of the " + mwOf(b.sym).t + "% target, §8.3). " : "") + "Funded by the sales above; brings it toward its " + mwOf(b.sym).t + "% target." + (action ? "" : " Moves on " + fmtDate(nextAct) + ".")); ; o.due = buyDue; return o; });
     // Part 4.3: eligibility is never weakened to fill a slot; what no qualifying stock can take goes to B2, then B3
     if (left > 1) {
       var b2h = all.filter(function (r) { return r.bk === "B2"; }).sort(function (a, b) { return b.value - a.value; })[0], b2hi = SIPS.buckets[1].hi * db / 100, b3hi = SIPS.buckets[2].hi * db / 100;
@@ -2606,7 +2608,7 @@
       if (toB3 > 1) { outBuys.push({ fund: "LIQUIDBEES", full: "Liquidity (B3)", category: "Liquidity", units: null, avg_nav: null, kind: "hold", action: "Hold in B3", why: "No qualifying stock or B2 room can take this money. Part 4.3 holds it in B3 (liquid ETF or broker cash) up to its " + SIPS.buckets[2].hi + "% band.", amount: Math.round(toB3) }); left -= toB3; }
     }
     var newMoney = 0;
-    target.forEach(function (s) { var gp = gapOf(s); if (gp > 1000) { newMoney += gp; var wasBought = buys.some(function (b) { return b.sym === s; }); outBuys.push(mkBuy(s, "watch", wasBought ? "Next tranches" : "With new money", gp, wasBought ? "Remaining " + inr.format(gp) + " to reach target, in tranches at least 4 weeks apart, each up to 2.5% of the Direct Book (§8.3)." : "On the target list but " + inr.format(gp) + " short of its " + mwOf(s).t + "% target." + (wait[s] ? " Next purchase from " + fmtDate(wait[s]) + ", 4 weeks after your last one (§8.3)." : " Fund it from new money, largest gap first."))); } });
+    target.forEach(function (s) { var gp = gapOf(s); if (gp > 1000) { newMoney += gp; var wasBought = buys.some(function (b) { return b.sym === s; }); var wo = mkBuy(s, "watch", wasBought ? "Next tranches" : "With new money", gp, wasBought ? "Remaining " + inr.format(gp) + " to reach target, in tranches at least 4 weeks apart, each up to 2.5% of the Direct Book (§8.3)." : "On the target list but " + inr.format(gp) + " short of its " + mwOf(s).t + "% target." + (wait[s] ? " Next purchase from " + fmtDate(wait[s]) + ", 4 weeks after your last one (§8.3)." : " Fund it from new money, largest gap first.")); wo.due = wasBought ? sipsAddDays(buyDue === "now" ? today : buyDue, SIPS.gapDays) : (wait[s] || "now"); outBuys.push(wo); } });
     var heldAfter = held.reduce(function (a, r) { return a + (tv[r.sym] || 0); }, 0) + buys.reduce(function (a, b) { return a + (held.some(function (h) { return h.sym === b.sym; }) ? 0 : b.amount); }, 0);
     // 8. Household (§3, §13) and stress tests (§12)
     var mfv = mf.total || 0, deb = bv.B1 + bv.B2, he = deb + mfv, share = he ? 100 * deb / he : 0;
@@ -2686,6 +2688,12 @@
       if (!sips.fund) await sipsLoadFund();
       sips.prior = await sipsPriorReview(todayISO());
       sips.view = sipsRun();
+      var miss = (sips.view && sips.view.buys || []).map(function (x) { return x.fund; }).filter(function (sym, i, a) { return sym && /^[A-Z0-9&-]+$/.test(sym) && a.indexOf(sym) === i && !st.prices[sym]; });
+      if (miss.length) {
+        var rows = miss.map(function (sym) { var f = sips.fund && sips.fund[sym], p = f && f.data ? Number(f.data.price) || null : null; return { symbol: sym, price: p, prev_close: p, price_date: f && f.fetched_at ? f.fetched_at.slice(0, 10) : todayISO() }; });
+        var ins = await sb.from("stock_prices").upsert(rows, { onConflict: "symbol", ignoreDuplicates: true });
+        if (!ins.error) rows.forEach(function (r) { st.prices[r.symbol] = r; });
+      }
     } catch (e) { sips.view = null; } finally { sips.repricing = false; renderSIPS(); }
   }
   async function repriceAll() { await ipsReprice(); await sipsReprice(); }
@@ -2719,17 +2727,41 @@
         '<button type="button" class="chk-tog" data-chk="' + esc(b.l) + '" aria-expanded="' + open + '">' + (open ? "Hide details" : "Details") + "</button>" + (open ? "<small>" + body + "</small>" : "") + "</div>");
     }).join("");
     var cols = '<colgroup><col class="c-fund"><col class="c-cat"><col class="c-u"><col class="c-nav"><col class="c-act"><col class="c-amt"></colgroup>';
-    var head = cols + '<thead><tr><th>Stock</th><th>Industry</th><th class="num">Qty</th><th class="num">Avg cost</th><th>Action</th><th class="num">Amount</th></tr></thead><tbody>';
+    var head = '<thead><tr><th>Stock</th><th>Industry</th><th class="num">Qty</th><th class="num">Price</th><th>Action</th><th>When</th><th class="num">Amount</th></tr></thead><tbody>';
+    // Live price (or the latest NSE close); for names not held yet, the screen's price until the nightly update adds a fresh one
+    var sPx = function (sym) {
+      var p = st.prices[sym]; if (p && Number(p.price) > 0) return { p: Number(p.price), d: p.price_date };
+      var f = sips.fund && sips.fund[sym]; return f && f.data && Number(f.data.price) > 0 ? { p: Number(f.data.price), d: (f.fetched_at || "").slice(0, 10), screen: true } : null;
+    };
+    // Whole shares: buys never go over the amount; sells are capped at the shares held (a full exit sells them all)
+    var sQty = function (x, px) {
+      if (!x.amount || !px) return null;
+      if (x.kind === "buy" || x.kind === "watch") return Math.floor(x.amount / px.p);
+      var q = Math.round(x.amount / px.p); return x.units ? Math.min(q, x.units) : q;
+    };
+    var actNow = ipsIsAction(t), nxt = ipsNextAction(t);
+    var win = function (d) { return fmtDate(d) + " – " + fmtDate(sipsAddDays(d, 15)); };
+    var sWhen = function (x) {
+      if (x.kind === "hold" || !x.amount) return "–";
+      if (x.due === "now") return "Now";
+      if (x.due) return win(x.due);
+      if (x.kind === "sell" || x.kind === "buy") return actNow && !/at action review/.test(x.action) ? "Now" : win(nxt);
+      return "–";
+    };
     var line = function (x, key) {
       var open = !!sips.open[key];
-      return '<tr class="ips-row' + (open ? " open" : "") + '" data-sipsrow="' + key + '" title="Click to ' + (open ? "hide" : "see") + ' the rationale"><td class="fn"><span class="chev">' + (open ? "▾" : "▸") + "</span><b>" + esc(x.fund || "–") + "</b>" + (x.isNew ? '<span class="ips-new">New</span>' : "") + "</td><td>" + esc(x.category || "") + '</td><td class="num">' + (x.units ? num3.format(x.units) : "–") +
-        '</td><td class="num">' + (x.avg_nav ? inr2.format(x.avg_nav) : "–") + '</td><td><span class="ips-act ' + (x.kind === "plan" ? "hold" : x.kind || "") + '">' + esc(x.action) + '</span></td><td class="num">' + (x.amount ? inr.format(x.amount) : "–") + "</td></tr>" +
-        (open ? '<tr class="ips-detail"><td colspan="6">' + (x.full && x.full !== x.fund ? "<b>" + esc(x.full) + ".</b> " : "") + esc(x.why) + "</td></tr>" : "");
+      var px = x.fund ? sPx(x.fund) : null, q = sQty(x, px), amt = q != null ? q * px.p : x.amount;
+      return '<tr class="ips-row' + (open ? " open" : "") + '" data-sipsrow="' + key + '" title="Click to ' + (open ? "hide" : "see") + ' the rationale"><td class="fn"><span class="chev">' + (open ? "▾" : "▸") + "</span><b>" + esc(x.fund || "–") + "</b>" + (x.isNew ? '<span class="ips-new">New</span>' : "") + "</td><td>" + esc(x.category || "") + '</td><td class="num">' + (q != null ? num.format(q) : "–") +
+        '</td><td class="num">' + (px ? inr2.format(px.p) : "–") + '</td><td><span class="ips-act ' + (x.kind === "plan" ? "hold" : x.kind || "") + '">' + esc(x.action) + "</span></td><td>" + sWhen(x) + '</td><td class="num">' + (amt ? inr.format(amt) : "–") + "</td></tr>" +
+        (open ? '<tr class="ips-detail"><td colspan="7">' + (x.full && x.full !== x.fund ? "<b>" + esc(x.full) + ".</b> " : "") +
+          (x.units ? "You hold " + num.format(x.units) + " shares at an average cost of " + inr2.format(x.avg_nav) + ". " : "") +
+          (q != null && x.amount ? "Planned " + inr.format(x.amount) + " = " + num.format(q) + " whole shares at " + inr2.format(px.p) + (px.screen ? " (screen price of " + fmtDate(px.d) + "; it updates to the live price after tonight's price run)" : "") + ". " : "") + esc(x.why) + "</td></tr>" : "");
     };
     var tbl = function (list, pre, empty, k) {
       if (!list || !list.length) return '<tbody><tr><td class="empty">' + empty + "</td></tr></tbody>";
       var tot = sumK(list, k);
-      return head + list.map(function (x, i) { return line(x, pre + i); }).join("") + "</tbody>" + (tot ? '<tfoot><tr><td>Total now</td><td></td><td></td><td></td><td></td><td class="num">' + inr.format(tot) + "</td></tr></tfoot>" : "");
+      tot = list.reduce(function (a, x) { if (x.kind !== k || !x.amount) return a; var px = x.fund ? sPx(x.fund) : null, q = sQty(x, px); return a + (q != null ? q * px.p : x.amount); }, 0);
+      return head + list.map(function (x, i) { return line(x, pre + i); }).join("") + "</tbody>" + (tot ? '<tfoot><tr><td>Total now</td><td></td><td></td><td></td><td></td><td></td><td class="num">' + inr.format(tot) + "</td></tr></tfoot>" : "");
     };
     $("sips-buy").innerHTML = L ? tbl(L.buys, "b", "Every target name is at its weight. Nothing to buy.", "buy") : '<tbody><tr><td class="empty">Loading…</td></tr></tbody>';
     $("sips-sell").innerHTML = L ? tbl(L.sells, "s", "Nothing to sell or trim.", "sell") : "";
