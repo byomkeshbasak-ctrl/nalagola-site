@@ -1919,7 +1919,7 @@
       { k: "small", b: "small", l: "Small cap", sub: 23.1, screen: "small" },
       { k: "lm", b: "lm", l: "Large & mid", sub: 9.2, screen: "lm" },
       { k: "us", b: "intl", l: "US broad", sub: 6, screen: "us", window: true, ltDays: 730 },
-      { k: "ustech", b: "intl", l: "US technology", sub: 4, sat: true, window: true, noNew: true, ltDays: 730 },
+      { k: "ustech", b: "intl", l: "US technology", sub: 4, sat: true, window: true, ltDays: 730 },
       { k: "china", b: "intl", l: "Greater China", sub: 0, frozen: true, window: true, ltDays: 730 }
     ],
     // held funds -> slot and role (keep, pair, exitlt). Pairs are settled at decideBy by the higher composite score (K-09, K-12, v1.2 D-10)
@@ -1944,6 +1944,8 @@
     // "closed" or older than 30 days blocks every international purchase. Change a window to "open" and set asOf when one reopens.
     windows: { asOf: "2026-11-10", fresh: 30, us: "closed", ustech: "closed", china: "closed" },
     exitLoad: [{ m: /invesco\s*india\s*small\s*cap/i, pct: 1, days: 365 }],
+    // Part D.3 limits. TER: Direct plan total expense ratio, %. AUM: fund size across all plans, Rs crore, [min, max]
+    gates: { ter: { domestic: 1.0, index: 0.30, intl: 1.5 }, aum: { small: [1000, 20000], mid: [1000, 40000], intl: [300, 0], other: [1000, 0] }, terDays: 45, aumDays: 135 },
     tax: { stcg: 0.20, ltcg: 0.125, exempt: 125000, cess: 0.04 }
   };
   var ips = { latest: null, view: null, repricing: false, scrTried: false, loading: false, checked: false, screen: null, prev: null, open: {} };
@@ -1984,6 +1986,31 @@
   }
   function ipsMap(name) { for (var i = 0; i < IPS.funds.length; i++) if (IPS.funds[i].m.test(name)) return IPS.funds[i]; return null; }
   function ipsSlotDef(k) { return IPS.slots.filter(function (s) { return s.k === k; })[0]; }
+  // Expense ratio and fund size from AMFI (MF IPS v1.3 Part D.3), refreshed weekly and before each review by the mf-quality function
+  async function ipsLoadQuality() {
+    if (ips.qual) return;
+    var q = await sb.from("mf_quality").select("amfi_code,base_name,category,fund_aum_cr,aum_period,aum_period_end,ter_direct,ter_date,fetched_at").limit(5000);
+    ips.qual = {}; if (!q.error) (q.data || []).forEach(function (r) { ips.qual[Number(r.amfi_code)] = r; });
+  }
+  // One fund's Part D.3 check: PASS, FAIL, STALE or MISSING, with the reason. kind: "intl", "index" or "domestic"
+  function ipsGate(code, slotKey, isIndex) {
+    var q = code && ips.qual ? ips.qual[Number(code)] : null, t = todayISO(), G = IPS.gates;
+    var kind = /^(us|ustech|china)$/.test(slotKey) ? "intl" : isIndex ? "index" : "domestic";
+    if (!q) return { st: "MISSING", txt: "No AMFI expense ratio or fund size on file for this scheme yet." };
+    var out = [], fails = [], stale = [];
+    var terMax = G.ter[kind];
+    if (q.ter_direct == null) stale.push("expense ratio not in AMFI's TER file");
+    else { out.push("expense ratio " + Number(q.ter_direct).toFixed(2) + "% on " + fmtDate(q.ter_date) + " (limit " + terMax + "%)"); if (Number(q.ter_direct) > terMax) fails.push("expense ratio above " + terMax + "%"); if (ipsDaysBetween(q.ter_date, t) > G.terDays) stale.push("expense ratio older than " + G.terDays + " days"); }
+    var band = G.aum[slotKey] || (kind === "intl" ? G.aum.intl : G.aum.other), aum = Number(q.fund_aum_cr);
+    if (q.fund_aum_cr == null) stale.push("fund size not in AMFI's AUM file");
+    else {
+      out.push("fund size ₹" + num.format(Math.round(aum)) + " cr, average for " + q.aum_period + " (band " + (band[1] ? "₹" + num.format(band[0]) + "–" + num.format(band[1]) + " cr" : "at least ₹" + num.format(band[0]) + " cr") + ")");
+      if (aum < band[0] || (band[1] && aum > band[1])) fails.push("fund size outside its band");
+      if (q.aum_period_end && ipsDaysBetween(q.aum_period_end, t) > G.aumDays) stale.push("fund size quarter older than " + G.aumDays + " days");
+    }
+    var st = fails.length ? "FAIL" : stale.length ? "STALE" : "PASS";
+    return { st: st, txt: "AMFI check " + st + ": " + out.join("; ") + (fails.length ? ". Fails: " + fails.join(", ") : "") + (stale.length ? ". Not current: " + stale.join(", ") : "") + ". Manager tenure (3 years or more) is still a dated manual check (Part D.3)." };
+  }
   async function ipsLoadScreen() {
     var d = await sb.from("mf_screen").select("run_date").order("run_date", { ascending: false }).limit(1);
     if (d.error || !d.data || !d.data.length) return;
@@ -2126,7 +2153,7 @@
       if (m.role === "exitlt") { pushSched(r, sched(r, r.value, false), "Greater China is exited lot by lot once each lot is past 24 months, so the gain is long-term (Part I.1).", "Redeem long-term units", "Redeem"); return; }
       if (loser[r.f.name]) { pushSched(r, sched(r, r.value, true), short(loser[r.f.name].f.name) + " keeps the " + r.slot.l + " slot (" + (IPS.pairWinner[r.slot.k] ? "your choice" : "higher composite score on " + fmtDate(IPS.decideBy)) + "). " + scTxt(r.sc) + ". Its proceeds go to the slot fund (Part G.4).", "Redeem long-term units", "Redeem"); return; }
       var pn = r.slot && pairNote[r.slot.k];
-      if (pn && pn.pr[0] === r) sells.push(row(r, "hold", "Decide pair", r.slot.l + " holds " + pn.pr.map(function (x) { return short(x.f.name) + " (" + scTxt(x.sc) + ")"; }).join(" and ") + ". The higher composite score keeps the slot at the review on " + fmtDate(IPS.decideBy) + (pn.scored ? "; today that is " + short(pn.lean.f.name) : "; one of them has no score yet, so you decide") + ". Until then this slot gets no new money (Part F.2)."));
+      if (pn && pn.pr[0] === r) sells.push(row(r, "hold", "Decide pair", r.slot.l + " holds " + pn.pr.map(function (x) { var g = ipsGate(x.f.scheme_code, r.slot.k, false); return short(x.f.name) + " (" + scTxt(x.sc) + "; AMFI check " + g.st + ")"; }).join(" and ") + ". The higher composite score keeps the slot at the review on " + fmtDate(IPS.decideBy) + (pn.scored ? "; today that is " + short(pn.lean.f.name) : "; one of them has no score yet, so you decide") + ". Until then this slot gets no new money (Part F.2)."));
       // single-fund ceiling (K-13): slot share + 3 for a single-fund slot, within the category limit; 22% otherwise
       var capV = ceilOf(r.slot) * total / 100;
       if (r.after > capV + 1) pushSched(r, sched(r, r.after - capV, true), "At " + r.w.toFixed(1) + "% it is above its " + ceilOf(r.slot).toFixed(1) + "% ceiling (Part B.2).", "Trim", "Trim");
@@ -2155,11 +2182,15 @@
       var detail = (c.is_index ? "Index fund (passive option, Part E.5). " : "") + "Top quartile in " + s.l + ": " + scTxt(c) + " vs " + (inc ? short(inc.f.name) + " " + Math.round(incScore) : "no slot fund") + ". " +
         "3-yr rolling return " + (mtx.r3 != null ? (mtx.r3 * 100).toFixed(1) + "%" : "–") + ", beat the index in " + (mtx.beat != null ? Math.round(mtx.beat * 100) + "%" : "–") + " of windows, Sortino " + (mtx.sortino != null ? mtx.sortino.toFixed(2) : "–") +
         ", downside capture " + (mtx.dcap != null ? Math.round(mtx.dcap) : "–") + ", max drawdown " + (mtx.mdd != null ? (mtx.mdd * 100).toFixed(1) + "%" : "–") + ".";
-      watch.push({ s: s, c: c, q: qualified, detail: detail + (qualified ? " Qualified challenger: held this lead in two screens in a row. It is bought only when a switch out of " + (inc ? short(inc.f.name) : "the slot fund") + " is approved at a quarterly check (Part G.3), with a first purchase of at least " + IPS.minNewPct + "% of the book (Part E)." : " Qualifies if it keeps this lead at the next screen on " + fmtDate(ipsNext(ips.screen.date)) + ".") });
+      var cg = ipsGate(c.scheme_code, s.k, !!c.is_index); detail += " " + cg.txt;
+      watch.push({ s: s, c: c, q: qualified && cg.st === "PASS", detail: detail + (qualified && cg.st !== "PASS" ? " Leads the slot, but the AMFI check is " + cg.st + ", so it does not qualify." : "") + (qualified ? " Qualified challenger: held this lead in two screens in a row. It is bought only when a switch out of " + (inc ? short(inc.f.name) : "the slot fund") + " is approved at a quarterly check (Part G.3), with a first purchase of at least " + IPS.minNewPct + "% of the book (Part E)." : " Qualifies if it keeps this lead at the next screen on " + fmtDate(ipsNext(ips.screen.date)) + ".") });
     });
     // 4. Buys (Part F): sale proceeds due now plus the funds' share of last month's surplus, invested in one go
     var sur = surplusFor(rev), fromSur = sur && sur.s > 0 ? sur.split.funds : 0;
-    var slotBuyable = function (s) { return buyable(s) && !pairNote[s.k] && nFunds(s) >= 1; };
+    var slotFund = function (s) { return held.filter(function (h) { return h.slot === s && h.after > 0 && !loser[h.f.name]; })[0]; };
+    var gateOf = {}; SL.forEach(function (s) { var r = slotFund(s); gateOf[s.k] = r ? ipsGate(r.f.scheme_code, s.k, false) : null; });
+    var gateFail = {};
+    var slotBuyable = function (s) { var ok = buyable(s) && !pairNote[s.k] && nFunds(s) >= 1; if (ok && gateOf[s.k] && gateOf[s.k].st === "FAIL") { gateFail[s.k] = true; return false; } return ok; };
     var costLim = function (s) { return s.sub > IPS.costLimit && nFunds(s) <= 1 ? s.sub : IPS.costLimit; };   // §B.2, D-01
     var slotCost = {}; SL.forEach(function (s) { slotCost[s.k] = 0; });
     held.forEach(function (r) { if (r.slot && r.after > 0 && !loser[r.f.name]) slotCost[r.slot.k] += r.invested * (r.value ? r.after / r.value : 0); });
@@ -2187,9 +2218,11 @@
       var s = slotOf(k), b = bucketOf(s.b), amt = got[k];
       var head = b.l + " goes from " + cur[s.b].toFixed(1) + "% to " + pctOf(bv[s.b]).toFixed(1) + "% (target " + b.t + "%" + (rescaled ? ", scaled up while international is closed (Part B.4)" : "") + ", band " + b.lo + "–" + b.hi + "%).";
       var win = s.window ? " Window recorded open on " + fmtDate(IPS.windows.asOf) + "; confirm it is still open that day (Part I.1)." : "";
-      var r = held.filter(function (h) { return h.slot === s && h.after > 0 && !loser[h.f.name]; })[0];
-      buys.push(row(r, "buy", newMoney ? "Buy with new money" : "Buy", head + (r ? " " + scTxt(r.sc) + "." : "") + win + (newMoney ? " Sized to reach target; it is bought from the funds' share of a positive month's surplus at the review on the 1st (Part F.1)." : " Funded by " + src + "." + defer), amt, { status: "INDICATIVE", due: newMoney ? null : dueNow }));
+      var r = held.filter(function (h) { return h.slot === s && h.after > 0 && !loser[h.f.name]; })[0], gq = gateOf[s.k];
+      buys.push(row(r, "buy", newMoney ? "Buy with new money" : "Buy", head + (r ? " " + scTxt(r.sc) + "." : "") + (gq ? " " + gq.txt + (gq.st !== "PASS" ? " Not actionable until it is current (Part M)." : "") : "") + win + (newMoney ? " Sized to reach target; it is bought from the funds' share of a positive month's surplus at the review on the 1st (Part F.1)." : " Funded by " + src + "." + defer), amt, { status: gq && gq.st !== "PASS" ? "UNVERIFIED" : "INDICATIVE", due: newMoney ? null : dueNow }));
     });
+    // A slot fund that fails an AMFI check gets no money; it is shown so the slot can be reviewed (Part D.3)
+    Object.keys(gateFail).forEach(function (k) { var s = slotOf(k), r = slotFund(s); if (r) sells.push(row(r, "hold", "Check failed", s.l + ": no new money while this fund fails the Part D.3 limits. " + gateOf[k].txt + " Review the slot at the next quarterly check (Part G.3)." + gt(r))); });
     if (!newMoney && left > 1) buys.push(Object.assign(row(null, "hold", "Wait", inr.format(left) + " has no eligible fund at this review (targets, limits or closed windows). It waits in the broker account for the next review (Part F.2, step 7).", left), { fund: "Broker cash", category: "Cash" }));
     buys.sort(function (a, c) { return (c.amount || 0) - (a.amount || 0); });
     watch.forEach(function (w) {
@@ -2222,7 +2255,7 @@
       }
       var t = todayISO();
       if (force || !ips.latest || ips.latest.run_date < ipsSlot(t) || ((ips.latest.meta || {}).version !== IPS.version)) {
-        await ipsLoadScreen();
+        await ipsLoadScreen(); await ipsLoadQuality();
         var r = ipsRun();
         if (r) {
           await sb.from("mf_reviews").delete().eq("run_date", t);
@@ -2241,6 +2274,7 @@
     ips.repricing = true;
     try {
       if (!ips.screen && !ips.scrTried) { ips.scrTried = true; await ipsLoadScreen(); }
+      if (!ips.qual) await ipsLoadQuality();
       ips.view = ipsRun();
     } catch (e) { ips.view = null; } finally { ips.repricing = false; renderIPS(); }
     if (typeof sips !== "undefined" && sips.view && st.txns.length) sipsReprice();

@@ -161,6 +161,8 @@ Public AMFI NAV history, screened on the 1st and 15th, Direct–Growth only, at 
 
 A check is PASS only when its source is an AMFI or AMC document with a date. An automated figure older than 45 days is STALE, and a purchase that relies on it is not actionable.
 
+**How the automated checks run (built 21 Nov 2026).** The tracker's `mf-quality` function reads AMFI's monthly TER file and its scheme-wise average AUM file every Monday and before the 1st and 15th reviews. Expense ratio is the Direct plan's total TER on its latest AMFI date. Fund size is AMFI's average AUM for the latest published quarter, all plans of the scheme added together. AMFI publishes AUM quarterly with a lag, so fund size counts as STALE only when its quarter ended more than 135 days ago; the 45-day limit applies to the expense ratio. For an international fund of funds, AMFI's figure is the FoF's own ratio; the underlying fund's fee is not included.
+
 ### D.4 Exit from the score
 
 A held fund in the bottom quartile of its slot at two quarterly checks in a row goes to exit review (Part G.1).
