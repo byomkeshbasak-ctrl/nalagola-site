@@ -2764,7 +2764,10 @@
       if (!list || !list.length) return '<tbody><tr><td class="empty">' + empty + "</td></tr></tbody>";
       var tot = sumK(list, k);
       tot = list.reduce(function (a, x) { if (x.kind !== k || !x.amount) return a; var px = x.fund ? sPx(x.fund) : null, q = sQty(x, px); return a + (q != null ? q * px.p : x.amount); }, 0);
-      return head + list.map(function (x, i) { return line(x, pre + i); }).join("") + "</tbody>" + (tot ? '<tfoot><tr><td>Total now</td><td></td><td></td><td></td><td></td><td></td><td class="num">' + inr.format(tot) + "</td></tr></tfoot>" : "");
+      // Order by When: Now first, then the date windows in order, rows without a date last (keeps the plan's order within each)
+      var whenKey = function (x) { var w = sWhen(x); return w === "Now" ? "0" : w === "–" ? "9" : "1" + (x.due && x.due !== "now" ? x.due : (x.kind === "sell" || x.kind === "buy") ? nxt : "9"); };
+      var ord = list.map(function (x, i) { return { x: x, i: i, k: whenKey(x) }; }).sort(function (a, b) { return a.k < b.k ? -1 : a.k > b.k ? 1 : a.i - b.i; });
+      return head + ord.map(function (o) { return line(o.x, pre + o.i); }).join("") + "</tbody>" + (tot ? '<tfoot><tr><td>Total now</td><td></td><td></td><td></td><td></td><td></td><td class="num">' + inr.format(tot) + "</td></tr></tfoot>" : "");
     };
     $("sips-buy").innerHTML = L ? tbl(L.buys, "b", "Every target name is at its weight. Nothing to buy.", "buy") : '<tbody><tr><td class="empty">Loading…</td></tr></tbody>';
     $("sips-sell").innerHTML = L ? tbl(L.sells, "s", "Nothing to sell or trim.", "sell") : "";
