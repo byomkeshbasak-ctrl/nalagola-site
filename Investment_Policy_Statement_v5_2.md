@@ -393,6 +393,16 @@ These rules from v5.1 need data the tracker does not hold. They have no force wh
 
 Any change to this policy is written as an amendment with the date, the part changed and the reason, and takes effect when the investor signs it. The tracker applies the version named in its Stocks tab.
 
+### Amendment 1 (PROPOSED 20 Nov 2026, with Mutual Fund IPS v1.3; not yet in force)
+
+**Part 3.2 is replaced by:** New money is split against a fixed target of **30% shares and 70% funds** of household equity, band 25–35% for shares. For a month's surplus S, with shares worth A and funds worth B: to shares = the lower of S and the larger of 0 and (30% × (A + B + S) − A); the rest goes to funds. The 40% cap on direct shares (H1, Part 8.2) stays. Nothing is sold to move money between the two books.
+
+**Part 3.3, funds share:** to the buy list of the Mutual Fund IPS in force (v1.3 once signed) on the same day.
+
+**Reason:** the investor asked for the split to follow the household goal rather than the current mix (decision K-02 in MF IPS v1.3). At 20 Nov 2026 shares are 30.6% of household equity, so a surplus under about ₹1 L a month goes entirely to funds until shares are back below 30%.
+
+Approval: ____________________ Date: ____________
+
 ---
 
 ## Part 13: Approval register
