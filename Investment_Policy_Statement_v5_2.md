@@ -4,7 +4,7 @@
 **Last approved version:** v5.2 (this document). It replaces v4.9 (adopted 4 Nov 2026). v5.1 was a draft and was never signed.
 **Baseline date:** 20 Nov 2026 (closing prices of 20 Nov, Personal Networth Tracker)
 **Effective date:** 20 Nov 2026
-**Companion documents:** Mutual Fund IPS v1.2 (approved, operative); IPS v5.1 Review Pack (history only)
+**Companion documents:** Mutual Fund IPS v1.3 (approved 21 Nov 2026, operative); IPS v5.1 Review Pack (history only)
 
 > This is one investor's rulebook for his own decisions. It is not personalised advice. Returns are targets, not promises, and capital can be lost. Tax figures are estimates until a chartered accountant or the broker's tax P&L confirms them.
 
@@ -166,7 +166,7 @@ One override applies (Part 8.2): if direct stocks exceed **40% of HE**, the stoc
 ### 3.3 Where the money goes inside each book
 
 - **Stocks share:** to the buy list from the Stocks review (Part 5), in the order the engine ranks it: first names below target, then new names. Never to a name above its target or to an industry at its limit. If the buy list cannot use the full amount, the rest buys a Nifty 500 index fund or ETF (Part 8).
-- **Funds share:** to the buy list of the Mutual Fund IPS v1.2 review on the same day.
+- **Funds share:** to the buy list of the Mutual Fund IPS v1.3 review on the same day.
 - Amounts below ₹5,000 for one name are rolled into the next name on the list rather than bought as tiny lots.
 
 ---
@@ -393,7 +393,7 @@ These rules from v5.1 need data the tracker does not hold. They have no force wh
 
 Any change to this policy is written as an amendment with the date, the part changed and the reason, and takes effect when the investor signs it. The tracker applies the version named in its Stocks tab.
 
-### Amendment 1 (PROPOSED 20 Nov 2026, with Mutual Fund IPS v1.3; not yet in force)
+### Amendment 1 (APPROVED 21 Nov 2026, with Mutual Fund IPS v1.3; in force)
 
 **Part 3.2 is replaced by:** New money is split against a fixed target of **30% shares and 70% funds** of household equity, band 25–35% for shares. For a month's surplus S, with shares worth A and funds worth B: to shares = the lower of S and the larger of 0 and (30% × (A + B + S) − A); the rest goes to funds. The 40% cap on direct shares (H1, Part 8.2) stays. Nothing is sold to move money between the two books.
 
@@ -401,7 +401,7 @@ Any change to this policy is written as an amendment with the date, the part cha
 
 **Reason:** the investor asked for the split to follow the household goal rather than the current mix (decision K-02 in MF IPS v1.3). At 20 Nov 2026 shares are 30.6% of household equity, so a surplus under about ₹1 L a month goes entirely to funds until shares are back below 30%.
 
-Approval: ____________________ Date: ____________
+Approved by the investor: Byomkesh · 21 Nov 2026.
 
 ---
 

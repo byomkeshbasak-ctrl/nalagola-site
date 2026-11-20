@@ -4,10 +4,10 @@
 **Portfolio:** Mutual fund book (Direct–Growth), run alongside the direct-share book under Stocks IPS v5.2
 **Corpus at v1.3 valuation:** ₹35,42,410 across 12 funds (AMFI NAVs of 19 and 20 Nov 2026, actual units held)
 **Version:** v1.3 (supersedes v1.2) · **Prepared:** 20 Nov 2026
-**Status:** DRAFT FOR INVESTOR APPROVAL. Not approved. v1.2 stays operative until this draft is signed.
-**Last approved version:** v1.2 (10 Nov 2026)
-**Effective date:** [to be entered when the investor signs Part K]
-**Companion:** Stocks IPS v5.2 (approved 20 Nov 2026) and its Amendment 1 (proposed with this draft)
+**Status:** APPROVED by the investor on 21 Nov 2026. Operative; v1.2 is superseded and kept for history.
+**Last approved version:** v1.3 (this document). It replaces v1.2 (10 Nov 2026).
+**Effective date:** 21 Nov 2026
+**Companion:** Stocks IPS v5.2 (approved 20 Nov 2026) and its Amendment 1 (approved 21 Nov 2026)
 
 > This is one investor's rulebook for his own decisions, not personalised advice. Capital is at risk and returns are targets, not promises. Tax figures are estimates until a chartered accountant or the platform's tax statement confirms them.
 
@@ -73,7 +73,7 @@ Mid and small together are 46.2%, up from 40%. Bands are the target ±5 points f
 | Limit | Rule |
 |---|---|
 | Single fund at cost | 18% of the book's total cost. A slot held by one fund with a share above 18% may be bought up to its slot share at cost (v1.2 D-01): Flexi 20.8%, Small 23.1%, and Mid 23.1% once the pair is settled |
-| Single fund at value | 22% of the book. **A single-fund slot's ceiling is its slot share plus 3 points, never above its category limit:** Flexi 23.8%, Small 26%, Mid 26% after the pair is settled |
+| Single fund at value | 22% of the book. **Where a single-fund slot's share plus 3 points is higher, that is its ceiling, never above its category limit:** Flexi 23.8%, Small 26%, Mid 26% after the pair is settled |
 | Category | Mid ≤ 26%, Small ≤ 26%, International ≤ 15% |
 | Overlap | Parked (Part J). The quarterly bank check in Part N.4 reports, it does not limit |
 
@@ -341,7 +341,7 @@ The investor chose to keep the 2036 start. The share book has no glide path (v5.
 | K-19 | Monthly money invested **in one go on the 1st** | F.2 |
 | K-20 | Axis Greater China records corrected: the three entries are **Axis ELSS Tax Saver, Regular plan** (closes D-07) | C |
 
-Approval: ____________________ Date: ____________
+Approved by the investor: Byomkesh · 21 Nov 2026. Decisions K-01 to K-20 as written.
 
 ---
 
