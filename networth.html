@@ -352,6 +352,9 @@
   .ips-t td.fn .chev { display: inline-block; width: 14px; color: var(--muted); font-size: 0.75rem; }
   .ips-new { margin-left: 8px; padding: 1px 7px; border-radius: 999px; font-size: 0.66rem; font-weight: 600; letter-spacing: 0.04em; background: rgba(217,178,111,.16); color: var(--gold); vertical-align: 1px; }
   .ips-detail td { white-space: normal; padding: 4px 14px 14px 30px; font-size: 0.78rem; line-height: 1.5; color: var(--muted); border-top: 0; }
+  /* the rationale wraps inside the table's width instead of stretching the columns */
+  .ips-detail td { white-space: normal !important; }
+  .ips-detail td > .ips-why { width: 0; min-width: 100%; white-space: normal; overflow-wrap: anywhere; }
   .ips-act.watch { background: rgba(140,170,230,.15); color: #9db6e8; }
   .ips-t tfoot td { font-weight: 600; }
   .ips-st { margin-left: 6px; padding: 1px 6px; border: 1px solid var(--line-strong); border-radius: 999px; font-size: 0.62rem; letter-spacing: 0.06em; color: var(--muted); white-space: nowrap; }
@@ -2272,7 +2275,7 @@
       var open = !!ips.open[key];
       return '<tr class="ips-row' + (open ? " open" : "") + '" data-ipsrow="' + key + '" title="Click to ' + (open ? "hide" : "see") + ' the rationale"><td class="fn"><span class="chev">' + (open ? "▾" : "▸") + "</span><b>" + (x.fund ? esc(x.fund) : "–") + "</b>" + (x.isNew ? '<span class="ips-new">New</span>' : "") + "</td><td>" + esc(x.category || "") + '</td><td class="num">' + (x.units ? num3.format(x.units) : "–") +
         '</td><td class="num">' + (x.avg_nav ? inr2.format(x.avg_nav) : "–") + '</td><td class="num">' + navCell(x) + '</td><td><span class="ips-act ' + (x.kind || "") + '">' + esc(x.action) + '</span>' + (x.status ? ' <span class="ips-st" title="Not an instruction to act: the §D.4 gates and the tax view are still unverified (§M.5)">' + esc(x.status) + "</span>" : "") + '</td><td class="num">' + (x.amount ? inr.format(x.amount) : "–") + "</td></tr>" +
-        (open ? '<tr class="ips-detail"><td colspan="7">' + (nameCell(x) ? '<div class="ips-id">' + nameCell(x) + "</div>" : "") + esc(x.why) + "</td></tr>" : "");
+        (open ? '<tr class="ips-detail"><td colspan="7"><div class="ips-why">' + (nameCell(x) ? '<div class="ips-id">' + nameCell(x) + "</div>" : "") + esc(x.why) + "</div></td></tr>" : "");
     };
     var tbl = function (list, pre, empty) {
       if (!list || !list.length) return '<tbody><tr><td class="empty">' + empty + "</td></tr></tbody>";
@@ -2753,9 +2756,9 @@
       var px = x.fund ? sPx(x.fund) : null, q = sQty(x, px), amt = q != null ? q * px.p : x.amount;
       return '<tr class="ips-row' + (open ? " open" : "") + '" data-sipsrow="' + key + '" title="Click to ' + (open ? "hide" : "see") + ' the rationale"><td class="fn"><span class="chev">' + (open ? "▾" : "▸") + "</span><b>" + esc(x.fund || "–") + "</b>" + (x.isNew ? '<span class="ips-new">New</span>' : "") + "</td><td>" + esc(x.category || "") + '</td><td class="num">' + (q != null ? num.format(q) : "–") +
         '</td><td class="num">' + (px ? inr2.format(px.p) : "–") + '</td><td><span class="ips-act ' + (x.kind === "plan" ? "hold" : x.kind || "") + '">' + esc(x.action) + "</span></td><td>" + sWhen(x) + '</td><td class="num">' + (amt ? inr.format(amt) : "–") + "</td></tr>" +
-        (open ? '<tr class="ips-detail"><td colspan="7">' + (x.full && x.full !== x.fund ? "<b>" + esc(x.full) + ".</b> " : "") +
+        (open ? '<tr class="ips-detail"><td colspan="7"><div class="ips-why">' + (x.full && x.full !== x.fund ? "<b>" + esc(x.full) + ".</b> " : "") +
           (x.units ? "You hold " + num.format(x.units) + " shares at an average cost of " + inr2.format(x.avg_nav) + ". " : "") +
-          (q != null && x.amount ? "Planned " + inr.format(x.amount) + " = " + num.format(q) + " whole shares at " + inr2.format(px.p) + (px.screen ? " (screen price of " + fmtDate(px.d) + "; it updates to the live price after tonight's price run)" : "") + ". " : "") + esc(x.why) + "</td></tr>" : "");
+          (q != null && x.amount ? "Planned " + inr.format(x.amount) + " = " + num.format(q) + " whole shares at " + inr2.format(px.p) + (px.screen ? " (screen price of " + fmtDate(px.d) + "; it updates to the live price after tonight's price run)" : "") + ". " : "") + esc(x.why) + "</div></td></tr>" : "");
     };
     var tbl = function (list, pre, empty, k) {
       if (!list || !list.length) return '<tbody><tr><td class="empty">' + empty + "</td></tr></tbody>";
