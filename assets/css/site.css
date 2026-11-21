@@ -188,6 +188,10 @@ a.card:hover { border-color: var(--gold); }
 .site-footer ul { list-style: none; margin: 0; padding: 0; }
 .site-footer li a { display: inline-block; padding: 6px 0; color: var(--ivory); text-decoration: none; font-size: 14px; }
 .site-footer li a:hover { color: var(--gold); }
+.site-footer .social { display: flex; gap: 10px; margin-top: 16px; }
+.site-footer .social a { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid var(--gold-soft); border-radius: 50%; color: var(--ivory); transition: color .2s, border-color .2s; }
+.site-footer .social a:hover, .site-footer .social a:focus-visible { color: var(--gold); border-color: var(--gold); }
+.site-footer .social svg { width: 19px; height: 19px; }
 .site-footer .legal { margin: 22px auto 0; max-width: 60em; text-align: center; font-size: 13px; }
 .site-footer .copy { margin-top: 8px; text-align: center; font-size: 13px; color: #8A847B; }
 
