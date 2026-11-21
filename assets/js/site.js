@@ -48,7 +48,7 @@
   var PRODUCT_IMAGES = {
     "BUDWEISER MAGNUM": "assets/products/beer/budweiser-magnum.webp",
     "CARLSBERG ELEPHANT": "assets/products/beer/carlsberg-elephant.webp",
-    "KINGFISHER STRONG": "assets/products/beer/kingfisher-strong.webp",
+    "KINGFISHER DELUXE": "assets/products/beer/kingfisher-strong.webp",
     "ANTIQUITY BLUE": "assets/products/whisky/antiquity-blue.webp",
     "BP": "assets/products/whisky/bp.webp",
     "BP RESERVE": "assets/products/whisky/bp-reserve.webp",
