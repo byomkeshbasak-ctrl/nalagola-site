@@ -56,11 +56,6 @@ a.skip:focus { position: fixed; top: 8px; left: 8px; width: auto; height: auto; 
 .btn-outline:hover { background: var(--charcoal); color: var(--ivory); }
 .btn-link { border: 0; background: none; padding: 0 2px; min-height: 44px; color: var(--gold-ink); font-weight: 600; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 
-/* Top strip (scrolls away) */
-.strip { background: #0F0F0F; color: var(--grey-dark); font-size: 13px; }
-.strip .wrap { display: flex; justify-content: space-between; gap: 10px 24px; flex-wrap: wrap; padding-top: 8px; padding-bottom: 8px; }
-.strip a { color: var(--ivory); text-decoration: none; }
-.strip a:hover { color: var(--gold); }
 
 /* Sticky navigation */
 .nav-bar { position: sticky; top: 0; z-index: 50; background: rgba(23, 23, 23, 0.96); border-bottom: 1px solid var(--line-dark); color: var(--ivory); }
@@ -309,8 +304,6 @@ a.card:hover { border-color: var(--gold); }
 @media (min-width: 861px) { .scrim { display: none !important; } }
 @media (max-width: 600px) {
   :root { --pad: 18px; --nav-h: 64px; }
-  .strip .wrap { justify-content: center; font-size: 12px; }
-  .strip .wide { display: none; }
   .brand img { width: 38px; height: 38px; }
   .brand strong { font-size: 20px; }
   .brand small { display: none; }
