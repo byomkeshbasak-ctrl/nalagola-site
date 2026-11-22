@@ -442,6 +442,7 @@
   tr.sub-row > td { background: var(--panel-2); padding: 12px 16px; }
   tr.sub-row:hover > td { background: var(--panel-2); }
   .sub-table { width: 100%; font-size: 0.84rem; }
+  .due-after { color: var(--muted); font-size: 0.86em; white-space: nowrap; }
   .cr-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; margin: 0 0 12px; }
   .cr-bar label { display: grid; gap: 4px; font-size: 0.74rem; color: var(--muted); }
   .cr-bar input { padding: 6px 10px; font-size: 0.85rem; border-radius: 8px; min-height: 34px; }
@@ -3021,6 +3022,20 @@
   function custKey(n) { return String(n || "").trim().toLowerCase().replace(/\s+/g, " "); }
   var REPS = ["Shubhankar", "Ajit", "Sudeb", "Owner"];
   // Each customer's balance on the morning of 1 Oct, set in the Dues tab
+  // Each dues entry's customer balance straight after it: 1 Oct opening + all entries up to it (date, then time entered)
+  function duesBalanceAfter() {
+    var open = {}, run = {}, out = {};
+    (state.custRows || []).forEach(function (r) { open[custKey(r.name)] = Number(r.opening_balance || 0); });
+    state.dues.slice().sort(function (a, b) {
+      return a.entry_date < b.entry_date ? -1 : a.entry_date > b.entry_date ? 1 : String(a.created_at || "") < String(b.created_at || "") ? -1 : String(a.created_at || "") > String(b.created_at || "") ? 1 : 0;
+    }).forEach(function (d) {
+      var k = custKey(d.customer_name);
+      if (!(k in run)) run[k] = open[k] || 0;
+      run[k] += d.entry_type === "credit" ? Number(d.amount) || 0 : -(Number(d.amount) || 0);
+      out[d.id] = run[k];
+    });
+    return out;
+  }
   function custOpeningTotal() { return (state.custRows || []).reduce(function (a, c) { return a + Number(c.opening_balance || 0); }, 0); }
   function customers() {
     var m = {};
@@ -3541,8 +3556,11 @@
       return bdItem("exp", x, esc(x.category) + (x.description ? ' <span style="color:var(--muted)">· ' + esc(x.description) + "</span>" : "") +
         (paidFromShop(x) ? "" : ' <span class="warn-t" title="Paid from ' + esc(PAID[x.paid_from]) + ', so it isn\'t in this day\'s mismatch">· from ' + esc(PAID[x.paid_from]) + "</span>"), frozen);
     }).join("") : '<div class="none">No expenses for this day.</div>';
+    var after = dues.length ? duesBalanceAfter() : {};
     var duesList = dues.length ? dues.map(function (x) {
-      return bdItem("due", x, esc(x.customer_name) + " · " + (x.entry_type === "payment" ? '<span class="pos">collected</span>' : '<span class="warn-t">credit given</span>'), frozen);
+      var b = after[x.id];
+      return bdItem("due", x, esc(x.customer_name) + " · " + (x.entry_type === "payment" ? '<span class="pos">collected</span>' : '<span class="warn-t">credit given</span>') +
+        (b == null ? "" : ' <span class="due-after" title="What ' + esc(x.customer_name) + ' owes after this entry">· ' + (b < -0.5 ? "advance " + inr2.format(-b) : "due " + inr2.format(b)) + "</span>"), frozen);
     }).join("") : '<div class="none">No dues collected or credit given this day.</div>';
     var hasRep = state.reports.some(function (r) { return r.report_date === d; });
     var lockLink = state.unlocked[d] && autoLocked(d)
