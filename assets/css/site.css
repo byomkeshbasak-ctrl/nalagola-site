@@ -732,3 +732,68 @@ a.card:hover { border-color: var(--gold); }
 [data-page="catalogue"] .pd-info td { border-bottom-color: rgba(197, 160, 89, 0.12); }
 [data-page="catalogue"] .pd-info td:last-child { color: #c5a059; }
 [data-page="catalogue"] .pd-close { background: rgba(26, 26, 26, 0.95); border-color: rgba(255, 255, 255, 0.15); color: #e8e2d6; }
+
+/* ── Card Interaction & Bottle Glow ──
+   Product cards on both pages (.card); the bottle sits in .media (a photo or the bottle outline).
+   [data-page] keeps these ahead of the catalogue theme's own hover rule. */
+[data-page] .card {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.3s ease;
+}
+[data-page] .card:hover {
+  transform: translateY(-6px);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.4),
+    0 0 30px rgba(197, 160, 89, 0.06);
+  border-color: rgba(197, 160, 89, 0.25);
+}
+
+/* Subtle glow behind bottle images */
+[data-page] .card .media img,
+[data-page] .card .media svg {
+  position: relative;
+  z-index: 1;                          /* above the radial glow */
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), filter 0.4s ease;
+  filter: drop-shadow(0 4px 12px rgba(197, 160, 89, 0.08));
+}
+[data-page] .card:hover .media img,
+[data-page] .card:hover .media svg {
+  transform: scale(1.05);
+  filter: drop-shadow(0 8px 24px rgba(197, 160, 89, 0.15));
+}
+
+/* Radial glow behind the bottle on hover */
+[data-page] .card .media {
+  position: relative;
+  overflow: hidden;
+}
+[data-page] .card .media::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, rgba(197, 160, 89, 0.12) 0%, transparent 70%);
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.4s ease, width 0.4s ease, height 0.4s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+[data-page] .card:hover .media::before {
+  opacity: 1;
+  width: 200px;
+  height: 200px;
+}
+/* The "Photo pending" label stays above the glow too */
+[data-page] .card .pending { position: relative; z-index: 1; }
+
+/* Reduced motion: keep the glow, drop the lift and zoom */
+@media (prefers-reduced-motion: reduce) {
+  [data-page] .card:hover,
+  [data-page] .card:hover .media img,
+  [data-page] .card:hover .media svg { transform: none; }
+}
