@@ -4058,7 +4058,7 @@
     var r = e.target.closest("[data-hly]"); if (!r) return;
     hlSchedOpen = hlSchedOpen || {}; hlSchedOpen[r.dataset.hly] = !hlSchedOpen[r.dataset.hly]; renderHomeLoan();
   });
-  // ---------- Car loan (kept off the dashboard and out of net worth) ----------
+  // ---------- Car loan (a reference tile on the dashboard; not taken off net worth) ----------
   // From the SBI arrangement letter of 15 Feb 2024 (application 304240209019155). Fixed rate, EMI on the 15th from Mar 2024.
   var CL = {
     vehicle: "Kia Seltos HTX IVT 1.5 Petrol (2024)", lender: "State Bank of India, Makdumpur branch (14547)", scheme: "SBI Car Loan (Personal Segment Auto Loan)",
@@ -4176,6 +4176,8 @@
       // Liabilities: what's owed on credit cards and the home loan comes off net worth
       '<button type="button" class="dtile' + (ccDue > 0.5 ? " liab" : "") + '" data-go="cards"><div class="l"><i style="background:#ef8f8f"></i>Credit cards</div><div class="a' + (ccDue > 0.5 ? " neg" : "") + '">' + (ccDue > 0.5 ? "−" : "") + inr.format(ccDue) + "</div></button>" +
       '<button type="button" class="dtile' + (hl > 0.5 ? " liab" : "") + '" data-go="homeloan"><div class="l"><i style="background:#c47a7a"></i>Home loan (O/S balance)</div><div class="a' + (hl > 0.5 ? " neg" : "") + '">' + (hl > 0.5 ? "−" : "") + inr.format(hl) + "</div></button>" +
+      // Car loan: shown for reference like the home loan, not taken off net worth
+      (function () { var cl = clNow().outstanding; return '<button type="button" class="dtile' + (cl > 0.5 ? " liab" : "") + '" data-go="carloan"><div class="l"><i style="background:#b88a8a"></i>Car loan (O/S balance)</div><div class="a' + (cl > 0.5 ? " neg" : "") + '">' + (cl > 0.5 ? "−" : "") + inr.format(cl) + "</div></button>"; })() +
       '<button type="button" class="dtile" data-go="expenses"><div class="l"><i style="background:#ef8f8f"></i>Expenses this month</div><div class="a">' + inr.format(exMonthTotal(todayISO().slice(0, 7))) + "</div></button>";
     // Net worth by category (assets); loans owed shown underneath
     donut("nw-pie", parts.map(function (x) { return { l: x.c.l, v: x.a, c: x.c.c }; }), [inr.format(nw).replace("₹", "₹ "), "net worth"]);
@@ -4278,8 +4280,8 @@
     var g = $("dash-grid"); if (!g) return; var t = {};
     g.querySelectorAll(".dtile").forEach(function (b) { t[b.dataset.go] = b; });
     var G = [["Investments and financial assets", "", ["stocks", "mf", "gold", "epf", "bank"]], ["Business and other assets", "", ["business", "loans", "insurance", "trading"]],
-      ["Outstanding liabilities", "Credit cards are deducted in net worth. The home loan is shown for reference only.", ["cards", "homeloan"]], ["Monthly cash flow", "Spending recorded this month. It is not an asset or a liability.", ["expenses"]]];
-    var badge = { cards: "Deducted from net worth", homeloan: "Not deducted from net worth" };
+      ["Outstanding liabilities", "Credit cards are deducted in net worth. The home and car loans are shown for reference only.", ["cards", "homeloan", "carloan"]], ["Monthly cash flow", "Spending recorded this month. It is not an asset or a liability.", ["expenses"]]];
+    var badge = { cards: "Deducted from net worth", homeloan: "Not deducted from net worth", carloan: "Not deducted from net worth" };
     var frag = document.createDocumentFragment();
     G.forEach(function (x) {
       var keys = x[2].filter(function (k) { return t[k]; }); if (!keys.length) return;
