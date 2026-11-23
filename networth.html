@@ -1216,7 +1216,7 @@
         <div class="st-tools" role="group" aria-label="Search, filter and sort holdings" data-ux>
           <label class="st-f st-f-q"><span class="ux-sr">Search holdings by symbol or company</span><input type="search" id="st-q" placeholder="Search symbol or company" autocomplete="off"></label>
           <label class="st-f"><span class="ux-sr">Sector</span><select id="st-sec-f"><option value="">All sectors</option></select></label>
-          <label class="st-f"><span class="st-f-l">Sort by</span><select id="st-sort"><option value="value">Current value</option><option value="weight">Portfolio weight</option><option value="gain">Gain / loss (₹)</option><option value="pct">Return on cost (%)</option><option value="xirr">XIRR</option></select></label>
+          <label class="st-f"><span class="st-f-l">Sort by</span><select id="st-sort"><option value="value">Current value</option><option value="day">Day's gain / loss (₹)</option><option value="gain">Gain / loss (₹)</option><option value="pct">Return on cost (%)</option><option value="xirr">XIRR</option></select></label>
           <button type="button" class="ghost st-dir" id="st-dir" aria-label="Sort order: highest first. Activate to reverse.">High to low</button>
         </div>
         <div class="table-wrap" role="region" aria-label="Stock holdings"><table id="st-table"></table></div>
@@ -1357,7 +1357,7 @@
         <div class="st-tools" role="group" aria-label="Search, filter and sort holdings">
           <label class="st-f st-f-q"><span class="ux-sr">Search holdings by fund name</span><input type="search" id="mf-q" placeholder="Search fund name" autocomplete="off"></label>
           <label class="st-f"><span class="ux-sr">Category</span><select id="mf-cat-f"><option value="">All categories</option></select></label>
-          <label class="st-f"><span class="st-f-l">Sort by</span><select id="mf-sort"><option value="value">Current value</option><option value="weight">Portfolio weight</option><option value="gain">Gain / loss (₹)</option><option value="pct">Return on cost (%)</option><option value="xirr">XIRR</option></select></label>
+          <label class="st-f"><span class="st-f-l">Sort by</span><select id="mf-sort"><option value="value">Current value</option><option value="day">Day's gain / loss (₹)</option><option value="gain">Gain / loss (₹)</option><option value="pct">Return on cost (%)</option><option value="xirr">XIRR</option></select></label>
           <button type="button" class="ghost st-dir" id="mf-dir" aria-label="Sort order: highest first. Activate to reverse.">High to low</button>
         </div>
         <div class="table-wrap" role="region" aria-label="Mutual fund holdings"><table id="mf-table"></table></div>
@@ -2930,10 +2930,10 @@
       '</div><div class="alloc-key">' + ck.map(function (c) { return '<span><i style="background:' + (CAT_COL[c] || "#777") + '"></i>' + esc(c) + " <b>" + (100 * cats[c] / T.val).toFixed(1) + "%</b> · " + inr.format(cats[c]) + "</span>"; }).join("") + "</div>" : "";
 
     // Holdings
-    $("mf-table").innerHTML = '<thead><tr><th>Fund</th><th>Category</th><th class="num">Units</th><th class="num">Avg NAV</th><th class="num">Invested</th><th class="num">NAV</th><th class="num">Current value</th><th class="num">Gain</th><th class="num">XIRR</th><th class="num">Weight</th></tr></thead><tbody>' +
+    $("mf-table").innerHTML = '<thead><tr><th>Fund</th><th>Category</th><th class="num">Units</th><th class="num">Avg NAV</th><th class="num">Invested</th><th class="num">NAV</th><th class="num">Current value</th><th class="num">Gain</th><th class="num">XIRR</th><th class="num">Day&rsquo;s gain</th></tr></thead><tbody>' +
       (held.length ? held.map(function (r) { return fundRow(r, T.val); }).join("") : '<tr><td class="empty" colspan="10">No funds held.</td></tr>') +
       '</tbody><tfoot><tr><td>Total</td><td></td><td></td><td></td><td class="num">' + inr.format(T.inv) + '</td><td></td><td class="num">' + inr.format(T.val) + '</td><td class="num ' + (gain >= 0 ? "pos" : "neg") + '">' + inr.format(gain) +
-      '</td><td class="num">' + (isFinite(X) ? (X * 100).toFixed(1) + "%" : "–") + '</td><td class="num">100%</td></tr></tfoot>';
+      '</td><td class="num">' + (isFinite(X) ? (X * 100).toFixed(1) + "%" : "–") + '</td>' + dayCell(T.day, T.val) + '</tr></tfoot>';
 
     // Exited funds
     var eb = $("mf-exited-btn");
@@ -2954,14 +2954,19 @@
     renderNetWorth();
     fillFundSelect();
   }
+  // Day's gain / loss on what you hold: units x the change from the previous NAV or close, with the % move
+  function dayCell(d, val) {
+    var base = val - d, has = isFinite(d) && Math.abs(d) >= 0.5;
+    return '<td class="num ' + (has ? (d >= 0 ? "pos" : "neg") : "") + '">' + (has ? (d > 0 ? "+" : "−") + inr.format(Math.abs(d)) + "<small>" + pct(base ? d / base : NaN) + "</small>" : "–") + "</td>";
+  }
   function fundRow(r, tot) {
-    var g = r.gain, w = tot ? r.value / tot : 0, open = mf.open[r.f.name], dn = r.pnav ? (r.nav - r.pnav) / r.pnav : 0;
+    var g = r.gain, open = mf.open[r.f.name], dn = r.pnav ? (r.nav - r.pnav) / r.pnav : 0;
     return '<tr class="fund" data-mffund="' + esc(r.f.name) + '" title="' + esc(r.f.name) + " · click to " + (open ? "hide" : "see") + ' details and transactions"><td class="fn"><b class="nm">' + esc(shortFund(r.f.name)) + "</b>" +
       "</td><td>" + esc(r.f.category || "") + '</td><td class="num">' + num3.format(r.units) + '</td><td class="num">' + inr2.format(r.invested / r.units) + '</td><td class="num">' + inr.format(r.invested) +
       '</td><td class="num">' + inr2.format(r.nav) + (r.pnav && r.nav !== r.pnav ? '<small class="dc ' + (dn >= 0 ? "pos" : "neg") + '">' + pct(dn) + "</small>" : "") +
       '</td><td class="num">' + inr.format(r.value) +
       '</td><td class="num ' + (g >= 0 ? "pos" : "neg") + '">' + inr.format(g) + "<small>" + pct(r.invested ? g / r.invested : NaN) +
-      '</small></td><td class="num">' + (isFinite(r.xirr) ? (r.xirr * 100).toFixed(1) + "%" : "–") + '</td><td class="num">' + (w * 100).toFixed(1) + "%</td></tr>" + (open ? txRows(r, 10) : "");
+      '</small></td><td class="num">' + (isFinite(r.xirr) ? (r.xirr * 100).toFixed(1) + "%" : "–") + "</td>" + dayCell(r.day, r.value) + "</tr>" + (open ? txRows(r, 10) : "");
   }
   function txRows(r, span) {
     var i = r.f.scheme_code ? mfNavInfo[Number(r.f.scheme_code)] : null;
@@ -3340,17 +3345,17 @@
       k("Unrealised gain", inr.format(gain), pct(T.inv ? gain / T.inv : NaN), gain >= 0 ? "pos" : "neg") +
       k("Realised gain", inr.format(T.real), "From sales (FIFO)", T.real >= 0 ? "pos" : "neg") +
       k("XIRR", isFinite(X) ? (X * 100).toFixed(1) + "%" : "–", "All trades, since first buy", X >= 0 ? "pos" : "neg");
-    $("st-table").innerHTML = '<thead><tr><th>Stock</th><th>Sector</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Invested</th><th class="num">Price</th><th class="num">Current value</th><th class="num">Gain</th><th class="num">XIRR</th><th class="num">Weight</th></tr></thead><tbody>' +
+    $("st-table").innerHTML = '<thead><tr><th>Stock</th><th>Sector</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Invested</th><th class="num">Price</th><th class="num">Current value</th><th class="num">Gain</th><th class="num">XIRR</th><th class="num">Day&rsquo;s gain</th></tr></thead><tbody>' +
       (held.length ? held.map(function (r) {
-        var w = T.val ? r.value / T.val : 0, open = st.open[r.sym], dc = r.price - r.prev;
+        var open = st.open[r.sym], dc = r.price - r.prev;
         return '<tr class="fund" data-stsym="' + esc(r.sym) + '" title="' + esc(r.name ? r.sym + " · " + r.name : r.sym) + " · click to " + (open ? "hide" : "see") + ' details and trades"><td class="fn"><b class="nm">' + esc(r.sym) + '</b></td><td><button type="button" class="sec-link" data-stsector="' + esc(r.sym) + '" title="Change sector">' + esc(sectorOf(r.sym)) + '</button></td><td class="num">' + num3.format(r.qty) +
           '</td><td class="num">' + inr2.format(r.invested / r.qty) + '</td><td class="num">' + inr.format(r.invested) + '</td><td class="num">' + inr2.format(r.price) +
           '<small class="dc ' + (dc >= 0 ? "pos" : "neg") + '">' + pct(r.prev ? dc / r.prev : NaN) + '</small></td><td class="num">' + inr.format(r.value) +
           '</td><td class="num ' + (r.gain >= 0 ? "pos" : "neg") + '">' + inr.format(r.gain) + "<small>" + pct(r.invested ? r.gain / r.invested : NaN) + '</small></td><td class="num">' + (isFinite(r.xirr) ? (r.xirr * 100).toFixed(1) + "%" : "–") +
-          '</td><td class="num">' + (w * 100).toFixed(1) + "%</td></tr>" + (open ? stTxRows(r, 10) : "");
+          "</td>" + dayCell(r.day, r.value) + "</tr>" + (open ? stTxRows(r, 10) : "");
       }).join("") : '<tr><td class="empty" colspan="10">No stocks held.</td></tr>') +
       '</tbody><tfoot><tr><td>Total</td><td></td><td></td><td></td><td class="num">' + inr.format(T.inv) + '</td><td></td><td class="num">' + inr.format(T.val) + '</td><td class="num ' + (gain >= 0 ? "pos" : "neg") + '">' + inr.format(gain) +
-      '</td><td class="num">' + (isFinite(X) ? (X * 100).toFixed(1) + "%" : "–") + '</td><td class="num">100%</td></tr></tfoot>';
+      '</td><td class="num">' + (isFinite(X) ? (X * 100).toFixed(1) + "%" : "–") + '</td>' + dayCell(T.day, T.val) + '</tr></tfoot>';
     var eb = $("st-exited-btn"), er = exited.reduce(function (x, r) { return x + r.realised; }, 0);
     eb.hidden = !exited.length;
     eb.textContent = (st.showExited ? "Hide" : "Show") + " sold stocks (" + exited.length + ") · realised " + inr.format(er);
@@ -3560,7 +3565,7 @@
     });
     if (!groups.length) { $("st-hold-sub").textContent = "No stocks held yet"; return; }
     var q = stUi.q.trim().toLowerCase();
-    var metric = function (g) { var r = g.r; if (!r) return NaN; var s = stUi.sort; return s === "weight" ? stWt(c, r) : s === "gain" ? r.gain : s === "pct" ? (stRet(r) == null ? NaN : stRet(r)) : s === "xirr" ? r.xirr : r.value; };
+    var metric = function (g) { var r = g.r; if (!r) return NaN; var s = stUi.sort; return s === "day" ? r.day : s === "gain" ? r.gain : s === "pct" ? (stRet(r) == null ? NaN : stRet(r)) : s === "xirr" ? r.xirr : r.value; };
     groups.sort(function (a, b) {
       var x = metric(a), y = metric(b), nx = !isFinite(x), ny = !isFinite(y);
       if (nx || ny) return nx && ny ? 0 : nx ? 1 : -1;
@@ -3798,7 +3803,7 @@
     });
     if (!groups.length) { $("mf-hold-sub").textContent = "No funds held yet"; return; }
     var q = mfUi.q.trim().toLowerCase();
-    var metric = function (g) { var r = g.r; if (!r) return NaN; var s = mfUi.sort; return s === "weight" ? stWt(c, r) : s === "gain" ? r.gain : s === "pct" ? (stRet(r) == null ? NaN : stRet(r)) : s === "xirr" ? r.xirr : r.value; };
+    var metric = function (g) { var r = g.r; if (!r) return NaN; var s = mfUi.sort; return s === "day" ? r.day : s === "gain" ? r.gain : s === "pct" ? (stRet(r) == null ? NaN : stRet(r)) : s === "xirr" ? r.xirr : r.value; };
     groups.sort(function (a, b) {
       var x = metric(a), y = metric(b), nx = !isFinite(x), ny = !isFinite(y);
       if (nx || ny) return nx && ny ? 0 : nx ? 1 : -1;
