@@ -953,3 +953,65 @@ body:has(dialog[open]) .whatsapp-fab {
   90%           { opacity: 1; transform: scale(1); }
   95%           { opacity: 0; transform: scale(1.3); }
 }
+
+/* ── Typography Enhancements ──
+   Mapped to the site's classes: .brand-line (category tag on cards), .band .h2 (home section headings),
+   .card .size (price rows, biggest bottle first), #coll-grid (the "Selected collections" tab panel). */
+
+/* Increase body line-height for dark-bg readability */
+body {
+  line-height: 1.65;
+}
+
+/* Uppercase category tags — add breathing room */
+.card .brand-line {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #c5a059;
+}
+
+/* Section headings — add decorative gold rule */
+.band .h2 {
+  position: relative;
+  padding-bottom: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+.band .h2::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 48px;
+  height: 2px;
+  background: linear-gradient(to right, #c5a059, transparent);
+  border-radius: 1px;
+}
+/* Center-aligned section headings (none today; ready if one is centred with .text-center) */
+.band.text-center .h2::after,
+.band .text-center .h2::after {
+  left: 50%;
+  transform: translateX(-50%);
+  width: 64px;
+  background: linear-gradient(to right, transparent, #c5a059, transparent);
+}
+
+/* Bold primary price (the biggest bottle, listed first), mute smaller sizes */
+.card .sizes .size:first-child .mrp {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #c5a059;
+}
+.card .sizes .size:not(:first-child) {
+  opacity: 0.65;
+  font-size: 0.9rem;
+}
+
+/* Smooth tab transitions in "Selected collections": the panel's cards are redrawn on each tab change */
+[role="tabpanel"] > * {
+  animation: fadeIn 0.3s ease;
+}
+/* Inside .section-head the row already has its own 40px gap below; extra margin here pushed the
+   "View all products" button out of line with the heading's gold rule */
+.section-head .h2 { margin-bottom: 0; }
