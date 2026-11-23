@@ -1,6 +1,23 @@
 /* Nalagola CS Shop: customer pages (index.html, categories.html).
    Owner pages (admin.html, networth.html) do not use this file. */
 
+/* Global safety net: no horizontal overflow anywhere on the site */
+html, body {
+  max-width: 100vw;
+}
+/* On body only: the browser applies it to the whole page. Put on html as well, it stops the sticky
+   top bar and category tabs from sticking. */
+body {
+  overflow-x: hidden;
+}
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+img, video, iframe, embed, object {
+  max-width: 100%;
+  height: auto;
+}
+
 :root {
   --charcoal: #171717;
   --espresso: #29231F;
