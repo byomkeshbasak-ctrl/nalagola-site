@@ -797,3 +797,79 @@ a.card:hover { border-color: var(--gold); }
   [data-page] .card:hover .media img,
   [data-page] .card:hover .media svg { transform: none; }
 }
+
+/* ── Hero Entry Animations (home page) ──
+   Mapped to the hero's real markup: .eyebrow (kicker), h1, p, .ctas (buttons), .facts (trust line). */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+@keyframes float {
+  from { transform: translate(0, 0); }
+  to   { transform: translate(30px, -20px); }
+}
+/* Kicker ("Nalagola, Malda · Since 1975") */
+.hero .eyebrow { animation: fadeInUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both; }
+/* Main headline */
+.hero h1 { animation: fadeInUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.4s both; }
+/* Description (the kicker is also a <p>; its own rule above wins) */
+.hero p:not(.eyebrow) { animation: fadeInUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.6s both; }
+/* CTA buttons */
+.hero .ctas { animation: fadeInUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.8s both; }
+/* Trust line at the bottom */
+.hero .facts { animation: fadeIn 1s ease 1.2s both; }
+
+/* ── Ambient Background Glow ──
+   .hero::before already holds the background photo, so the top-right glow is on .hero .wrap::before. */
+.hero .wrap::before {
+  content: '';
+  position: absolute;
+  top: -20%;
+  right: -10%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(197, 160, 89, 0.08) 0%, transparent 60%);
+  border-radius: 50%;
+  animation: float 8s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 0;
+}
+.hero::after {
+  content: '';
+  position: absolute;
+  bottom: -15%;
+  left: -5%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(197, 160, 89, 0.05) 0%, transparent 60%);
+  border-radius: 50%;
+  animation: float 10s ease-in-out infinite alternate-reverse;
+  pointer-events: none;
+  z-index: 0;
+}
+/* Hero content sits above the glows */
+.hero > .wrap { z-index: 1; }
+.hero .wrap > * { position: relative; z-index: 1; }
+
+/* ── Gold shimmer on the main CTA button (Explore Catalogue) ── */
+.hero .ctas .btn-gold {
+  position: relative;
+  overflow: hidden;
+}
+.hero .ctas .btn-gold::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.2) 50%, transparent 60%);
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+  pointer-events: none;
+}
