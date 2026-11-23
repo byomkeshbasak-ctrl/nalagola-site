@@ -527,8 +527,70 @@
   // Exposed for the test harness only; pages do not rely on it.
   window.NalagolaCatalogue = { buildModel: buildModel, baseName: baseName, displayName: displayName, brandOf: brandOf };
 
+  /* ---------- scroll effects ---------- */
+  // 1. Scroll-triggered fade-in. Mapped to the site's classes: .card (product), .cat-card (category), .why > div
+  //    (benefit), .store-card, top-level <main> sections and the footer columns. Anything already on screen when it
+  //    appears is left alone, so the first view never flashes and the catalogue's cards don't fade again each time a
+  //    search or filter redraws them. Cards drawn later (from the price list) are picked up as they arrive.
+  function initScrollFx() {
+    var SEL = ".card, .cat-card, .why > div, .store-card, main > section:not(.hero):not(.cat-head), .site-footer .cols > div";
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if ("IntersectionObserver" in window && !reduce) {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          var el = entry.target;
+          el.classList.add("is-visible");
+          io.unobserve(el);
+          // once shown, drop the helper classes so the stagger delay never slows a later hover
+          setTimeout(function () { el.classList.remove("fade-target", "is-visible"); }, 900);
+        });
+      }, { threshold: 0.15, rootMargin: "0px 0px -40px 0px" });
+      var seen = typeof WeakSet === "function" ? new WeakSet() : null;
+      var take = function (el) {
+        if (seen) { if (seen.has(el)) return; seen.add(el); }
+        if (el.getBoundingClientRect().top < window.innerHeight) return;   // already in view: no fade
+        el.classList.add("fade-target");
+        io.observe(el);
+      };
+      document.querySelectorAll(SEL).forEach(take);
+      if ("MutationObserver" in window) {
+        new MutationObserver(function (muts) {
+          muts.forEach(function (m) {
+            m.addedNodes.forEach(function (n) {
+              if (n.nodeType !== 1) return;
+              if (n.matches(SEL)) take(n);
+              n.querySelectorAll(SEL).forEach(take);
+            });
+          });
+        }).observe(document.body, { childList: true, subtree: true });
+      }
+    }
+
+    // 2. Lazy-load images: swap in any data-src, and let every image after the first three load lazily
+    document.querySelectorAll("img[data-src]").forEach(function (img) {
+      img.setAttribute("loading", "lazy");
+      img.src = img.getAttribute("data-src");
+      img.removeAttribute("data-src");
+    });
+    document.querySelectorAll("img:not([loading])").forEach(function (img, i) { if (i > 2) img.setAttribute("loading", "lazy"); });
+
+    // 3. Back-to-top button (bottom left; the WhatsApp button is bottom right)
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "back-to-top";
+    btn.setAttribute("aria-label", "Back to top");
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+    document.body.appendChild(btn);
+    var onScroll = function () { btn.classList.toggle("visible", window.scrollY > 600); };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    btn.addEventListener("click", function () { window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" }); });
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     initChrome();
+    initScrollFx();
     var page = document.body.getAttribute("data-page");
     if (page === "home") initHome();
     if (page === "catalogue") initCatalogue();
