@@ -562,3 +562,173 @@ a.card:hover { border-color: var(--gold); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
+
+/* ── Unified Dark Theme for Catalogue Page ──
+   Scoped to categories.html (body[data-page="catalogue"]) so the home page keeps its own styles.
+   Mapped to the page's real classes: .card (product card), .media / .info, .brand-line (category tag),
+   .size / .mrp (price rows), .details (View details), .search, .tab (category pills), and the filter drawer and
+   product pop-up, which were light surfaces too. */
+[data-page="catalogue"],
+[data-page="catalogue"] main {
+  background-color: #111;
+  color: #e8e2d6;
+  --bg-color: #111;                    /* the pill bar's right-edge fade ends in the page colour */
+}
+
+/* Product cards — dark variant */
+[data-page="catalogue"] .card {
+  background: #1a1a1a;
+  border: 1px solid rgba(197, 160, 89, 0.1);
+  border-radius: 12px;
+  overflow: hidden;
+  color: #e8e2d6;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+[data-page="catalogue"] .card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  border-color: rgba(197, 160, 89, 0.3);
+}
+/* Product image area */
+[data-page="catalogue"] .card .media {
+  background: linear-gradient(135deg, #1e1e1e, #252520);
+}
+[data-page="catalogue"] .card .media svg { color: #6E6255; }
+[data-page="catalogue"] .card .pending { color: #A8A29A; }
+/* Product info area */
+[data-page="catalogue"] .card .info {
+  padding: 1.25rem;
+  background: #1a1a1a;
+}
+/* Category tag */
+[data-page="catalogue"] .card .brand-line {
+  color: #c5a059;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  opacity: 0.8;
+}
+/* Product title */
+[data-page="catalogue"] .card h3,
+[data-page="catalogue"] .card h4 {
+  color: #f0ebe0;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0.4rem 0 0.8rem;
+}
+[data-page="catalogue"] .card .variant { color: #A8A29A; }
+/* Price rows */
+[data-page="catalogue"] .card .sizes { border-top-color: rgba(197, 160, 89, 0.12); }
+[data-page="catalogue"] .card .size { color: #e8e2d6; font-family: 'Manrope', sans-serif; }
+[data-page="catalogue"] .card .size.hit { background: rgba(197, 160, 89, 0.14); }
+[data-page="catalogue"] .card .ml { color: #A8A29A; }
+[data-page="catalogue"] .card .mrp { color: #c5a059; font-weight: 700; }
+/* "View details" → gold link with an arrow */
+[data-page="catalogue"] .card .details {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #c5a059;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-decoration: none;
+  padding: 0.5rem 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  transition: gap 0.2s ease, color 0.2s ease;
+}
+[data-page="catalogue"] .card .details:hover { color: #d4b56a; gap: 0.6rem; }
+[data-page="catalogue"] .card .details::after { content: '→'; }
+
+/* Search — dark variant (the box is the .search wrapper; the input sits inside it) */
+[data-page="catalogue"] .search {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(197, 160, 89, 0.2);
+  border-radius: 10px;
+  color: #e8e2d6;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+[data-page="catalogue"] .search:focus-within {
+  border-color: #c5a059;
+  box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.12);
+}
+[data-page="catalogue"] .search svg { color: rgba(232, 226, 214, 0.55); }
+[data-page="catalogue"] .search input { color: #e8e2d6; font-family: 'Manrope', sans-serif; font-size: 0.95rem; }
+[data-page="catalogue"] .search input::placeholder { color: rgba(232, 226, 214, 0.4); }
+[data-page="catalogue"] .clear { background: rgba(255, 255, 255, 0.08); color: #e8e2d6; }
+
+/* Headings */
+[data-page="catalogue"] h2,
+[data-page="catalogue"] .group-head h3 {
+  color: #f0ebe0;
+  font-family: 'Cormorant Garamond', serif;
+}
+[data-page="catalogue"] .group-head { border-bottom-color: rgba(197, 160, 89, 0.15); }
+[data-page="catalogue"] .group-head span,
+[data-page="catalogue"] .results-meta,
+[data-page="catalogue"] .loading { color: #A8A29A; }
+[data-page="catalogue"] .btn-link { color: #c5a059; }
+[data-page="catalogue"] .spinner { border-color: rgba(255, 255, 255, 0.12); border-top-color: #c5a059; }
+
+/* Category pills — dark variant (.tab) */
+[data-page="catalogue"] .cat-tabs-bar {
+  background: rgba(17, 17, 17, 0.97);
+  border-bottom-color: rgba(197, 160, 89, 0.12);
+}
+[data-page="catalogue"] .cat-tabs-bar::after { background: linear-gradient(to right, rgba(17, 17, 17, 0), #111); }
+[data-page="catalogue"] .tab {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(232, 226, 214, 0.8);
+  border-radius: 100px;
+  padding: 8px 18px;
+  font-size: 0.85rem;
+  font-family: 'Manrope', sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.25s ease;
+}
+[data-page="catalogue"] .tab:hover { border-color: rgba(197, 160, 89, 0.4); color: #c5a059; }
+[data-page="catalogue"] .tab .n { color: rgba(232, 226, 214, 0.5); }
+[data-page="catalogue"] .tab[aria-pressed="true"] {
+  background: #c5a059;
+  color: #111;
+  border-color: #c5a059;
+  font-weight: 600;
+}
+[data-page="catalogue"] .tab[aria-pressed="true"] .n,
+[data-page="catalogue"] .tab[aria-pressed="true"]::before { color: #111; }
+
+/* Filters: labels, option lists, active filter, the "Filters & sort" button and the mobile drawer */
+[data-page="catalogue"] .field label { color: #A8A29A; }
+[data-page="catalogue"] .field select { color: #e8e2d6; }
+[data-page="catalogue"] .field select option { background: #1a1a1a; color: #e8e2d6; }
+[data-page="catalogue"] .field select.active { border-color: #c5a059; }
+[data-page="catalogue"] .btn-outline { border-color: rgba(232, 226, 214, 0.45); color: #e8e2d6; }
+[data-page="catalogue"] .btn-outline:hover { background: rgba(197, 160, 89, 0.12); border-color: #c5a059; color: #c5a059; }
+[data-page="catalogue"] .btn-dark { background: #c5a059; color: #111; }
+@media (max-width: 860px) {
+  [data-page="catalogue"] .filters,
+  [data-page="catalogue"] .drawer-head,
+  [data-page="catalogue"] .drawer-foot { background: #1a1a1a; }
+}
+
+/* Nothing-found notice */
+[data-page="catalogue"] .notice { background: #1a1a1a; border-color: rgba(197, 160, 89, 0.25); }
+[data-page="catalogue"] .notice p { color: #A8A29A; }
+
+/* Product details pop-up */
+[data-page="catalogue"] .pd { background: #1a1a1a; color: #e8e2d6; }
+[data-page="catalogue"] .pd .media { background: linear-gradient(135deg, #1e1e1e, #252520); }
+[data-page="catalogue"] .pd .media svg { color: #6E6255; }
+[data-page="catalogue"] .pd .pending,
+[data-page="catalogue"] .pd-info dt,
+[data-page="catalogue"] .pd-info th,
+[data-page="catalogue"] .pd-info .note { color: #A8A29A; }
+[data-page="catalogue"] .pd-info th,
+[data-page="catalogue"] .pd-info td { border-bottom-color: rgba(197, 160, 89, 0.12); }
+[data-page="catalogue"] .pd-info td:last-child { color: #c5a059; }
+[data-page="catalogue"] .pd-close { background: rgba(26, 26, 26, 0.95); border-color: rgba(255, 255, 255, 0.15); color: #e8e2d6; }
