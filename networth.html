@@ -5065,7 +5065,8 @@
       var sel = bar.querySelector('[data-f="cat"]');
       sel.innerHTML = '<option value="">All categories</option>' + cats.map(function (c) { return '<option value="' + esc(c) + '">' + esc(c) + "</option>"; }).join("");
       sel.value = f.cat;
-      ["from", "to"].forEach(function (n) { var i = bar.querySelector('[data-f="' + n + '"]'); i.min = o.lo || ""; i.max = o.hi || ""; i.value = f[n]; });
+      // any date since tracking began can be picked; a date outside the month shown switches the view to Overall (tfBind)
+      ["from", "to"].forEach(function (n) { var i = bar.querySelector('[data-f="' + n + '"]'); i.min = START_DATE; i.max = ""; i.value = f[n]; });
       bar.querySelector('[data-f="sort"]').value = f.sort;
     }
     var out = rows.filter(function (r) { var d = o.date(r); return (!f.cat || o.cat(r) === f.cat) && (!f.from || d >= f.from) && (!f.to || d <= f.to); });
@@ -5091,7 +5092,12 @@
   }
   function tfBind(k, table, redraw) {
     var bar = document.getElementById(k + "-fbar"), f = tfState(k);
-    bar.addEventListener("change", function (e) { var n = e.target.getAttribute("data-f"); if (!n) return; f[n] = e.target.value; redraw(); });
+    bar.addEventListener("change", function (e) {
+      var n = e.target.getAttribute("data-f"); if (!n) return; f[n] = e.target.value;
+      // Month view only holds that month's rows: a From/To date in another month switches to Overall so those rows can show
+      if ((n === "from" || n === "to") && f[n] && ex.view !== "all" && f[n].slice(0, 7) !== ex.month) { var ov = document.querySelector('#ex-view [data-view="all"]'); if (ov) { ov.click(); return; } }
+      redraw();
+    });
     bar.addEventListener("click", function (e) { if (e.target.getAttribute("data-f") !== "clear") return; f.cat = f.from = f.to = ""; redraw(); });
     table.addEventListener("click", function (e) {
       var th = e.target.closest("th[data-sortk]"); if (!th) return;
