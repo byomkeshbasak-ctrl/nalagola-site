@@ -227,7 +227,43 @@ a.card:hover { border-color: var(--gold); }
 .clear { flex: none; width: 40px; height: 40px; border: 0; border-radius: 50%; background: #EFE9DE; color: var(--ink); font-size: 20px; cursor: pointer; }
 
 .cat-tabs-bar { position: sticky; top: var(--nav-h); z-index: 40; background: rgba(244, 240, 232, 0.97); border-bottom: 1px solid var(--line-light); }
-.cat-tabs { display: flex; gap: 6px; overflow-x: auto; padding-top: 10px; padding-bottom: 10px; scrollbar-width: thin; }
+.cat-tabs { display: flex; gap: 6px; overflow-x: auto; padding-top: 10px; padding-bottom: 10px; }
+/* ── Hide scrollbar but keep scroll functionality ── */
+/* .cat-tabs is the category pill bar on categories.html; the other selectors are kept for any future pill bars */
+.cat-tabs,
+.category-pills,
+.pill-bar,
+[class*="category-filter"],
+[class*="pill-scroll"] {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;   /* smooth iOS scroll */
+  scrollbar-width: none;               /* Firefox */
+  -ms-overflow-style: none;            /* IE/Edge legacy */
+}
+.cat-tabs::-webkit-scrollbar,
+.category-pills::-webkit-scrollbar,
+.pill-bar::-webkit-scrollbar,
+[class*="category-filter"]::-webkit-scrollbar,
+[class*="pill-scroll"]::-webkit-scrollbar {
+  display: none;                       /* Chrome, Safari, Edge */
+}
+/* Fade on the right edge to hint that the pills scroll. The bar is ivory, so the fade ends in ivory */
+.category-pills-wrapper {
+  position: relative;
+}
+.cat-tabs-bar::after,
+.category-pills-wrapper::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 40px;
+  background: linear-gradient(to right, rgba(244, 240, 232, 0), var(--bg-color, #F4F0E8));
+  pointer-events: none;
+  z-index: 2;
+}
 .tab { flex: none; border: 1px solid var(--line-light); background: var(--white); color: var(--ink); border-radius: 999px; padding: 0 16px; min-height: 44px; cursor: pointer; font-size: 14px; white-space: nowrap; }
 .tab .n { margin-left: 6px; font-size: 12px; color: var(--grey-light); }
 .tab[aria-pressed="true"] { background: var(--charcoal); border-color: var(--charcoal); color: var(--ivory); font-weight: 600; }
