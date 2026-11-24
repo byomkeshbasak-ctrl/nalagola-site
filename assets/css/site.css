@@ -559,9 +559,7 @@ a.card:hover { border-color: var(--gold); }
   .pd-info { padding: 20px 18px; }
   .pd-info h2 { font-size: 28px; }
 }
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { transition: none !important; animation: none !important; }
-}
+/* Reduced motion: see the accessibility block at the end of this file */
 
 /* ── Unified Dark Theme for Catalogue Page ──
    Scoped to categories.html (body[data-page="catalogue"]) so the home page keeps its own styles.
@@ -1409,4 +1407,32 @@ body.page-home,
     border-bottom: 1px solid rgba(197, 160, 89, 0.08);
   }
   .mobile-info-banner a { color: #c5a059; font-weight: 600; text-decoration: none; }
+}
+
+/* ── Accessibility ── */
+/* Focus ring for keyboard users (shows when tabbing, not on mouse clicks).
+   No border-radius here: the ring follows each element's own shape, so pills stay round. */
+*:focus-visible {
+  outline: 2px solid #c5a059;
+  outline-offset: 3px;
+}
+/* Respect reduced-motion settings. Near-zero durations instead of "none", so anything that
+   animates into view still lands in its final, visible state. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto !important; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+/* Minimum 44px tap targets on phones. Links inside running text are inline and unaffected. */
+@media (max-width: 768px) {
+  a:not(.sr-only), button, select, input:not([type="checkbox"]):not([type="radio"]) {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .site-footer li a { display: inline-flex; align-items: center; }
+  .mobile-info-banner a { display: inline-flex; align-items: center; justify-content: center; margin: -13px 0; }
 }

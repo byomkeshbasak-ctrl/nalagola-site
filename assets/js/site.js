@@ -300,9 +300,17 @@
   }
 
   /* ---------- shared rendering ---------- */
+  // Alt text names the product and what it is, e.g. "Blenders Pride whisky bottle"
+  var ALT_KIND = { "Whisky": "whisky", "Rum": "rum", "Vodka": "vodka", "Gin": "gin", "Beer": "beer", "Wines": "wine", "Wine": "wine",
+    "Country Spirits": "country spirit", "Overseas Spirits": "Scotch whisky" };
+  function altText(l) {
+    var kind = ALT_KIND[l.cat] || "", name = l.name;
+    if (kind && name.toLowerCase().indexOf(kind) >= 0) kind = "";
+    return name + (kind ? " " + kind : "") + " bottle";
+  }
   function mediaHtml(l, big, quick) {
     var src = PRODUCT_IMAGES[l.key], extra = big ? "" : badgeHtml(l) + (quick ? quickViewHtml(l, quick === "button") : "");
-    if (src) return '<div class="media">' + extra + '<img src="' + esc(src) + '" alt="' + esc(l.name) + ' bottle" loading="' + (big ? "eager" : "lazy") + '" decoding="async" width="800" height="800"></div>';
+    if (src) return '<div class="media">' + extra + '<img src="' + esc(src) + '" alt="' + esc(altText(l)) + '" loading="' + (big ? "eager" : "lazy") + '" decoding="async" width="800" height="800"></div>';
     return '<div class="media">' + extra + BOTTLE_SVG + '<span class="pending">Photo pending</span></div>';
   }
   function sizeRows(l, hitSize) {
