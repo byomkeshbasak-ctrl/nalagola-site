@@ -4597,8 +4597,8 @@
     var el = $("dg-avl"); if (!el) return; var P = dgMonths().filter(function (x) { return x.full && x.ok; });
     var sig = JSON.stringify([P.length, P.length ? P[P.length - 1] : null]); if (sig === DG.sig.avl) return; DG.sig.avl = sig;
     DG.s["dg-avl"] = null; $("dg-avl-key").innerHTML = ""; $("dg-avl-extra").innerHTML = ""; var note = $("dg-avl-note"), sub = $("dg-avl-sub");
-    var base = "Every balance has been saved only since 31 Oct 2026. Earlier months held just shares and mutual funds, so their liabilities can't be shown, and none are estimated. The home loan is left out: it has no saved history and is not part of net worth.";
-    if (P.length < 2) { sub.textContent = ""; el.innerHTML = '<div class="empty">This needs two or more months with every balance saved. The chart appears here as soon as a second month closes.</div>'; note.textContent = base; return; }
+    note.textContent = ""; note.hidden = true;
+    if (P.length < 2) { sub.textContent = ""; el.innerHTML = '<div class="empty">This needs two or more months with every balance saved. The chart appears here as soon as a second month closes.</div>'; return; }
     var W = 480, H = 290, L = 56, R = 12, T = 22, B = 32, n = P.length, gw = (W - L - R) / n, bw = Math.min(46, gw / 4.2);
     var sc = dgScale(Math.max.apply(null, P.map(function (p) { return Math.max(p.a, p.l, p.t); }))), Y = function (v) { return T + (H - T - B) * (1 - v / sc.top); }, cx = function (i) { return L + gw * (i + 0.5); };
     var g = ""; for (var v = 0; v <= sc.top + 1; v += sc.nice) g += '<line class="gl" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(v).toFixed(1) + '" y2="' + Y(v).toFixed(1) + '"/><text class="ax" x="' + (L - 6) + '" y="' + (Y(v) + 3.5).toFixed(1) + '" text-anchor="end">₹' + dgShort(v) + "</text>";
@@ -4615,7 +4615,6 @@
     sub.textContent = dgMon(P[0].m) + " to " + dgMon(P[n - 1].m) + " · last record saved in each month";
     $("dg-avl-key").innerHTML = '<span><i class="sq" style="background:#C5A46D"></i>Total assets</span><span><i class="sq" style="background:#D97878"></i>Liabilities counted</span><span><i class="sq" style="background:#F4F0E8"></i>Net worth</span>';
     $("dg-avl-extra").innerHTML = dgTable2(["Month", "Saved on", "Total assets", "Liabilities counted", "Net worth"], P.slice().reverse().map(function (p) { return [dgMon(p.m), fmtDate(p.d), inr.format(p.a), inr.format(p.l), inr.format(p.t)]; }), "Assets, liabilities and net worth by month");
-    note.textContent = base + " Assets minus liabilities equals each month's saved net worth.";
   }
 
   // What moved net worth between two saved month-ends. Bars are changes in balances, measured from the opening net worth (the zero line).
@@ -4642,7 +4641,7 @@
         return line("", esc(r[0]), '<span class="' + cl + '">' + stSg(r[1]) + "</span>", '<i class="zero" style="left:' + z + '%"></i><i class="b ' + cl + '" style="left:' + pos(lo) + "%;width:" + (100 * Math.abs(r[1]) / span).toFixed(2) + '%"></i><i class="cn" style="left:' + pos(b) + '%"></i>'); }).join("") +
       line("tot", "Closing net worth, " + esc(fmtDate(cu.d)), inr.format(cu.t) + ' <span class="' + stCls(total) + '" style="display:block;font-size:0.72rem;font-weight:400">' + stSg(total) + "</span>", '<i class="zero" style="left:' + z + '%"></i><i class="mk close" style="left:' + pos(total) + '%"></i>') + "</ul>";
     sub.textContent = "Change in each balance, " + fmtDate(pr.d) + " to " + fmtDate(cu.d);
-    note.textContent = "Each bar is how that balance changed between the two saved dates, so it can come from money added or taken out, transfers or price moves. It is a reconciliation of balances, not a measure of return. The bars start at the opening net worth and end at the closing one." + (same.length ? " No change: " + same.join(", ") + "." : "");
+    note.textContent = ""; note.hidden = true;
   }
 
   // Insights: plain observations from the same figures
