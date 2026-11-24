@@ -1101,3 +1101,58 @@ body:has(dialog[open]) .back-to-top {
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* ── Hero: two columns, text left and a lit bottle right ──
+   The grid sits on .hero .wrap so the content keeps the site's page width
+   and the background photo on .hero::before stays in place. */
+.hero .wrap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 2rem;
+  min-height: 85vh;
+}
+.hero-content { z-index: 1; min-width: 0; }
+.hero-image {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+}
+/* Bottle with dramatic lighting */
+.hero-image img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-height: 500px;
+  max-width: 100%;
+  filter: drop-shadow(0 20px 60px rgba(197, 160, 89, 0.2));
+  animation: heroBottleFloat 4s ease-in-out infinite alternate;
+}
+@keyframes heroBottleFloat {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-12px); }
+}
+/* Glowing ring under the bottle */
+.hero-image::before {
+  content: '';
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 250px;
+  height: 30px;
+  background: radial-gradient(ellipse, rgba(197, 160, 89, 0.25), transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+/* Stack on tablets and phones */
+@media (max-width: 768px) {
+  .hero .wrap { grid-template-columns: 1fr; text-align: center; min-height: 0; gap: 3rem; }
+  .hero h1 .line, .hero p { margin-left: auto; margin-right: auto; }
+  .hero .ctas, .hero .facts { justify-content: center; }
+  .hero-image img { max-height: 300px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-image img { animation: none; }
+}
