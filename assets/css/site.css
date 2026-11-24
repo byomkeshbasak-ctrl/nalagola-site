@@ -1156,3 +1156,30 @@ body:has(dialog[open]) .back-to-top {
 @media (prefers-reduced-motion: reduce) {
   .hero-image img { animation: none; }
 }
+
+/* ── Page fade-in on load ── */
+body { animation: pageLoad 0.5s ease both; }
+@keyframes pageLoad {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Button press feedback ──
+   .btn covers Explore Catalogue, Find Our Store and every other button; .tab is the category pill. */
+.btn, .nav-link, .tab {
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.btn:active, .tab:active { transform: scale(0.97); }
+
+/* ── Gold scroll progress line at the very top ── */
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 0%;
+  background: linear-gradient(90deg, #c5a059, #d4b56a, #c5a059);
+  z-index: 9999;
+  transition: width 0.1s linear;
+  pointer-events: none;
+}

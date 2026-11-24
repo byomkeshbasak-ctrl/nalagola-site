@@ -540,6 +540,17 @@
   //    appears is left alone, so the first view never flashes and the catalogue's cards don't fade again each time a
   //    search or filter redraws them. Cards drawn later (from the price list) are picked up as they arrive.
   function initScrollFx() {
+    // Gold line at the top that fills as the page scrolls
+    var bar = document.getElementById("scrollProgress");
+    if (bar) {
+      var paint = function () {
+        var docHeight = document.documentElement.scrollHeight - window.innerHeight;
+        bar.style.width = (docHeight > 0 ? Math.min(100, (window.scrollY / docHeight) * 100) : 0) + "%";
+      };
+      window.addEventListener("scroll", paint, { passive: true });
+      window.addEventListener("resize", paint);
+      paint();
+    }
     var SEL = ".card, .cat-card, .why > div, .store-card, main > section:not(.hero):not(.cat-head), .site-footer .cols > div";
     var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if ("IntersectionObserver" in window && !reduce) {
