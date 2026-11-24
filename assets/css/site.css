@@ -1276,3 +1276,67 @@ body { animation: pageLoad 0.5s ease both; }
 .search-result-item .result-name { font-weight: 600; color: #f0ebe0; font-size: 15px; }
 .search-result-item .result-price { font-size: 0.85rem; color: #c5a059; }
 .search-result-item .result-cat { color: #8a8275; }
+
+/* ── Stats bar (under the hero) ── */
+.stats-bar {
+  background: rgba(197, 160, 89, 0.04);
+  border-top: 1px solid rgba(197, 160, 89, 0.1);
+  border-bottom: 1px solid rgba(197, 160, 89, 0.1);
+}
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2rem;
+  padding-top: 3rem;
+  padding-bottom: 3rem;
+  text-align: center;
+}
+.stat[hidden] { display: none; }
+.stat-number {
+  display: inline-block;
+  min-width: 2ch;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 2.75rem;
+  font-weight: 600;
+  line-height: 1.1;
+  color: #c5a059;
+  font-variant-numeric: tabular-nums;
+}
+.stat-label {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  color: rgba(232, 226, 214, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+@media (max-width: 600px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 1.5rem 1rem; padding-top: 2.25rem; padding-bottom: 2.25rem; }
+}
+
+/* ── Customer testimonials (shown only once real reviews are added) ── */
+.testimonial-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+.testimonial-card {
+  margin: 0;
+  background: rgba(197, 160, 89, 0.04);
+  border: 1px solid rgba(197, 160, 89, 0.1);
+  border-radius: 16px;
+  padding: 2rem;
+  position: relative;
+}
+.testimonial-card::before {
+  content: '\201C';
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 4rem;
+  color: rgba(197, 160, 89, 0.15);
+  position: absolute;
+  top: 12px;
+  left: 20px;
+  line-height: 1;
+}
+.testimonial-card { padding-top: 3.5rem; } /* room for the quote mark above the stars */
+.testimonial-card blockquote { margin: 0; }
+.testimonial-card blockquote p { margin: 0 0 1.25rem; color: #d9d3c8; line-height: 1.7; }
+.stars { color: #c5a059; font-size: 0.9rem; letter-spacing: 2px; margin-bottom: 0.75rem; }
+.testimonial-author strong { color: #f0ebe0; display: block; }
+.testimonial-author span { font-size: 0.8rem; color: rgba(232, 226, 214, 0.5); }

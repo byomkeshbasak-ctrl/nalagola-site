@@ -329,11 +329,68 @@
   }
 
   /* ---------- homepage ---------- */
+  /* ---------- testimonials ---------- */
+  // Real customer reviews only, in the customer's own words, with their permission.
+  // The section stays hidden while this list is empty.
+  // Example: { quote: "...", name: "Amit K.", note: "Regular customer since 2018", stars: 5 }
+  var TESTIMONIALS = [];
+  function initTestimonials() {
+    var sec = document.getElementById("testimonials"), grid = document.getElementById("testimonial-grid");
+    if (!sec || !grid || !TESTIMONIALS.length) return;
+    grid.innerHTML = TESTIMONIALS.map(function (t) {
+      var n = Math.max(0, Math.min(5, t.stars || 0));
+      return '<figure class="testimonial-card">' + (n ? '<div class="stars" role="img" aria-label="' + n + ' out of 5 stars">' + "\u2605".repeat(n) + "</div>" : "") +
+        "<blockquote><p>" + esc(t.quote) + '</p></blockquote><figcaption class="testimonial-author"><strong>' + esc(t.name) + "</strong>" +
+        (t.note ? "<span>" + esc(t.note) + "</span>" : "") + "</figcaption></figure>";
+    }).join("");
+    sec.hidden = false;
+  }
+
+  /* ---------- stats bar: numbers count up when they scroll into view ---------- */
+  function initStats() {
+    var els = Array.prototype.slice.call(document.querySelectorAll(".stat-number[data-stat]"));
+    if (!els.length) return;
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var yrs = document.querySelector('[data-stat="years"]');
+    if (yrs) yrs.setAttribute("data-target", String(new Date().getFullYear() - 1975));
+    function run(el) {
+      var target = parseInt(el.getAttribute("data-target"), 10);
+      if (!(target > 0) || el.getAttribute("data-done")) return;
+      el.setAttribute("data-done", "1");
+      if (reduce) { el.textContent = target; return; }
+      var current = 0, step = Math.ceil(target / 40);
+      var timer = setInterval(function () {
+        current += step;
+        if (current >= target) { current = target; clearInterval(timer); }
+        el.textContent = current;
+      }, 30);
+    }
+    var seen = [];
+    if ("IntersectionObserver" in window) {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          seen.push(entry.target); run(entry.target); io.unobserve(entry.target);
+        });
+      }, { threshold: 0.5 });
+      els.forEach(function (el) { io.observe(el); });
+    } else { els.forEach(function (el) { seen.push(el); run(el); }); }
+    // Product and brand counts come from the price list; start them once it arrives
+    return function (m) {
+      var set = function (k, v) { var el = document.querySelector('[data-stat="' + k + '"]'); if (el) { el.setAttribute("data-target", String(v)); if (seen.indexOf(el) >= 0) run(el); } };
+      if (m) { set("products", m.labels.length); set("brands", brandCount(m.labels)); }
+      else ["products", "brands"].forEach(function (k) { var el = document.querySelector('[data-stat="' + k + '"]'); if (el) el.closest(".stat").hidden = true; });
+    };
+  }
+
   function initHome() {
     var section = document.getElementById("collections");
     var tabsEl = document.getElementById("coll-tabs"), gridEl = document.getElementById("coll-grid"), noteEl = document.getElementById("coll-note");
+    var statsReady = initStats();
+    initTestimonials();
     loadCatalogue().then(function (m) {
       if (!m.labels.length) throw new Error("Empty price list");
+      if (statsReady) statsReady(m);
       CATEGORIES.forEach(function (c) {
         var el = document.querySelector('[data-count="' + c.slug + '"]');
         if (!el) return;
@@ -376,6 +433,7 @@
     }).catch(function () {
       document.querySelectorAll("[data-count]").forEach(function (el) { el.textContent = "See the range"; });
       if (section) section.hidden = true;
+      if (statsReady) statsReady(null);
     });
   }
 
