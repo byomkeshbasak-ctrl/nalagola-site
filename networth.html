@@ -4372,7 +4372,9 @@
       '<button type="button" class="dtile' + (hl > 0.5 ? " liab" : "") + '" data-go="homeloan"><div class="l"><i style="background:#c47a7a"></i>Home loan (O/S balance)</div><div class="a' + (hl > 0.5 ? " neg" : "") + '">' + (hl > 0.5 ? "−" : "") + inr.format(hl) + "</div></button>" +
       // Car loan: shown for reference like the home loan, not taken off net worth
       (function () { var cl = clNow().outstanding; return '<button type="button" class="dtile' + (cl > 0.5 ? " liab" : "") + '" data-go="carloan"><div class="l"><i style="background:#b88a8a"></i>Car loan (O/S balance)</div><div class="a' + (cl > 0.5 ? " neg" : "") + '">' + (cl > 0.5 ? "−" : "") + inr.format(cl) + "</div></button>"; })() +
-      '<button type="button" class="dtile" data-go="expenses"><div class="l"><i style="background:#ef8f8f"></i>Expenses this month</div><div class="a">' + inr.format(exMonthTotal(todayISO().slice(0, 7))) + "</div></button>";
+      '<button type="button" class="dtile" data-go="expenses"><div class="l"><i style="background:#ef8f8f"></i>Expenses this month</div><div class="a">' + inr.format(exMonthTotal(todayISO().slice(0, 7))) + "</div></button>" +
+      // Income this month: the same total as the Income tab (entries plus market gains, PF and the shop's net profit)
+      (function () { var v = incMonthTotal(todayISO().slice(0, 7)); return '<button type="button" class="dtile" data-go="income"><div class="l"><i style="background:#7fc8a0"></i>Incomes this month</div><div class="a' + (v < 0 ? " neg" : "") + '">' + (v < 0 ? "−" : "") + inr.format(Math.abs(v)) + "</div></button>"; })();
     // Net worth by category (assets); loans owed shown underneath
     donut("nw-pie", parts.map(function (x) { return { l: x.c.l, v: x.a, c: x.c.c }; }), [inr.format(nw).replace("₹", "₹ "), "net worth"]);
     $("nw-pie-note").textContent = liab ? "Assets " + inr.format(assets) + " less loans owed and card dues " + inr.format(liab) + " = net worth " + inr.format(nw) + "." : "No loans owed, so net worth equals total assets.";
@@ -4470,7 +4472,7 @@
     var g = $("dash-grid"); if (!g) return; var t = {};
     g.querySelectorAll(".dtile").forEach(function (b) { t[b.dataset.go] = b; });
     var G = [["Investments and financial assets", "", ["stocks", "mf", "gold", "epf", "bank"]], ["Business and other assets", "", ["business", "loans", "insurance", "trading"]],
-      ["Outstanding liabilities", "Credit cards are deducted in net worth. The home and car loans are shown for reference only.", ["cards", "homeloan", "carloan"]], ["Monthly cash flow", "Spending recorded this month. It is not an asset or a liability.", ["expenses"]]];
+      ["Outstanding liabilities", "Credit cards are deducted in net worth. The home and car loans are shown for reference only.", ["cards", "homeloan", "carloan"]], ["Monthly cash flow", "Income and spending recorded this month. They are not assets or liabilities.", ["expenses", "income"]]];
     var badge = { cards: "Deducted from net worth", homeloan: "Not deducted from net worth", carloan: "Not deducted from net worth" };
     var frag = document.createDocumentFragment();
     G.forEach(function (x) {
@@ -5378,6 +5380,11 @@
   var inc = { month: todayISO().slice(0, 7), editing: null };
   $("in-month").value = inc.month;
   $("in-month").addEventListener("change", function () { if (this.value) { inc.month = this.value; renderIncome(); } });
+  function incMonthTotal(m) {
+    var a = (state.income || []).filter(function (x) { return x.inc_date.slice(0, 7) === m; }).reduce(function (x, r) { return x + Number(r.amount); }, 0);
+    try { a += autoIncome(m).reduce(function (x, r) { return x + r.v; }, 0); } catch (e) { /* market parts not loaded yet */ }
+    return a;
+  }
   function inMonth(m) { return state.income.filter(function (x) { return x.inc_date.slice(0, 7) === m; }); }
   function sumAmt(l) { return l.reduce(function (a, x) { return a + Number(x.amount); }, 0); }
   function fillInTo() {
