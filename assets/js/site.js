@@ -686,6 +686,13 @@
   //    (benefit), .store-card, top-level <main> sections and the footer columns. Anything already on screen when it
   //    appears is left alone, so the first view never flashes and the catalogue's cards don't fade again each time a
   //    search or filter redraws them. Cards drawn later (from the price list) are picked up as they arrive.
+  // Mobile info strip: "Open till 10 PM" during hours, "Opens at 10 AM" otherwise (shop time, IST)
+  function initOpenNote() {
+    var el = document.getElementById("open-note");
+    if (!el) return;
+    var now = new Date(), ist = new Date(now.getTime() + (now.getTimezoneOffset() + 330) * 60000), h = ist.getHours();
+    el.textContent = h >= 10 && h < 22 ? "\ud83d\udd50 Open till 10 PM" : "\ud83d\udd50 Opens at 10 AM";
+  }
   function initScrollFx() {
     // Gold line at the top that fills as the page scrolls
     var bar = document.getElementById("scrollProgress");
@@ -756,6 +763,7 @@
   document.addEventListener("DOMContentLoaded", function () {
     initChrome();
     initScrollFx();
+    initOpenNote();
     var page = document.body.getAttribute("data-page");
     if (page === "home") initHome();
     if (page === "catalogue") initCatalogue();
