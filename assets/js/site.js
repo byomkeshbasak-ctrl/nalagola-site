@@ -98,7 +98,10 @@
     "JW RED LEBEL": "assets/products/overseas-spirits/jw-red-label.webp",
     "TEACHERS HIGHLAND": "assets/products/overseas-spirits/teachers-highland.webp",
     "VAT 69": "assets/products/overseas-spirits/vat-69.webp",
-    "COSMOS FIFTY": "assets/products/country-spirits/cosmos-fifty.webp"
+    "COSMOS FIFTY": "assets/products/country-spirits/cosmos-fifty.webp",
+    "BLUE LAGOON": "assets/products/gin/blue-lagoon.webp",
+    "BRO CODE": "assets/products/wine/bro-code.webp",
+    "SHOTGUN": "assets/products/wine/shotgun.webp"
   };
 
   // Website category names. The database keeps its own names; these are display labels only.
