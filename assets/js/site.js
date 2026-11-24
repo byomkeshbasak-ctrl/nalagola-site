@@ -32,6 +32,7 @@
     "MAGIC MOMENT APPLE": "Magic Moments Green Apple",
     "MAGIC MOMENT PINK": "Magic Moments Pink",
     "MAGIC MO LEMON": "Magic Moments Lemon",
+    "MAGIC MOMENT JAMUN": "Magic Moments Jamun",
     "SMIRNOFF MINTY JAMUN": "Smirnoff Minty Jamun",
     "WILLIAM LAWSON'S": "William Lawson\u2019s",
     "VAT 69": "VAT 69",
@@ -163,7 +164,10 @@
   }
   function slugify(s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
   function norm(s) { return String(s).toLowerCase().replace(/[\u2018\u2019]/g, "'").replace(/\s+/g, " ").trim(); }
-  function baseName(item) {
+  // Stock sheets sometimes spell one label two ways; fold them into one card.
+  var NAME_ALIASES = { "MAGIC MOMENTS JAMUN": "MAGIC MOMENT JAMUN" };
+  function baseName(item) { var b = rawBase(item); return NAME_ALIASES[b] || b; }
+  function rawBase(item) {
     var t = String(item).trim().toUpperCase().split(/\s+/);
     var last = /^([A-Z]+)(\d+)$/.exec(t[t.length - 1]);
     if (t.length > 1 && last && TYPE_CODES.indexOf(last[1]) >= 0) return t.slice(0, -1).join(" ");
