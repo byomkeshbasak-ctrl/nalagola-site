@@ -4646,7 +4646,7 @@
   // Insights: plain observations from the same figures
   function dgInsights(c) {
     var el = $("dg-ins"); if (!el) return; var M = dgMonths(), cur = todayISO().slice(0, 7), prev = M.filter(function (x) { return x.m === dgPrevKey(cur); })[0], out = [];
-    var card = function (h, big, txt, body, cls) { return '<article class="st-in"><h3>' + h + "</h3>" + (big ? '<div class="st-in-big ' + (cls || "") + '">' + big + "</div>" : "") + '<p class="st-in-txt">' + txt + "</p>" + (body || "") + "</article>"; };
+    var card = function (h, big, txt, body, cls) { return '<article class="st-in"><h3>' + h + "</h3>" + (big ? '<div class="st-in-big ' + (cls || "") + '">' + big + "</div>" : "") + (txt ? '<p class="st-in-txt">' + txt + "</p>" : "") + (body || "") + "</article>"; };
     var li = function (nm, a, b, w, cls) { return '<li><span class="nm" title="' + esc(nm) + '">' + esc(nm) + '</span><span class="vals">' + a + (b ? "<em>" + b + "</em>" : "") + '</span><span class="track" aria-hidden="true"><i class="' + (cls || "") + '" style="width:' + Math.max(2, Math.min(100, w)).toFixed(1) + '%"></i></span></li>'; };
     var list = function (r) { return '<ul class="st-in-list" role="list">' + r.join("") + "</ul>"; };
     // A. Net worth movement
@@ -4663,16 +4663,21 @@
     if (prev && prev.full && prev.ok) {
       var ch = DG_KEYS.map(function (k) { var a = +prev.p[k[0]] || 0, b = c.v[k[0]]; return { l: k[1], a: a, b: b, d: b - a }; }).filter(function (x) { return Math.abs(x.d) >= 1; }).sort(function (x, y) { return y.d - x.d; });
       var up = ch.filter(function (x) { return x.d > 0; }).slice(0, 2), dn = ch.filter(function (x) { return x.d < 0; }).slice(-2).reverse(), mxd = Math.max.apply(null, ch.map(function (x) { return Math.abs(x.d); }).concat([1]));
-      out.push(card("Biggest balance changes", up.length ? stSg(up[0].d) : "", "Change in each balance since " + esc(fmtDate(prev.d)) + ". A balance can rise or fall from money moved as well as price moves, so these aren't returns.",
+      out.push(card("Biggest balance changes", up.length ? stSg(up[0].d) : "", "",
         ch.length ? list(up.concat(dn).map(function (x) { return li(x.l, stSg(x.d), "", 100 * Math.abs(x.d) / mxd, stCls(x.d)) + '<li style="display:block;margin-top:-4px;font-size:0.72rem;color:var(--muted)">' + inr.format(x.a) + " → " + inr.format(x.b) + "</li>"; })) : "", up.length ? "pos" : ""));
     } else out.push(card("Biggest balance changes", "", "These appear once last month has a full record to compare with."));
-    // E. Liabilities
-    if (prev && prev.full && prev.ok) { var dl = c.liab - prev.l; out.push(card("Liabilities counted", stSg(dl), "Now " + inr.format(c.liab) + " against " + inr.format(prev.l) + " at " + esc(fmtDate(prev.d)) + ". Only the liabilities that net worth counts are compared; the home loan has no saved history.", "", dl > 0 ? "neg" : "pos")); }
-    else out.push(card("Liabilities counted", inr.format(c.liab), "Credit cards, money owed and negative balances. The home loan is shown separately and isn't counted."));
+    // E. Liabilities: where they come from
+    var lneg = c.liab - c.ccDue - c.v.taken, lsrc = [];
+    if (c.ccDue > 0.5) lsrc.push("Credit cards " + inr.format(c.ccDue));
+    if (c.v.taken > 0.5) lsrc.push("Loans owed " + inr.format(c.v.taken));
+    if (lneg > 0.5) lsrc.push("Negative balances " + inr.format(lneg));
+    var ltxt = lsrc.length ? lsrc.join(" · ") : "Nothing owed";
+    if (prev && prev.full && prev.ok) { var dl = c.liab - prev.l; out.push(card("Liabilities counted", stSg(dl), ltxt, "", dl > 0 ? "neg" : "pos")); }
+    else out.push(card("Liabilities counted", inr.format(c.liab), ltxt));
     // H. Historical progress: shares and funds only (the part that has a long record)
     var sf = function (r) { return (+r.parts.stocks || 0) + (+r.parts.mf || 0); }, now = c.v.stocks + c.v.mf, rowsH = [];
     [["1 year", 12], ["3 years", 36], ["5 years", 60]].forEach(function (pp) { var cut = stCut(pp[1]), r = hist.rows.filter(function (x) { return x.as_of <= cut && x.parts; }).slice(-1)[0]; if (r && hist.rows[0].as_of <= cut) { var dd = now - sf(r); rowsH.push('<li><span class="nm">' + pp[0] + '</span><span class="vals ' + stCls(dd) + '">' + stSg(dd) + "<em>from " + inr.format(sf(r)) + "</em></span></li>"); } });
-    out.push(card("Shares and funds over time", "", "Value of shares plus mutual funds now against the record " + (rowsH.length ? "that many years back" : "at the start") + ". Net worth growth over 1, 3 or 5 years isn't available: every balance has been saved only since 31 Oct 2026. Includes money added or taken out.", rowsH.length ? '<ul class="st-in-list" role="list">' + rowsH.join("") + "</ul>" : ""));
+    out.push(card("Shares and funds over time", "", "", rowsH.length ? '<ul class="st-in-list" role="list">' + rowsH.join("") + "</ul>" : ""));
     el.innerHTML = out.join("");
   }
 
