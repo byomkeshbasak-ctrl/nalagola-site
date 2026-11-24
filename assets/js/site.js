@@ -215,8 +215,9 @@
       var lab = byKey[key];
       if (!lab) {
         var name = displayName(base), bv = brandOf(name);
-        lab = byKey[key] = { key: base, name: name, brand: bv.brand, variant: bv.variant, cat: cat, sizes: {} };
+        lab = byKey[key] = { key: base, name: name, brand: bv.brand, variant: bv.variant, cat: cat, sizes: {}, items: [] };
       }
+      if (lab.items.indexOf(r.item_name) < 0) lab.items.push(r.item_name);
       var ml = Number(r.size_ml) || 0, mrp = Number(r.mrp);
       if (!isFinite(mrp)) return;
       if (!(ml in lab.sizes) || mrp > lab.sizes[ml]) lab.sizes[ml] = mrp;
@@ -236,7 +237,50 @@
     return { labels: list, cats: cats, asOf: asOf };
   }
 
+  // Badges: Best Seller = the two best-selling labels of each category (last 30 days, categories with 4+ labels);
+  // New = every size first stocked in the last 30 days; Premium = imported (Overseas Spirits). One badge per card.
+  function loadBadges() {
+    return fetch(SUPABASE_URL + "/rest/v1/rpc/public_badges", {
+      method: "POST", headers: { "apikey": SUPABASE_KEY, "Content-Type": "application/json" }, body: "{}"
+    }).then(function (res) { return res.ok ? res.json() : []; }).catch(function () { return []; });
+  }
+  function applyBadges(m, rows) {
+    var by = {};
+    (Array.isArray(rows) ? rows : []).forEach(function (r) { if (r && r.item_name) by[r.item_name] = r; });
+    m.labels.forEach(function (l) {
+      var ranks = l.items.map(function (n) { return by[n] && by[n].sold_rank; }).filter(function (x) { return x != null; });
+      l.rank = ranks.length ? Math.min.apply(null, ranks) : null;
+      l.isNew = l.items.length > 0 && l.items.every(function (n) { return by[n] && by[n].is_new; });
+      l.badge = null;
+    });
+    m.cats.forEach(function (c) {
+      var inCat = m.labels.filter(function (l) { return l.cat === c.name; });
+      if (inCat.length < 4) return;
+      inCat.filter(function (l) { return l.rank != null; }).sort(function (a, b) { return a.rank - b.rank; })
+        .slice(0, 2).forEach(function (l) { l.badge = "bestseller"; });
+    });
+    m.labels.forEach(function (l) {
+      if (!l.badge && l.isNew) l.badge = "new";
+      else if (!l.badge && l.cat === "Overseas Spirits") l.badge = "premium";
+    });
+    return m;
+  }
+  var BADGE_TEXT = { bestseller: "Best Seller", "new": "New Arrival", premium: "Premium" };
+  function badgeHtml(l) { return l.badge ? '<span class="badge badge-' + l.badge + '">' + BADGE_TEXT[l.badge] + "</span>" : ""; }
+  function lowest(l) { return Math.min.apply(null, l.rows.map(function (r) { return r.mrp; })); }
+  // Hover panel over the photo (desktop). asButton: a real button for cards that aren't links themselves.
+  function quickViewHtml(l, asButton) {
+    var n = l.rows.length, sizes = l.rows.slice().sort(function (a, b) { return a.ml - b.ml; }).map(function (r) { return fmtSize(r.ml); }).join(" \u00b7 ");
+    var btn = asButton
+      ? '<button type="button" class="quick-btn" data-key="' + esc(l.cat + "|" + l.key) + '" tabindex="-1">Quick view &rarr;</button>'
+      : '<span class="quick-btn">View details &rarr;</span>';
+    return '<div class="quick-view" aria-hidden="true"><div class="quick-price">' + (n > 1 ? "From " : "") + money(lowest(l)) + "</div>" +
+      '<div class="quick-sizes">' + esc(sizes) + "</div>" + btn + "</div>";
+  }
   function loadCatalogue() {
+    return Promise.all([fetchCatalogue(), loadBadges()]).then(function (x) { return applyBadges(x[0], x[1]); });
+  }
+  function fetchCatalogue() {
     return fetch(SUPABASE_URL + "/rest/v1/rpc/public_catalogue", {
       method: "POST",
       headers: { "apikey": SUPABASE_KEY, "Content-Type": "application/json" },
@@ -256,10 +300,10 @@
   }
 
   /* ---------- shared rendering ---------- */
-  function mediaHtml(l, big) {
-    var src = PRODUCT_IMAGES[l.key];
-    if (src) return '<div class="media"><img src="' + esc(src) + '" alt="' + esc(l.name) + ' bottle" loading="' + (big ? "eager" : "lazy") + '" decoding="async" width="800" height="800"></div>';
-    return '<div class="media">' + BOTTLE_SVG + '<span class="pending">Photo pending</span></div>';
+  function mediaHtml(l, big, quick) {
+    var src = PRODUCT_IMAGES[l.key], extra = big ? "" : badgeHtml(l) + (quick ? quickViewHtml(l, quick === "button") : "");
+    if (src) return '<div class="media">' + extra + '<img src="' + esc(src) + '" alt="' + esc(l.name) + ' bottle" loading="' + (big ? "eager" : "lazy") + '" decoding="async" width="800" height="800"></div>';
+    return '<div class="media">' + extra + BOTTLE_SVG + '<span class="pending">Photo pending</span></div>';
   }
   function sizeRows(l, hitSize) {
     return l.rows.map(function (r) {
@@ -315,7 +359,7 @@
         gridEl.setAttribute("aria-labelledby", "ct-" + sets[active].c.id);
         gridEl.innerHTML = sets[active].picks.map(function (l) {
           var top = l.rows[0], more = l.rows.length - 1;
-          return '<a class="card" href="categories.html?category=' + slugOf(l.cat) + "&product=" + encodeURIComponent(l.key) + '">' + mediaHtml(l) +
+          return '<a class="card" href="categories.html?category=' + slugOf(l.cat) + "&product=" + encodeURIComponent(l.key) + '">' + mediaHtml(l, false, "link") +
             '<div class="info"><span class="brand-line">' + esc(l.variant ? l.brand : l.cat) + "</span><h3>" + esc(l.name) + "</h3>" +
             '<div class="sizes"><div class="size"><span class="ml">' + esc(fmtSize(top.ml)) + '</span><span class="mrp">' + money(top.mrp) + "</span></div></div>" +
             '<span class="more">' + (more ? "+" + more + (more > 1 ? " more sizes" : " more size") + " \u00b7 View details" : "View details") + "</span></div></a>";
@@ -410,7 +454,7 @@
       return hits;
     }
     function card(l) {
-      return '<article class="card">' + mediaHtml(l) + '<div class="info"><span class="brand-line">' + esc(l.cat) + " \u00b7 " + esc(l.brand) + "</span><h4>" + esc(l.name) + "</h4>" +
+      return '<article class="card">' + mediaHtml(l, false, "button") + '<div class="info"><span class="brand-line">' + esc(l.cat) + " \u00b7 " + esc(l.brand) + "</span><h4>" + esc(l.name) + "</h4>" +
         (l.variant ? '<span class="variant">' + esc(l.variant) + "</span>" : "") +
         '<div class="sizes">' + sizeRows(l, state.size) + '</div><button type="button" class="details" data-key="' + esc(l.cat + "|" + l.key) + '">View details<span class="sr-only"> for ' + esc(l.name) + "</span></button></div></article>";
     }
@@ -497,6 +541,51 @@
       var d = e.target.closest("[data-key]");
       if (d) { var k = d.getAttribute("data-key"); var l = model.labels.filter(function (x) { return x.cat + "|" + x.key === k; })[0]; if (l) openDetails(l); }
     });
+    /* Live search preview: the top matches under the box, with photo and price */
+    var dd = document.createElement("div"), ddItems = [], ddActive = -1;
+    dd.className = "search-results-dropdown"; dd.id = "search-results"; dd.setAttribute("role", "listbox"); dd.setAttribute("aria-label", "Matching products");
+    var searchBox = qEl.closest(".search");
+    if (searchBox) {
+      searchBox.classList.add("search-wrapper"); searchBox.appendChild(dd);
+      qEl.setAttribute("role", "combobox"); qEl.setAttribute("aria-controls", "search-results"); qEl.setAttribute("aria-expanded", "false"); qEl.setAttribute("aria-autocomplete", "list");
+    }
+    function ddClose() { dd.classList.remove("active"); dd.innerHTML = ""; ddItems = []; ddActive = -1; qEl.setAttribute("aria-expanded", "false"); qEl.removeAttribute("aria-activedescendant"); }
+    function ddMark() {
+      Array.prototype.forEach.call(dd.children, function (el, i) { el.setAttribute("aria-selected", i === ddActive ? "true" : "false"); });
+      if (ddActive >= 0) { qEl.setAttribute("aria-activedescendant", "sr-" + ddActive); dd.children[ddActive].scrollIntoView({ block: "nearest" }); }
+      else qEl.removeAttribute("aria-activedescendant");
+    }
+    function ddOpen() {
+      var q = norm(qEl.value);
+      if (!model || !q || !searchBox) { ddClose(); return; }
+      ddItems = model.labels.filter(function (l) { return l.search.indexOf(q) >= 0; })
+        .sort(function (a, b) { return (a.name.toLowerCase().indexOf(q) === 0 ? 0 : 1) - (b.name.toLowerCase().indexOf(q) === 0 ? 0 : 1); }).slice(0, 6);
+      if (!ddItems.length) { ddClose(); return; }
+      ddActive = -1;
+      dd.innerHTML = ddItems.map(function (l, i) {
+        var src = PRODUCT_IMAGES[l.key];
+        return '<div class="search-result-item" role="option" id="sr-' + i + '" data-i="' + i + '" aria-selected="false">' +
+          (src ? '<img src="' + esc(src) + '" alt="" loading="lazy" width="40" height="56">' : '<span class="result-noimg">' + BOTTLE_SVG + "</span>") +
+          '<span class="result-text"><span class="result-name">' + esc(l.name) + '</span><span class="result-price">' + (l.rows.length > 1 ? "From " : "") + money(lowest(l)) +
+          ' <span class="result-cat">\u00b7 ' + esc(l.cat) + "</span></span></span></div>";
+      }).join("");
+      dd.classList.add("active"); qEl.setAttribute("aria-expanded", "true");
+    }
+    function ddPick(i) { var l = ddItems[i]; ddClose(); if (l) openDetails(l); }
+    qEl.addEventListener("input", ddOpen);
+    qEl.addEventListener("focus", ddOpen);
+    qEl.addEventListener("keydown", function (e) {
+      if (!dd.classList.contains("active")) return;
+      if (e.key === "ArrowDown") { e.preventDefault(); ddActive = (ddActive + 1) % ddItems.length; ddMark(); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); ddActive = ddActive <= 0 ? ddItems.length - 1 : ddActive - 1; ddMark(); }
+      else if (e.key === "Enter") { if (ddActive >= 0) { e.preventDefault(); ddPick(ddActive); } else ddClose(); }
+      else if (e.key === "Escape") { ddClose(); }
+    });
+    dd.addEventListener("mousedown", function (e) { e.preventDefault(); });
+    dd.addEventListener("click", function (e) { var it = e.target.closest("[data-i]"); if (it) ddPick(+it.getAttribute("data-i")); });
+    document.addEventListener("click", function (e) { if (searchBox && !searchBox.contains(e.target)) ddClose(); });
+    clearEl.addEventListener("click", ddClose);
+
     window.addEventListener("popstate", function () { if (model) { state.cat = catFromUrl(); render(); } });
     window.addEventListener("hashchange", function () { if (model) { state.cat = catFromUrl(); syncUrl(); render(); } });
 
