@@ -770,7 +770,6 @@
   .dg-eq-c small { font-size: 0.7rem; color: var(--muted); line-height: 1.4; }
   .dg-eq-r { border-color: var(--line-strong); }
   .dg-op { align-self: center; font-size: 1.3rem; color: var(--muted); }
-  .dg-memo { grid-column: 1 / -1; font-size: 0.76rem; color: var(--muted); line-height: 1.5; border-top: 1px solid var(--line); padding-top: 12px; max-width: 110ch; }
   @media (max-width: 900px) { .dg-hero { grid-template-columns: minmax(0, 1fr); padding: 20px 18px 18px; } }
   @media (max-width: 620px) { .dg-eq { grid-template-columns: minmax(0, 1fr); } .dg-op { display: none; } .dg-eq-c { grid-template-columns: 1fr auto; align-items: baseline; } .dg-eq-c small { grid-column: 1 / -1; } }
 
@@ -946,17 +945,15 @@
             <div class="seg" id="nw-flat-seg" role="group" aria-label="ONE 10 flat"><button type="button" data-f="0" aria-pressed="true">Without flat</button><button type="button" data-f="1" aria-pressed="false">With flat</button></div></div>
           <div class="dg-nw" id="nw-total">–</div>
           <div class="dg-asof" id="nw-flat" hidden></div>
-          <div class="dg-asof" id="ux-nw-s" data-ux></div>
           <div class="dg-chg" id="dg-chg" data-ux></div>
         </div>
         <div class="dg-eq" data-ux>
-          <div class="dg-eq-c"><span class="l">Total assets</span><b id="dg-assets">–</b><small>Everything owned or lent, at today's value</small></div>
+          <div class="dg-eq-c"><span class="l">Total assets</span><b id="dg-assets">–</b></div>
           <div class="dg-op" aria-hidden="true">−</div>
-          <div class="dg-eq-c dg-eq-l"><span class="l">Liabilities counted</span><b id="dg-liab">–</b><small id="dg-liab-s"></small></div>
+          <div class="dg-eq-c dg-eq-l"><span class="l">Liabilities counted</span><b id="dg-liab">–</b></div>
           <div class="dg-op" aria-hidden="true">=</div>
-          <div class="dg-eq-c dg-eq-r"><span class="l">Net worth</span><b id="dg-nw2">–</b><small>The figure at the top, as the tracker works it out</small></div>
+          <div class="dg-eq-c dg-eq-r"><span class="l">Net worth</span><b id="dg-nw2">–</b></div>
         </div>
-        <p class="dg-memo" id="dg-memo" data-ux></p>
       </section>
 
       <div class="dash-grid dg-groups" id="dash-grid"></div>
@@ -4464,13 +4461,9 @@
   function dgHero(c) {
     var M = dgMonths(), cur = todayISO().slice(0, 7), prev = M.filter(function (x) { return x.m === dgPrevKey(cur); })[0];
     $("dg-assets").textContent = inr.format(c.assets); $("dg-liab").textContent = inr.format(c.liab); $("dg-nw2").textContent = inr.format(c.nw);
-    var bits = [], neg = c.liab - c.ccDue - c.v.taken;
-    if (c.ccDue > 0.5) bits.push("credit cards " + inr.format(c.ccDue)); if (c.v.taken > 0.5) bits.push("loans owed " + inr.format(c.v.taken)); if (neg > 0.5) bits.push("negative balances " + inr.format(neg));
-    $("dg-liab-s").textContent = bits.length ? bits.join(" · ") : "Nothing owed that counts";
     var chg = $("dg-chg");
-    if (prev && prev.full) { var d = c.nw - prev.t; chg.className = "dg-chg " + stCls(d); chg.innerHTML = stSg(d) + " (" + stPct(d / Math.abs(prev.t)) + ") <span style=\"color:var(--muted)\">since " + esc(fmtDate(prev.d)) + "</span><small>Compared with that day's saved net worth of " + inr.format(prev.t) + ". Includes money added or taken out.</small>"; }
+    if (prev && prev.full) { var d = c.nw - prev.t; chg.className = "dg-chg " + stCls(d); chg.innerHTML = stSg(d) + " (" + stPct(d / Math.abs(prev.t)) + ") <span style=\"color:var(--muted)\">since " + esc(fmtDate(prev.d)) + "</span>"; }
     else { chg.className = "dg-chg"; chg.innerHTML = "<small>No comparison with last month: the tracker has no full record for it.</small>"; }
-    $("dg-memo").textContent = c.hl > 0.5 ? "The home loan (" + inr.format(c.hl) + " outstanding) is shown with the liabilities below for reference. The tracker does not deduct it from net worth, and the flat it was taken for is not counted as an asset either." : "";
   }
 
   // The existing tiles, regrouped. They are the same buttons, so every click and figure stays as it was.
@@ -6105,9 +6098,6 @@
   ["view-login", "view-denied", "view-app"].forEach(function (id) { var e = $(id); if (e) new MutationObserver(boot).observe(e, { attributes: true, attributeFilter: ["hidden"] }); });
   boot();
 
-  // Date line under the net worth figure. A date label only; the figures come from the page as before.
-  var el = $("ux-nw-s");
-  if (el) el.textContent = "As of today, " + new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }) + " · loads fresh every time you open this page";
 
   // Tabs: one tab stop, arrow keys move between tabs
   var tabs = Array.prototype.slice.call(document.querySelectorAll("#tabs .tab"));
