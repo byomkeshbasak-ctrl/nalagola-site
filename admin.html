@@ -4466,8 +4466,12 @@
     { name: "Haywards", brands: ["BUDWEISER MAGNUM", "BUDWEISER PREM", "HAYWARDS 5000", "HAYWARDS BOLD"] },
     { name: "Snoski", brands: ["SNOSKI", "SNOSKI APPLE", "SNOSKI JAMUN"] },
     { name: "OC", brands: ["OC ELITE", "ICONIQ"] },
-    { name: "Royal Green", brands: ["ROYAL GREEN"] }
+    { name: "Royal Green", brands: ["ROYAL GREEN"] },
+    { name: "Magic Moments", brands: ["MAGIC MOMENT", "MAGIC MOMENT APPLE", "MAGIC MOMENT PINK", "MAGIC MOMENT JAMUN", "MAGIC MO LEMON", "MAGIC MOMENTS AAM PANNA"] }
   ];
+  // The stock sheet spells some labels two ways; count them under one brand.
+  var CO_ALIASES = { "MAGIC MOMENTS JAMUN": "MAGIC MOMENT JAMUN" };
+  var coBrand = function (name) { var b = brandOf(name); return CO_ALIASES[b] || b; };
   var BRAND_LABEL = { "MCD NO1 LUXURY": "No1 Luxury", "MCD NO1": "No1", "SIGNATURE PREMIER": "Signature Premier", "RC": "Royal Challenge (RC)", "MCD XXX": "MCD XXX Rum", "MCD PREMIUM": "MCD Premium Vodka",
     "RS": "Royal Stag (RS)", "BP": "Blenders Pride (BP)", "BP RESERVE": "BP Reserve", "IB": "Imperial Blue (IB)", "IB DUAL CASK": "IB Dual Cask",
     "TUBORG CLASSIC": "Tuborg Classic", "TUBORG GREEN": "Tuborg Green", "TUBORG STRONG": "Tuborg Strong", "CARLSBERG ELEPHANT": "Carlsberg Elephant", "CARLSBERG PREMIUM": "Carlsberg Premium",
@@ -4475,10 +4479,11 @@
     "CAPTAIN": "Captain", "BAZIGAR": "Bazigar",
     "BUDWEISER MAGNUM": "Budweiser Magnum", "BUDWEISER PREM": "Budweiser Premium", "HAYWARDS 5000": "Haywards 5000", "HAYWARDS BOLD": "Haywards Bold",
     "SNOSKI": "Snoski", "SNOSKI APPLE": "Snoski Apple", "SNOSKI JAMUN": "Snoski Jamun",
-    "OC ELITE": "OC Elite", "ICONIQ": "Iconiq", "ROYAL GREEN": "Royal Green" };
+    "OC ELITE": "OC Elite", "ICONIQ": "Iconiq", "ROYAL GREEN": "Royal Green",
+    "MAGIC MOMENT": "Magic Moments", "MAGIC MOMENT APPLE": "Magic Moments Green Apple", "MAGIC MOMENT PINK": "Magic Moments Pink", "MAGIC MOMENT JAMUN": "Magic Moments Jamun", "MAGIC MO LEMON": "Magic Moments Lemon", "MAGIC MOMENTS AAM PANNA": "Magic Moments Aam Panna" };
   var brandOf = function (name) { return cleanName(name).replace(/\s+[A-Z]+\s*\d+$/, ""); };
   var companyOf = function (name) {
-    var b = brandOf(name);
+    var b = coBrand(name);
     for (var i = 0; i < COMPANIES.length; i++) if (COMPANIES[i].brands.indexOf(b) >= 0) return COMPANIES[i].name;
     return null;
   };
@@ -4509,7 +4514,7 @@
     COMPANIES.forEach(function (c) { totals[c.name] = 0; });
     var add = function (name, cat, size, bottles) {
       var co = companyOf(name); if (!co) return;
-      var k = cleanName(name), x = rows[k] || (rows[k] = { co: co, brand: brandOf(name), name: cleanName(name), size: size, cat: cat, bottles: 0 });
+      var k = cleanName(name), x = rows[k] || (rows[k] = { co: co, brand: coBrand(name), name: cleanName(name), size: size, cat: cat, bottles: 0 });
       x.bottles += bottles;
     };
     state.co.lines.forEach(function (l) {
