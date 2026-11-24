@@ -965,7 +965,6 @@
         </div>
         <div class="area-wrap" id="gr-chart" aria-labelledby="gr-title"></div>
         <div class="area-key" id="gr-key"></div>
-        <div class="mf-note" id="gr-note"></div>
         <!-- The single-line growth view is no longer shown; its elements stay so the page script keeps working -->
         <div hidden aria-hidden="true">
           <h2 id="dg-gr-t"></h2><p id="dg-gr-sub"></p><div id="dg-gr-range"></div><div id="dg-gr-sum"></div>
@@ -4788,8 +4787,6 @@
     var first = pts[0], last = pts[pts.length - 1], ch = last.t - first.t;
     var yrs = (t1 - t0) / (365.25 * dayMs), cagr = yrs > 0.9 && first.t > 0 ? Math.pow(last.t / first.t, 1 / yrs) - 1 : NaN;
     var firstFull = hist.rows.find(function (r) { return r.source !== "backfill"; });
-    $("gr-note").innerHTML = "From " + fmtDate(first.d) + ": " + inr.format(first.t) + " → " + inr.format(last.t) + ' (<span class="' + (ch >= 0 ? "pos" : "neg") + '">' + (ch >= 0 ? "+" : "") + inr.format(ch) + "</span>, including new money put in). " +
-      (firstFull ? "Before " + fmtDate(firstFull.as_of) + " only shares and mutual funds are counted (month-end prices); other parts are included from then on." : "Past months count shares and mutual funds only.");
     // hover
     var svg = el.querySelector("svg"), tip = $("gr-tip"), hov = $("gr-hov");
     $("gr-hit").addEventListener("mousemove", function (e) {
