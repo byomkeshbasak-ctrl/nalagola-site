@@ -5199,7 +5199,7 @@
 
   // ---------- Expenses ----------
   function exCatList() { var c = EX_CATS.slice(); ex.list.forEach(function (x) { if (x.category && c.indexOf(x.category) < 0) c.push(x.category); }); return c; }
-  var EX_CATS = ["Groceries", "Rent", "Electricity", "Mobile & internet", "Fuel", "Transport", "Bike/Car Maintenance", "Eating out", "Medical", "Education", "Tuition fees", "Household help", "Shopping", "Travel", "EMI", "Insurance premium", "Gifts", "Subscriptions", "Bank charges", "Credit card payment", "Other"];
+  var EX_CATS = ["Groceries", "Rent", "Electricity", "Mobile & internet", "Fuel", "Transport", "Bike/Car Maintenance", "Eating out", "Medical", "Education", "Tuition fees", "Household help", "Shopping", "Travel", "EMI", "Insurance premium", "Gifts", "Subscriptions", "Personal care", "Bank charges", "Credit card payment", "Other"];
   $("ex-month").value = ex.month;
   $("ex-month").addEventListener("change", function () { if (this.value) { ex.month = this.value; renderExpenses(); } });
   // Card bill payments count as expenses only for the part that clears the card's opening due:
@@ -5753,6 +5753,7 @@
     ["Insurance premium", /insurance|lic of india|policybazaar|hdfc life|icici pru|max life|star health|niva bupa|care health/i],
     ["Tuition fees", /tuition|tution|coaching|tutor/i],
     ["Education", /school|college|university|udemy|coursera|byju|unacademy/i],
+    ["Personal care", /salon|saloon|parlou?r|barber|spa\b|unisex|hair ?(cut|studio)|beauty|grooming|looks salon|naturals|enrich|urban ?company|urbanclap/i],
     ["Shopping", /amazon|flipkart|myntra|ajio|nykaa|meesho|tata cliq|croma|reliance digital|decathlon|lifestyle|westside|pantaloons|shoppers stop|ikea|pepperfry|lenskart/i],
     ["EMI", /\bemi\b|\bloan\b/i]
   ];
