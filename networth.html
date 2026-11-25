@@ -5294,7 +5294,7 @@
       sel.innerHTML = '<option value="">All categories</option>' + cats.map(function (c) { return '<option value="' + esc(c) + '">' + esc(c) + "</option>"; }).join("");
       sel.value = f.cat;
       // any date since tracking began can be picked; a date outside the month shown switches the view to Overall (tfBind)
-      ["from", "to"].forEach(function (n) { var i = bar.querySelector('[data-f="' + n + '"]'); i.min = START_DATE; i.max = ""; i.value = f[n]; });
+      ["from", "to"].forEach(function (n) { var i = bar.querySelector('[data-f="' + n + '"]'); i.min = o.lo && o.lo < START_DATE ? o.lo : START_DATE; i.max = ""; i.value = f[n]; });
       bar.querySelector('[data-f="sort"]').value = f.sort;
     }
     var out = rows.filter(function (r) { var d = o.date(r); return (!f.cat || o.cat(r) === f.cat) && (!f.from || d >= f.from) && (!f.to || d <= f.to); });
@@ -5336,16 +5336,18 @@
     });
   }
 
+  // Expenses start with the tracker (01 Nov 2026), or earlier where a card's statement cycle began before that
+  function exStart() { var d = START_DATE; (state.cards || []).forEach(function (c) { if (c.opening_date && c.opening_date < d) d = c.opening_date; }); return d; }
   function renderExpenses() {
-    var all = ex.view === "all", m = ex.month;
-    var inView = function (d) { return all ? d >= START_DATE : d.slice(0, 7) === m; };
+    var all = ex.view === "all", m = ex.month, EXS = exStart();
+    var inView = function (d) { return all ? d >= EXS : d.slice(0, 7) === m; };
     var list = exAll().filter(function (x) { return inView(x.exp_date); }).sort(function (a, b) { return a.exp_date < b.exp_date ? 1 : a.exp_date > b.exp_date ? -1 : 0; });
     var tot = list.reduce(function (a, x) { return a + Number(x.amount); }, 0), prev = all ? 0 : exMonthTotal(prevMonth(m));
     var cc = {}; list.forEach(function (x) { cc[x.category] = (cc[x.category] || 0) + Number(x.amount); });
     var cats = Object.keys(cc).map(function (k) { return [k, cc[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
-    var nMon = trackedMonths().length;
-    var days = all ? Math.max(1, Math.round((new Date(todayISO()) - new Date(START_DATE)) / 864e5) + 1) : m === todayISO().slice(0, 7) ? Number(todayISO().slice(8, 10)) : new Date(+m.slice(0, 4), +m.slice(5, 7), 0).getDate();
-    $("ex-title").textContent = "Expenses · " + (all ? "Overall since " + fmtDate(START_DATE) : monthName(m));
+    var nMon = (function () { var n = 0, k = EXS.slice(0, 7), e = todayISO().slice(0, 7); while (k <= e) { n++; k = nextMonthKey(k); } return n; })();
+    var days = all ? Math.max(1, Math.round((new Date(todayISO()) - new Date(EXS)) / 864e5) + 1) : m === todayISO().slice(0, 7) ? Number(todayISO().slice(8, 10)) : new Date(+m.slice(0, 4), +m.slice(5, 7), 0).getDate();
+    $("ex-title").textContent = "Expenses · " + (all ? "Overall since " + fmtDate(EXS) : monthName(m));
     $("ex-total").textContent = inr.format(tot);
     $("ex-total-s").textContent = list.length + " entries · already taken off your bank or card balances";
     var k = function (l, a, d, cls) { return '<div><div class="l">' + l + '</div><div class="a ' + (cls || "") + '">' + a + '</div><div class="d">' + (d || "") + "</div></div>"; };
@@ -5358,7 +5360,7 @@
     if (cats.length) donut("ex-pie", cats.filter(function (c) { return c[1] > 0; }).map(function (c) { return { l: c[0], v: c[1] }; }), [inr.format(tot).replace("₹", "₹ "), cats.length + (cats.length > 1 ? " categories" : " category")]);
     else $("ex-pie").innerHTML = '<div class="empty">No expenses ' + (all ? "recorded yet" : "for this month yet") + ".</div>";
     $("hx-fbar").hidden = !list.length;
-    var shown = tfSort("hx", tfApply("hx", list, { cat: function (x) { return x.category; }, date: function (x) { return x.exp_date; }, lo: all ? START_DATE : m + "-01", hi: all ? "" : tfEnd(m) }),
+    var shown = tfSort("hx", tfApply("hx", list, { cat: function (x) { return x.category; }, date: function (x) { return x.exp_date; }, lo: all ? exStart() : m + "-01", hi: all ? "" : tfEnd(m) }),
       { date: function (x) { return x.exp_date; }, amount: function (x) { return Number(x.amount); }, cat: function (x) { return (x.category || "").toLowerCase(); } });
     var shownTot = shown.reduce(function (a, x) { return a + Number(x.amount); }, 0);
     $("ex-table").innerHTML = !list.length ? "" : !shown.length ? '<tbody><tr><td class="empty">No expenses match these filters.</td></tr></tbody>' : '<thead><tr>' + tfTh("hx", "Date", "date") + tfTh("hx", "Category", "cat") + '<th>Description</th><th>Paid from</th>' + tfTh("hx", "Amount", "amount", "num") + '<th></th></tr></thead><tbody>' + shown.map(function (x) {
