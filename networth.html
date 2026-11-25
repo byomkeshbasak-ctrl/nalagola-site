@@ -57,6 +57,12 @@
   .tile .a { margin-top: 4px; font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; }
   .tile .d { margin-top: 3px; font-size: 0.72rem; color: var(--muted); }
   .tile .a.neg { color: var(--red); }
+  .tile.due-soon { border-color: #e0b04a; box-shadow: 0 0 0 1px #e0b04a inset, 0 0 18px rgba(224, 176, 74, 0.18); }
+  .tile.due-late { border-color: var(--red); box-shadow: 0 0 0 1px var(--red) inset, 0 0 18px rgba(224, 106, 106, 0.18); }
+  .due-flag { margin-top: 8px; padding: 6px 8px; border-radius: 8px; font-size: 0.74rem; font-weight: 600; line-height: 1.35; background: rgba(224, 176, 74, 0.12); color: #e9c26a; }
+  .tile.due-late .due-flag, .dtile.due-late .due-flag { background: rgba(224, 106, 106, 0.12); color: var(--red); }
+  .dtile.due-soon { border-color: #e0b04a !important; box-shadow: 0 0 0 1px #e0b04a inset; }
+  .dtile.due-late { border-color: var(--red) !important; box-shadow: 0 0 0 1px var(--red) inset; }
 
   .form { margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; align-items: end; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
   .form h3 { grid-column: 1 / -1; font-size: 0.88rem; font-weight: 600; }
@@ -1516,7 +1522,9 @@
           <label>Last 4 digits <input type="text" id="cc-last4" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" autocomplete="off"></label>
           <label>Amount due as of <input type="date" id="cc-odate" required></label>
           <label>Amount due (₹) <input type="number" id="cc-odue" step="0.01" min="0" inputmode="decimal" value="0" required></label>
-          <div class="hint">Enter what you owed on this card on that date. Spends and bill payments after it are added on top.</div>
+          <label>Statement date (day of month) <input type="number" id="cc-sday" min="1" max="31" inputmode="numeric" placeholder="e.g. 12"></label>
+          <label>Payment due (day of month) <input type="number" id="cc-dday" min="1" max="31" inputmode="numeric" placeholder="e.g. 30"></label>
+          <div class="hint">Start the card on the first day of a billing cycle and enter what you owed then, so every spend in that cycle is counted. The statement and due days drive the reminder 7 days before each due date.</div>
           <div class="actions"><button class="primary" type="submit" id="cc-add-save">Save card</button><button class="ghost" type="button" id="cc-add-cancel">Cancel</button></div>
         </form>
 
@@ -4406,7 +4414,12 @@
       return '<button type="button" class="dtile' + (val < 0 ? " liab" : "") + '" data-go="' + c.k + '"><div class="l"><i style="background:' + c.c + '"></i>' + esc(c.l) + '</div><div class="a' + (val < 0 ? " neg" : "") + '">' + inr.format(val) + "</div></button>";
     }).join("") +
       // Liabilities: what's owed on credit cards and the home loan comes off net worth
-      '<button type="button" class="dtile' + (ccDue > 0.5 ? " liab" : "") + '" data-go="cards"><div class="l"><i style="background:#ef8f8f"></i>Credit cards</div><div class="a' + (ccDue > 0.5 ? " neg" : "") + '">' + (ccDue > 0.5 ? "−" : "") + inr.format(ccDue) + "</div></button>" +
+      (function () {
+        var al = cardAlerts(), late = al.some(function (x) { return x.i.days < 0; });
+        var flag = al.map(function (x) { return "⏰ " + esc(cardName(x.c.code)) + ": " + dueText(x.i).toLowerCase() + " (" + fmtDate(x.i.due) + ") · " + inr2.format(x.i.amt); }).join("<br>");
+        return '<button type="button" class="dtile' + (ccDue > 0.5 ? " liab" : "") + (al.length ? (late ? " due-late" : " due-soon") : "") + '" data-go="cards"><div class="l"><i style="background:#ef8f8f"></i>Credit cards</div><div class="a' + (ccDue > 0.5 ? " neg" : "") + '">' + (ccDue > 0.5 ? "−" : "") + inr.format(ccDue) + "</div>" +
+          (al.length ? '<div class="due-flag">' + flag + "</div>" : "") + "</button>";
+      })() +
       '<button type="button" class="dtile' + (hl > 0.5 ? " liab" : "") + '" data-go="homeloan"><div class="l"><i style="background:#c47a7a"></i>Home loan (O/S balance)</div><div class="a' + (hl > 0.5 ? " neg" : "") + '">' + (hl > 0.5 ? "−" : "") + inr.format(hl) + "</div></button>" +
       // Car loan: shown for reference like the home loan, not taken off net worth
       (function () { var cl = clNow().outstanding; return '<button type="button" class="dtile' + (cl > 0.5 ? " liab" : "") + '" data-go="carloan"><div class="l"><i style="background:#b88a8a"></i>Car loan (O/S balance)</div><div class="a' + (cl > 0.5 ? " neg" : "") + '">' + (cl > 0.5 ? "−" : "") + inr.format(cl) + "</div></button>"; })() +
@@ -5603,6 +5616,28 @@
     m.sort(function (x, y) { return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; });
     return m;
   }
+  // ---- Payment due reminder: from 7 days before the due date until the bill is paid ----
+  function dayIn(y, m, d) { var last = new Date(y, m + 1, 0).getDate(); return new Date(y, m, Math.min(d, last)); }
+  function isoOf(dt) { return dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0"); }
+  function cardDueInfo(c) {
+    if (!c || !c.due_day) return null;
+    var t = todayISO(), td = new Date(+t.slice(0, 4), +t.slice(5, 7) - 1, +t.slice(8, 10)), moves = cardMoves(c.code), stmt = null, due;
+    if (c.stmt_day) {
+      // latest statement on or before today, then the first due day after it
+      stmt = dayIn(td.getFullYear(), td.getMonth(), c.stmt_day); if (stmt > td) stmt = dayIn(td.getFullYear(), td.getMonth() - 1, c.stmt_day);
+      due = dayIn(stmt.getFullYear(), stmt.getMonth(), c.due_day); if (due <= stmt) due = dayIn(stmt.getFullYear(), stmt.getMonth() + 1, c.due_day);
+    } else { due = dayIn(td.getFullYear(), td.getMonth(), c.due_day); if (due < td) due = dayIn(td.getFullYear(), td.getMonth() + 1, c.due_day); }
+    var amt;
+    if (stmt && isoOf(stmt) >= c.opening_date) {
+      var si = isoOf(stmt), bal = Number(c.opening_due) || 0, paid = 0;
+      moves.forEach(function (x) { if (x.date <= si) bal += x.amt; else if (x.amt < 0) paid += -x.amt; });
+      amt = bal - paid;
+    } else amt = cardDue(c.code);
+    var days = Math.round((due - td) / 864e5);
+    return { due: isoOf(due), stmt: stmt ? isoOf(stmt) : null, days: days, amt: Math.round(amt * 100) / 100, alert: amt > 0.5 && days <= 7 };
+  }
+  function dueText(i) { return i.days < 0 ? "Overdue by " + -i.days + (i.days === -1 ? " day" : " days") : i.days === 0 ? "Due today" : "Due in " + i.days + (i.days === 1 ? " day" : " days"); }
+  function cardAlerts() { return (state.cards || []).map(function (c) { var i = cardDueInfo(c); return i && i.alert ? { c: c, i: i } : null; }).filter(Boolean).sort(function (a, b) { return a.i.days - b.i.days; }); }
   function cardDue(code) { var c = state.cards.find(function (x) { return x.code === code; }); return c ? cardMoves(code).reduce(function (s, x) { return s + x.amt; }, Number(c.opening_due)) : 0; }
   function cardDueTotal() { return state.cards.reduce(function (s, c) { return s + Math.max(0, cardDue(c.code)); }, 0); }
   function renderCards() {
@@ -5611,8 +5646,11 @@
     $("cc-tiles").innerHTML = state.cards.map(function (c) {
       var d = cardDue(c.code); total += Math.max(0, d);
       var spent = cardMoves(c.code).filter(function (x) { return x.g === "spend" && x.date.slice(0, 7) === tm; }).reduce(function (s, x) { return s + x.amt; }, 0);
-      return '<button type="button" class="tile" data-acct="' + esc(c.code) + '" title="Go to the month-by-month statement"><div class="l">' + esc(cardName(c.code)) + '</div><div class="a' + (d > 0.5 ? " neg" : "") + '">' + inr.format(d) +
-        '</div><div class="d">Spent ' + inr.format(spent) + " this month</div></button>";
+      var di = cardDueInfo(c), al = di && di.alert;
+      return '<button type="button" class="tile' + (al ? (di.days < 0 ? " due-late" : " due-soon") : "") + '" data-acct="' + esc(c.code) + '" title="Go to the month-by-month statement"><div class="l">' + esc(cardName(c.code)) + '</div><div class="a' + (d > 0.5 ? " neg" : "") + '">' + inr.format(d) +
+        '</div><div class="d">Spent ' + inr.format(spent) + " this month</div>" +
+        (al ? '<div class="due-flag">⏰ ' + dueText(di) + " · " + fmtDate(di.due) + " · pay " + inr2.format(di.amt) + "</div>"
+          : di && di.amt > 0.5 ? '<div class="d">Next due ' + fmtDate(di.due) + "</div>" : "") + "</button>";
     }).join("") || '<div class="empty">' + (state.missing ? "Run nw_bank_cards.sql in Supabase, then add your cards here." : "No cards yet. Use Add card to set one up.") + "</div>";
     $("cc-total").textContent = inr.format(total);
     $("cc-total-s").textContent = state.cards.length ? state.cards.length + (state.cards.length > 1 ? " cards" : " card") + " · counted as a liability in net worth" : "Counted as a liability in net worth";
@@ -5672,6 +5710,7 @@
     $("cc-add-title").textContent = c ? "Edit card" : "Add card"; $("cc-add-save").textContent = c ? "Save changes" : "Save card";
     $("cc-name").value = c ? c.name : ""; $("cc-last4").value = c ? c.last4 || "" : "";
     $("cc-odate").value = c ? c.opening_date : OPEN_FROM; $("cc-odue").value = c ? c.opening_due : 0;
+    $("cc-sday").value = c && c.stmt_day ? c.stmt_day : ""; $("cc-dday").value = c && c.due_day ? c.due_day : "";
     $("cc-add-form").scrollIntoView({ behavior: "smooth", block: "center" }); $("cc-name").focus();
   }
   $("cc-add-open").addEventListener("click", function () { if (!$("cc-add-form").hidden && !cc.editing) { $("cc-add-form").hidden = true; return; } openCard(null); });
@@ -5679,7 +5718,8 @@
   $("cc-books").addEventListener("click", function (e) { var c = e.target.getAttribute("data-ccedit"); if (c) openCard(state.cards.find(function (x) { return x.code === c; })); });
   $("cc-add-form").addEventListener("submit", async function (e) {
     e.preventDefault();
-    var row = { name: $("cc-name").value.trim(), last4: $("cc-last4").value.trim() || null, opening_date: $("cc-odate").value, opening_due: toNum($("cc-odue").value) };
+    var dayOf = function (id) { var v = parseInt($(id).value, 10); return v >= 1 && v <= 31 ? v : null; };
+    var row = { name: $("cc-name").value.trim(), last4: $("cc-last4").value.trim() || null, opening_date: $("cc-odate").value, opening_due: toNum($("cc-odue").value), stmt_day: dayOf("cc-sday"), due_day: dayOf("cc-dday") };
     if (!row.name) { toast("Enter the card name."); return; }
     if (cc.editing) {
       var early = state.cardPays.filter(function (p) { return p.card_code === cc.editing && p.pay_date < row.opening_date; }).map(function (p) { return p.pay_date; })
