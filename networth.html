@@ -1442,8 +1442,7 @@
         </div>
         <div class="spacer"></div>
         <button class="ghost" id="tr-open" type="button">Transfer money</button>
-        <button class="ghost" id="bu-open" type="button">Upload statement</button>
-        <button class="ghost" id="ob-open" type="button">Opening balances</button>
+        <button class="ghost" id="bt-open" type="button">Add transactions</button>
       </div>
       <div class="tiles" id="tiles"></div>
 
@@ -1461,6 +1460,23 @@
         <h3>Opening balances</h3>
         <div id="ob-fields" style="display:contents"></div>
         <div class="actions"><button class="primary" type="submit">Save balances</button><button class="ghost" type="button" id="ob-cancel">Cancel</button></div>
+      </form>
+
+      <form class="form" id="bt-form" hidden>
+        <h3>Add transaction</h3>
+        <label>Account <select id="bt-acct"></select></label>
+        <label>Type <select id="bt-type"><option value="out">Expense</option><option value="in">Income</option><option value="card">Card bill paid</option></select></label>
+        <label>Date <input type="date" id="bt-date" required></label>
+        <label>Amount (₹) <input type="number" id="bt-amt" step="0.01" min="0" inputmode="decimal" required></label>
+        <label id="bt-cat-l">Category <input type="text" id="bt-cat" list="ex-cats" autocomplete="off"></label>
+        <label id="bt-card-l" hidden>Card <select id="bt-card"></select></label>
+        <label style="grid-column: span 2">Note (optional) <input type="text" id="bt-note" autocomplete="off"></label>
+        <div class="hint">Money moved between your own accounts goes under Transfer money.</div>
+        <div class="actions"><button class="primary" type="submit" id="bt-save">Save</button><button class="ghost" type="button" id="bt-cancel">Cancel</button></div>
+        <div class="st-upl">
+          <div><b>Several transactions?</b> Upload the account's statement (PDF or CSV) and add them all at once. You'll see every line before anything is saved.</div>
+          <button class="ghost" type="button" id="bu-open">Upload statement</button>
+        </div>
       </form>
 
       <form class="form" id="bu-form" hidden>
@@ -1795,7 +1811,7 @@
     $("total").textContent = inr.format(total);
     $("total-s").textContent = state.accounts.map(function (a) { return a.name; }).join(" + ") + ", as of " + fmtDate(todayISO());
     var unlocked = state.accounts.filter(function (a) { return !a.opening_locked; });
-    $("ob-note").textContent = unlocked.length ? "Opening balances aren't frozen yet for " + unlocked.map(function (a) { return a.name; }).join(", ") + ". Enter the balance as on 01 Nov 2026 under Opening balances." : "";
+    $("ob-note").textContent = unlocked.length ? "Opening balances aren't frozen yet for " + unlocked.map(function (a) { return a.name; }).join(", ") + ". Their opening balance as on 01 Nov 2026 still needs to be entered." : "";
     $("books").innerHTML = state.accounts.map(function (a) {
       return bookHtml({ id: a.code, title: a.name, sub: "Opening + income − expenses ± transfers = closing. Click a month to see its entries.",
         opening: Number(a.opening_balance), openDate: a.opening_date, moves: movements(a.code),
@@ -1832,7 +1848,7 @@
     $("tr-form").scrollIntoView({ behavior: "smooth", block: "center" });
     $("tr-amount").focus();
   }
-  $("tr-open").addEventListener("click", function () { if (!$("tr-form").hidden && !state.editing) { $("tr-form").hidden = true; return; } openTransfer(null); });
+  $("tr-open").addEventListener("click", function () { if (!$("tr-form").hidden && !state.editing) { $("tr-form").hidden = true; return; } $("bt-form").hidden = true; $("bu-form").hidden = true; openTransfer(null); });
   $("tr-cancel").addEventListener("click", function () { $("tr-form").hidden = true; state.editing = null; });
   $("tr-form").addEventListener("submit", async function (e) {
     e.preventDefault();
@@ -1873,7 +1889,7 @@
 
   // ---------- Opening balances (frozen once saved) ----------
   var OPEN_FROM = START_DATE;
-  $("ob-open").addEventListener("click", function () {
+  if ($("ob-open")) $("ob-open").addEventListener("click", function () {
     var f = $("ob-form"); $("tr-form").hidden = true; f.hidden = !f.hidden; if (f.hidden) return;
     var open = state.accounts.filter(function (a) { return !a.opening_locked; });
     $("ob-fields").innerHTML = state.accounts.map(function (a) {
@@ -5989,8 +6005,8 @@
   });
   // Bank statement upload
   $("bu-open").addEventListener("click", function () {
-    var f = $("bu-form"); $("tr-form").hidden = true; $("ob-form").hidden = true; f.hidden = !f.hidden; if (f.hidden) return;
-    var v = $("bu-acct").value;
+    var f = $("bu-form"); $("tr-form").hidden = true; $("ob-form").hidden = true; $("bt-form").hidden = true; f.hidden = false;
+    var v = $("bt-acct").value || $("bu-acct").value;
     $("bu-acct").innerHTML = state.accounts.map(function (a) { return '<option value="' + esc(a.code) + '">' + esc(a.name) + "</option>"; }).join("");
     if (v) $("bu-acct").value = v;
     f.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -5999,6 +6015,52 @@
   $("bu-form").addEventListener("submit", function (e) {
     e.preventDefault(); var file = $("bu-file").files[0], src = $("bu-acct").value; if (!file || !src) return;
     readStatement("bank", src, file, $("bu-pass").value, $("bu-read"), "bu-form", "bu-preview");
+  });
+
+  // ---------- Add a single bank transaction (expense, income or card bill) ----------
+  function btSync() {
+    var t = $("bt-type").value;
+    $("bt-cat-l").hidden = t === "card"; $("bt-card-l").hidden = t !== "card";
+    $("bt-cat").setAttribute("list", t === "in" ? "in-cats" : "ex-cats");
+    $("bt-cat").required = t !== "card";
+  }
+  $("bt-open").addEventListener("click", function () {
+    var f = $("bt-form"); $("tr-form").hidden = true; $("ob-form").hidden = true; $("bu-form").hidden = true; $("bu-preview").hidden = true;
+    f.hidden = !f.hidden; if (f.hidden) return;
+    var v = $("bt-acct").value;
+    $("bt-acct").innerHTML = state.accounts.filter(function (a) { return !/^p_brk_/.test(a.code); }).map(function (a) { return '<option value="' + esc(a.code) + '">' + esc(a.name) + "</option>"; }).join("");
+    if (v) $("bt-acct").value = v;
+    $("bt-card").innerHTML = (state.cards || []).map(function (c) { return '<option value="' + esc(c.code) + '">' + esc(cardName(c.code)) + "</option>"; }).join("");
+    $("bt-date").value = todayISO(); $("bt-amt").value = ""; $("bt-cat").value = ""; $("bt-note").value = "";
+    btSync();
+    f.scrollIntoView({ behavior: "smooth", block: "center" });
+    $("bt-amt").focus({ preventScroll: true });
+  });
+  $("bt-type").addEventListener("change", btSync);
+  $("bt-cancel").addEventListener("click", function () { $("bt-form").hidden = true; });
+  $("bt-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var t = $("bt-type").value, acct = $("bt-acct").value, d = $("bt-date").value, amt = toNum($("bt-amt").value), note = $("bt-note").value.trim() || null;
+    var cat = $("bt-cat").value.trim().replace(/\s+/g, " ");
+    if (!acct) { toast("Pick an account."); return; }
+    if (!(amt > 0)) { toast("Enter an amount above zero."); return; }
+    if (d < START_DATE) { toast("Transactions start from " + fmtDate(START_DATE) + "."); return; }
+    if (t !== "card" && !cat) { toast("Enter a category."); return; }
+    var table, row, msg;
+    if (t === "out") { table = "household_expenses"; row = { exp_date: d, category: cat, amount: amt, paid_from: acct, note: note }; msg = inr.format(amt) + " for " + cat + " saved"; }
+    else if (t === "in") { table = "personal_income"; row = { inc_date: d, category: cat, amount: amt, received_into: acct, note: note }; msg = inr.format(amt) + " " + cat + " saved"; }
+    else {
+      var code = $("bt-card").value, pc = (state.cards || []).find(function (x) { return x.code === code; });
+      if (!pc) { toast("Add the card under Credit cards first."); return; }
+      if (d < pc.opening_date) { toast(cardName(code) + " is tracked from " + fmtDate(pc.opening_date) + ". Pick a later date."); return; }
+      table = "card_payments"; row = { pay_date: d, card_code: code, paid_from: acct, amount: amt, note: note }; msg = inr.format(amt) + " paid to " + cardName(code);
+    }
+    var btn = $("bt-save"); btn.disabled = true;
+    var r = await sb.from(table).insert(row);
+    btn.disabled = false;
+    if (r.error) { toast("Couldn't save: " + r.error.message); return; }
+    $("bt-form").hidden = true; toast(msg);
+    await load();
   });
 
   // ---------- When prices were last fetched ----------
