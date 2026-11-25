@@ -83,6 +83,8 @@
   th.sortable.on { color: var(--gold); }
   th.sortable.on .arr { opacity: 1; }
   td.actions-c { white-space: nowrap; text-align: right; }
+  .ce-sel { width: auto; max-width: 190px; padding: 4px 26px 4px 8px; font-size: 0.82rem; min-height: 0; }
+  .ce-note { color: var(--muted); font-size: 0.82rem; margin-left: 6px; }
   tr.bf td { color: var(--muted); font-style: italic; }
   tfoot td { font-weight: 600; border-top: 1px solid var(--line); border-bottom: 0; }
   .pos { color: var(--green); }
@@ -1783,9 +1785,22 @@
         var tx = mo.rows.map(function (x) {
           run += x.amt;
           var id = x.ref.slice(3), t = x.ref.slice(0, 2);
-          return "<tr><td>" + fmtDate(x.date) + '</td><td class="kind">' + esc(x.kind) + "</td><td>" + esc(x.desc) + '</td><td class="num pos">' + (x.amt > 0 ? inr2.format(x.amt) : "") +
+          // Card books: type and category (or the paying bank) are changed right in the row
+          var live = cfg.inline && (t === "ex" || t === "cp"), kindC = esc(x.kind), descC = esc(x.desc);
+          if (live) {
+            var cur = t === "cp" ? "paid" : x.amt >= 0 ? "spend" : "refund", rf = t + ":" + id;
+            kindC = '<select class="ce-sel" data-cetype="' + rf + '" aria-label="Type">' + [["spend", "Spend"], ["refund", "Refund"], ["paid", "Paid"]].map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === cur ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select>";
+            if (t === "ex") {
+              var cl = exCatList(); if (x.cat && cl.indexOf(x.cat) < 0) cl.push(x.cat);
+              descC = '<select class="ce-sel" data-cecat="' + rf + '" aria-label="Category">' + cl.map(function (c) { return "<option" + (c === x.cat ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("") + "</select>";
+            } else {
+              descC = '<select class="ce-sel" data-cefrom="' + rf + '" aria-label="Paid from">' + state.accounts.map(function (a) { return '<option value="' + esc(a.code) + '"' + (a.code === x.from ? " selected" : "") + ">From " + esc(a.name) + "</option>"; }).join("") + "</select>";
+            }
+            descC += x.note ? ' <span class="ce-note">' + esc(x.note) + "</span>" : "";
+          }
+          return "<tr><td>" + fmtDate(x.date) + '</td><td class="kind">' + kindC + "</td><td>" + descC + '</td><td class="num pos">' + (x.amt > 0 ? inr2.format(x.amt) : "") +
             '</td><td class="num neg">' + (x.amt < 0 ? inr2.format(-x.amt) : "") + '</td><td class="num">' + inr2.format(run) + '</td><td class="actions-c">' +
-            '<button class="icon-btn" type="button" data-medit="' + t + ":" + id + '">Edit</button><button class="icon-btn del" type="button" data-mdel="' + t + ":" + id + '">Delete</button></td></tr>';
+            (live ? "" : '<button class="icon-btn" type="button" data-medit="' + t + ":" + id + '">Edit</button>') + '<button class="icon-btn del" type="button" data-mdel="' + t + ":" + id + '">Delete</button></td></tr>';
         }).reverse().join("");
         h += '<tr class="txns"><td colspan="' + ncol + '"><div class="table-wrap"><table><thead><tr><th>Date</th><th>Type</th><th>Details</th><th class="num">' + cfg.inL + '</th><th class="num">' + cfg.outL +
           '</th><th class="num">' + cfg.balL + "</th><th></th></tr></thead><tbody>" +
@@ -5570,11 +5585,11 @@
     ((typeof ex !== "undefined" && ex.list) || []).forEach(function (x) {
       if (x.paid_from !== code || x.exp_date < c.opening_date) return;
       var a = Number(x.amount);
-      m.push({ date: x.exp_date, g: a >= 0 ? "spend" : "pay", kind: a >= 0 ? "Spend" : "Refund", desc: x.category + (x.note ? " · " + x.note : ""), amt: a, ref: "ex:" + x.id, iref: x.import_ref });
+      m.push({ date: x.exp_date, g: a >= 0 ? "spend" : "pay", kind: a >= 0 ? "Spend" : "Refund", desc: x.category + (x.note ? " · " + x.note : ""), amt: a, ref: "ex:" + x.id, iref: x.import_ref, cat: x.category, note: x.note });
     });
     state.cardPays.forEach(function (p) {
       if (p.card_code !== code || p.pay_date < c.opening_date) return;
-      m.push({ date: p.pay_date, g: "pay", kind: "Bill paid", desc: "From " + acctName(p.paid_from) + (p.note ? " · " + p.note : ""), amt: -Number(p.amount), ref: "cp:" + p.id, iref: p.import_ref });
+      m.push({ date: p.pay_date, g: "pay", kind: "Bill paid", desc: "From " + acctName(p.paid_from) + (p.note ? " · " + p.note : ""), amt: -Number(p.amount), ref: "cp:" + p.id, iref: p.import_ref, from: p.paid_from, note: p.note });
     });
     m.sort(function (x, y) { return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; });
     return m;
@@ -5596,7 +5611,7 @@
       return bookHtml({ id: c.code, title: cardName(c.code), sub: "Opening due + spends − payments = closing due. Click a month to see its entries. " +
         '<button class="icon-btn" type="button" data-ccedit="' + esc(c.code) + '">Edit card</button>',
         opening: Number(c.opening_due), openDate: c.opening_date, moves: cardMoves(c.code),
-        cols: [{ g: "spend", l: "Spends" }, { g: "pay", l: "Payments & refunds" }], inL: "Spent", outL: "Paid", balL: "Due" });
+        cols: [{ g: "spend", l: "Spends" }, { g: "pay", l: "Payments & refunds" }], inL: "Spent", outL: "Paid", balL: "Due", inline: true });
     }).join("");
     var cardOpts = state.cards.map(function (c) { return '<option value="' + esc(c.code) + '">' + esc(cardName(c.code)) + "</option>"; }).join("");
     ["cp-card", "cu-card"].forEach(function (id) { var v = $(id).value; $(id).innerHTML = cardOpts; if (v) $(id).value = v; });
@@ -5604,6 +5619,35 @@
     $("cp-from").innerHTML = state.accounts.map(function (a) { return '<option value="' + esc(a.code) + '">' + esc(a.name) + "</option>"; }).join("");
     if (bv) $("cp-from").value = bv;
   }
+  // Inline edits in a card's entries: category, paying bank, or the type (Spend / Refund / Paid)
+  async function cardEntryChange(el) {
+    var rf = el.getAttribute("data-cecat") || el.getAttribute("data-cefrom") || el.getAttribute("data-cetype"); if (!rf) return;
+    var t = rf.slice(0, 2), id = rf.slice(3), r;
+    var xe = t === "ex" ? ex.list.find(function (y) { return y.id === id; }) : null, xp = t === "cp" ? state.cardPays.find(function (y) { return y.id === id; }) : null;
+    if (!xe && !xp) return;
+    el.disabled = true;
+    if (el.hasAttribute("data-cecat")) r = await sb.from("household_expenses").update({ category: el.value }).eq("id", id);
+    else if (el.hasAttribute("data-cefrom")) r = await sb.from("card_payments").update({ paid_from: el.value }).eq("id", id);
+    else {
+      var to = el.value;
+      if (xe && to !== "paid") r = await sb.from("household_expenses").update({ amount: (to === "refund" ? -1 : 1) * Math.abs(Number(xe.amount)) }).eq("id", id);
+      else if (xe) {
+        // a spend that was really a bill payment: becomes a card payment (pick the bank in the row after)
+        var bank = (state.accounts.find(function (a) { return !/^p_brk_/.test(a.code); }) || state.accounts[0] || {}).code;
+        if (!bank) { el.disabled = false; toast("Add a bank account first."); return; }
+        r = await sb.from("household_expenses").delete().eq("id", id);
+        if (!r.error) r = await sb.from("card_payments").insert({ pay_date: xe.exp_date, card_code: xe.paid_from, paid_from: bank, amount: Math.abs(Number(xe.amount)), note: xe.note, import_ref: xe.import_ref || null });
+        if (!r.error) toast("Changed to a bill payment from " + acctName(bank) + ". Change the bank in the row if it was paid from another account.");
+      } else if (to !== "paid") {
+        r = await sb.from("card_payments").delete().eq("id", id);
+        if (!r.error) r = await sb.from("household_expenses").insert({ exp_date: xp.pay_date, category: "Other", amount: (to === "refund" ? -1 : 1) * Math.abs(Number(xp.amount)), paid_from: xp.card_code, note: xp.note, import_ref: xp.import_ref || null });
+        if (!r.error) toast("Changed to a " + (to === "refund" ? "refund" : "spend") + " under Other. Pick its category in the row.");
+      } else { el.disabled = false; return; }
+    }
+    if (r && r.error) { toast("Couldn't save: " + r.error.message); el.disabled = false; return; }
+    await load();
+  }
+  $("cc-books").addEventListener("change", function (e) { if (e.target.classList.contains("ce-sel")) cardEntryChange(e.target); });
   function hideCardForms(except) { ["cc-add-form", "cc-pay-form", "cc-up-form"].forEach(function (id) { if (id !== except) $(id).hidden = true; }); }
 
   // Add or edit a card
