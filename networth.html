@@ -1787,7 +1787,12 @@
           var id = x.ref.slice(3), t = x.ref.slice(0, 2);
           // Card books: type and category (or the paying bank) are changed right in the row
           var live = cfg.inline && (t === "ex" || t === "cp"), kindC = esc(x.kind), descC = esc(x.desc);
-          if (live) {
+          // Saved entries stay locked; Unlock (with a confirm) opens the dropdowns, and a change locks the row again
+          var locked = live && !cc.unlocked[t + ":" + id];
+          if (locked) {
+            var plain = t === "cp" ? "From " + acctName(x.from) : x.cat;
+            descC = esc(plain) + (x.note ? ' <span class="ce-note">' + esc(x.note) + "</span>" : "");
+          } else if (live) {
             var cur = t === "cp" ? "paid" : x.amt >= 0 ? "spend" : "refund", rf = t + ":" + id;
             kindC = '<select class="ce-sel" data-cetype="' + rf + '" aria-label="Type">' + [["spend", "Spend"], ["refund", "Refund"], ["paid", "Paid"]].map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === cur ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select>";
             if (t === "ex") {
@@ -1800,7 +1805,9 @@
           }
           return "<tr><td>" + fmtDate(x.date) + '</td><td class="kind">' + kindC + "</td><td>" + descC + '</td><td class="num pos">' + (x.amt > 0 ? inr2.format(x.amt) : "") +
             '</td><td class="num neg">' + (x.amt < 0 ? inr2.format(-x.amt) : "") + '</td><td class="num">' + inr2.format(run) + '</td><td class="actions-c">' +
-            (live ? "" : '<button class="icon-btn" type="button" data-medit="' + t + ":" + id + '">Edit</button>') + '<button class="icon-btn del" type="button" data-mdel="' + t + ":" + id + '">Delete</button></td></tr>';
+            (locked ? '<button class="icon-btn" type="button" data-ceunlock="' + t + ":" + id + '" title="Unlock to change the type or category">🔒 Unlock</button>'
+              : (live ? '<button class="icon-btn" type="button" data-celock="' + t + ":" + id + '">Lock</button>' : '<button class="icon-btn" type="button" data-medit="' + t + ":" + id + '">Edit</button>') +
+                '<button class="icon-btn del" type="button" data-mdel="' + t + ":" + id + '">Delete</button>') + "</td></tr>";
         }).reverse().join("");
         h += '<tr class="txns"><td colspan="' + ncol + '"><div class="table-wrap"><table><thead><tr><th>Date</th><th>Type</th><th>Details</th><th class="num">' + cfg.inL + '</th><th class="num">' + cfg.outL +
           '</th><th class="num">' + cfg.balL + "</th><th></th></tr></thead><tbody>" +
@@ -5580,7 +5587,7 @@
 
   // ---------- Credit cards ----------
   // Due = amount owed on the opening date + spends − bill payments. Spends are expenses paid by the card.
-  var cc = { editing: null, payEditing: null, preview: null };
+  var cc = { editing: null, payEditing: null, preview: null, unlocked: {} };
   function cardMoves(code) {
     var c = state.cards.find(function (x) { return x.code === code; }); if (!c) return [];
     var m = [];
@@ -5647,9 +5654,15 @@
       } else { el.disabled = false; return; }
     }
     if (r && r.error) { toast("Couldn't save: " + r.error.message); el.disabled = false; return; }
+    delete cc.unlocked[rf];
     await load();
   }
   $("cc-books").addEventListener("change", function (e) { if (e.target.classList.contains("ce-sel")) cardEntryChange(e.target); });
+  $("cc-books").addEventListener("click", function (e) {
+    var u = e.target.getAttribute("data-ceunlock"), l = e.target.getAttribute("data-celock");
+    if (u) { if (!confirm("Unlock this entry? You'll be able to change its type and category. It locks again once you change it.")) return; cc.unlocked[u] = 1; renderCards(); }
+    else if (l) { delete cc.unlocked[l]; renderCards(); }
+  });
   function hideCardForms(except) { ["cc-add-form", "cc-pay-form", "cc-up-form"].forEach(function (id) { if (id !== except) $(id).hidden = true; }); }
 
   // Add or edit a card
