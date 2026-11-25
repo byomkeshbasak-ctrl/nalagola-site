@@ -4526,7 +4526,7 @@
     g.querySelectorAll(".dtile").forEach(function (b) { t[b.dataset.go] = b; });
     var G = [["Investments and financial assets", "", ["stocks", "mf", "gold", "epf", "bank"]], ["Business and other assets", "", ["business", "loans", "insurance", "trading"]],
       ["Outstanding liabilities", "Credit cards are deducted in net worth. The home and car loans are shown for reference only.", ["cards", "homeloan", "carloan"]], ["Monthly cash flow", "Income and spending recorded this month. They are not assets or liabilities.", ["expenses", "income"]]];
-    var badge = { cards: "Deducted from net worth", homeloan: "Not deducted from net worth", carloan: "Not deducted from net worth" };
+    var badge = {};
     var frag = document.createDocumentFragment();
     G.forEach(function (x) {
       var keys = x[2].filter(function (k) { return t[k]; }); if (!keys.length) return;
