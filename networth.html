@@ -59,6 +59,8 @@
   .tile .a.neg { color: var(--red); }
   .tile.due-soon { border-color: #e0b04a; box-shadow: 0 0 0 1px #e0b04a inset, 0 0 18px rgba(224, 176, 74, 0.18); }
   .tile.due-late { border-color: var(--red); box-shadow: 0 0 0 1px var(--red) inset, 0 0 18px rgba(224, 106, 106, 0.18); }
+  .due-line { margin-top: 8px; padding: 6px 8px; border-radius: 8px; font-size: 0.74rem; line-height: 1.35; background: rgba(255, 255, 255, 0.04); color: var(--muted); }
+  .due-line.ok { color: #8fcf9f; }
   .due-flag { margin-top: 8px; padding: 6px 8px; border-radius: 8px; font-size: 0.74rem; font-weight: 600; line-height: 1.35; background: rgba(224, 176, 74, 0.12); color: #e9c26a; }
   .tile.due-late .due-flag, .dtile.due-late .due-flag { background: rgba(224, 106, 106, 0.12); color: var(--red); }
   .dtile.due-soon { border-color: #e0b04a !important; box-shadow: 0 0 0 1px #e0b04a inset; }
@@ -5634,7 +5636,8 @@
       amt = bal - paid;
     } else amt = cardDue(c.code);
     var days = Math.round((due - td) / 864e5);
-    return { due: isoOf(due), stmt: stmt ? isoOf(stmt) : null, days: days, amt: Math.round(amt * 100) / 100, alert: amt > 0.5 && days <= 7 };
+    var next = stmt ? isoOf(dayIn(stmt.getFullYear(), stmt.getMonth() + 1, c.stmt_day)) : null;
+    return { due: isoOf(due), stmt: stmt ? isoOf(stmt) : null, next: next, days: days, amt: Math.round(amt * 100) / 100, alert: amt > 0.5 && days <= 7 };
   }
   function dueText(i) { return i.days < 0 ? "Overdue by " + -i.days + (i.days === -1 ? " day" : " days") : i.days === 0 ? "Due today" : "Due in " + i.days + (i.days === 1 ? " day" : " days"); }
   function cardAlerts() { return (state.cards || []).map(function (c) { var i = cardDueInfo(c); return i && i.alert ? { c: c, i: i } : null; }).filter(Boolean).sort(function (a, b) { return a.i.days - b.i.days; }); }
@@ -5650,7 +5653,9 @@
       return '<button type="button" class="tile' + (al ? (di.days < 0 ? " due-late" : " due-soon") : "") + '" data-acct="' + esc(c.code) + '" title="Go to the month-by-month statement"><div class="l">' + esc(cardName(c.code)) + '</div><div class="a' + (d > 0.5 ? " neg" : "") + '">' + inr.format(d) +
         '</div><div class="d">Spent ' + inr.format(spent) + " this month</div>" +
         (al ? '<div class="due-flag">⏰ ' + dueText(di) + " · " + fmtDate(di.due) + " · pay " + inr2.format(di.amt) + "</div>"
-          : di && di.amt > 0.5 ? '<div class="d">Next due ' + fmtDate(di.due) + "</div>" : "") + "</button>";
+          : !di ? ""
+          : di.amt > 0.5 ? '<div class="due-line">' + dueText(di) + " · " + fmtDate(di.due) + " · pay " + inr2.format(di.amt) + "</div>"
+          : '<div class="due-line ok">' + (di.days < 0 || di.amt < -0.5 ? "Bill paid" : "Nothing to pay") + (di.next ? " · next statement " + fmtDate(di.next) : "") + "</div>") + "</button>";
     }).join("") || '<div class="empty">' + (state.missing ? "Run nw_bank_cards.sql in Supabase, then add your cards here." : "No cards yet. Use Add card to set one up.") + "</div>";
     $("cc-total").textContent = inr.format(total);
     $("cc-total-s").textContent = state.cards.length ? state.cards.length + (state.cards.length > 1 ? " cards" : " card") + " · counted as a liability in net worth" : "Counted as a liability in net worth";
