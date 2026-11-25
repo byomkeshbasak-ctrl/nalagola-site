@@ -5198,6 +5198,7 @@
   }
 
   // ---------- Expenses ----------
+  function exCatList() { var c = EX_CATS.slice(); ex.list.forEach(function (x) { if (x.category && c.indexOf(x.category) < 0) c.push(x.category); }); return c; }
   var EX_CATS = ["Groceries", "Rent", "Electricity", "Mobile & internet", "Fuel", "Transport", "Bike/Car Maintenance", "Eating out", "Medical", "Education", "Tuition fees", "Household help", "Shopping", "Travel", "EMI", "Insurance premium", "Gifts", "Subscriptions", "Bank charges", "Credit card payment", "Other"];
   $("ex-month").value = ex.month;
   $("ex-month").addEventListener("change", function () { if (this.value) { ex.month = this.value; renderExpenses(); } });
@@ -5881,10 +5882,22 @@
 
   function srcName(kind, code) { return kind === "card" ? cardName(code) : acctName(code); }
   var imp = null; // { kind, src, file, rows, el }
+  // Statement passwords are remembered per card / account in this browser, so they're typed once.
+  // If a remembered one stops working (the bank changed it), the form asks for the new one.
+  var PW_KEY = "nw_stmt_pw:";
+  function savedPw(src) { try { return localStorage.getItem(PW_KEY + src) || ""; } catch (e) { return ""; } }
+  function keepPw(src, p) { try { if (p) localStorage.setItem(PW_KEY + src, p); } catch (e) { /* storage off */ } }
+  function pwHint(inputId, src) {
+    var el = $(inputId); if (!el) return;
+    var has = !!savedPw(src); el.value = ""; el.placeholder = has ? "Saved, leave blank" : "";
+    var lab = el.closest("label"); if (lab && lab.firstChild && lab.firstChild.nodeType === 3) lab.firstChild.nodeValue = has ? "PDF password (saved) " : "PDF password (if any) ";
+  }
   async function readStatement(kind, src, file, pass, btn, formId, elId) {
     btn.disabled = true; var label = btn.textContent; btn.textContent = "Reading…";
+    var pwId = formId === "cc-up-form" ? "cu-pass" : "bu-pass", typed = pass, stored = savedPw(src);
     try {
-      var lines = await readLines(file, pass), rows = rawRows(lines, kind), lex = {}, lin = {};
+      var lines = await readLines(file, typed || stored), rows = rawRows(lines, kind), lex = {}, lin = {};
+      if (typed) { keepPw(src, typed); pwHint(pwId, src); }
       ex.list.forEach(function (x) { var k = merchantKey(x.note); if (k && Number(x.amount) > 0) lex[k] = x.category; });
       state.income.forEach(function (x) { var k = merchantKey(x.note); if (k) lin[k] = x.category; });
       if (!rows.length) toast("Couldn't find any transactions in this file. A scanned image PDF can't be read; a downloaded statement or CSV can.");
@@ -5898,14 +5911,20 @@
         $(formId).hidden = true; renderImport(); $(elId).scrollIntoView({ behavior: "smooth", block: "start" });
       }
     } catch (err) {
-      if (err && err.name === "PasswordException") toast(err.code === 2 ? "That password didn't open the PDF. Try again." : "This PDF is locked. Enter its password and read it again.");
+      if (err && err.name === "PasswordException") {
+        var nm = srcName(kind, src);
+        toast(typed ? "That password didn't open the PDF. Try again."
+          : stored ? "The saved password for " + nm + " didn't open this statement. Enter the new password and read it again. It will replace the old one."
+          : "This PDF is locked. Enter its password and read it again. It will be saved for " + nm + ".");
+        var pe = $(pwId); if (pe) { pe.value = ""; pe.placeholder = stored && !typed ? "New password" : ""; pe.focus(); }
+      }
       else toast("Couldn't read the file: " + (err.message || err));
     }
     btn.disabled = false; btn.textContent = label;
   }
-  var TYPE_LABEL = { expense: "Expense", income: "Income", transfer: "Transfer", cardpay: "Card bill", billpay: "Bill payment", refund: "Refund" };
+  var TYPE_LABEL = { expense: "Expense", income: "Income", transfer: "Transfer", cardpay: "Card bill", billpay: "Paid", refund: "Refund" };
   function typeOpts(kind, dir) {
-    if (kind === "card") return dir === "out" ? [["expense:out", "Spend"]] : [["refund:in", "Refund"], ["billpay:in", "Bill payment"]];
+    if (kind === "card") return [["expense:out", "Spend"], ["billpay:in", "Paid"], ["refund:in", "Refund"]];
     if (dir === "out") return [["expense:out", "Expense"], ["transfer:out", "Transfer out"], ["cardpay:out", "Card bill"]];
     if (dir === "in") return [["income:in", "Income"], ["transfer:in", "Transfer in"]];
     return [["expense:out", "Expense (money out)"], ["transfer:out", "Transfer out"], ["cardpay:out", "Card bill (money out)"], ["income:in", "Income (money in)"], ["transfer:in", "Transfer in"]];
@@ -5940,7 +5959,10 @@
           typeOpts(p.kind, r.dir).map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === val ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select>";
         var det = "";
         if (!r.dup && r.type) {
-          if (r.type === "expense" || r.type === "refund") det = '<input type="text" list="ex-cats" data-imcat="' + i + '" value="' + esc(r.cat) + '">';
+          if (r.type === "expense" || r.type === "refund") {
+            var cl = exCatList(); if (r.cat && cl.indexOf(r.cat) < 0) cl.push(r.cat);
+            det = '<select data-imcat="' + i + '">' + (r.cat ? "" : '<option value="">Category…</option>') + cl.map(function (c) { return '<option' + (c === r.cat ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("") + "</select>";
+          }
           else if (r.type === "income") det = '<input type="text" list="in-cats" data-imcat="' + i + '" value="' + esc(r.cat) + '">';
           else det = '<select data-imother="' + i + '">' + otherOpts(p.kind, r) + "</select>";
         }
@@ -5987,7 +6009,8 @@
       }
       else if ((i = t.getAttribute("data-imother")) !== null) { imp.rows[+i].other = t.value; renderImport(); }
     });
-    el.addEventListener("input", function (e) { var i = e.target.getAttribute("data-imcat"); if (i !== null) imp.rows[+i].cat = e.target.value; });
+    var setCat = function (e) { var i = e.target.getAttribute("data-imcat"); if (i !== null) imp.rows[+i].cat = e.target.value; };
+    el.addEventListener("input", setCat); el.addEventListener("change", setCat);
     el.addEventListener("click", function (e) {
       if (e.target.getAttribute("data-imdiscard")) { el.hidden = true; imp = null; return; }
       if (e.target.getAttribute("data-imsave")) { e.target.disabled = true; saveImport(); }
@@ -5996,8 +6019,10 @@
   // Card statement upload
   $("cc-up-open").addEventListener("click", function () {
     if (!state.cards.length) { toast(state.missing ? "Run nw_bank_cards.sql in Supabase first." : "Add a card first."); return; }
-    var f = $("cc-up-form"); hideCardForms("cc-up-form"); f.hidden = !f.hidden; if (!f.hidden) { renderCards(); f.scrollIntoView({ behavior: "smooth", block: "center" }); }
+    var f = $("cc-up-form"); hideCardForms("cc-up-form"); f.hidden = !f.hidden; if (!f.hidden) { renderCards(); pwHint("cu-pass", $("cu-card").value); f.scrollIntoView({ behavior: "smooth", block: "center" }); }
   });
+  $("cu-card").addEventListener("change", function () { pwHint("cu-pass", this.value); });
+  $("bu-acct").addEventListener("change", function () { pwHint("bu-pass", this.value); });
   $("cu-cancel").addEventListener("click", function () { $("cc-up-form").hidden = true; });
   $("cc-up-form").addEventListener("submit", function (e) {
     e.preventDefault(); var file = $("cu-file").files[0], src = $("cu-card").value; if (!file || !src) return;
@@ -6009,6 +6034,7 @@
     var v = $("bt-acct").value || $("bu-acct").value;
     $("bu-acct").innerHTML = state.accounts.map(function (a) { return '<option value="' + esc(a.code) + '">' + esc(a.name) + "</option>"; }).join("");
     if (v) $("bu-acct").value = v;
+    pwHint("bu-pass", $("bu-acct").value);
     f.scrollIntoView({ behavior: "smooth", block: "center" });
   });
   $("bu-cancel").addEventListener("click", function () { $("bu-form").hidden = true; });
